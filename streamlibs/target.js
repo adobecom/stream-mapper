@@ -1,31 +1,13 @@
-import {getDACompatibleHtml, postData} from './target/da.js';
-import {fetchTargetHtmlFromStorage, pushTargetHtmlToSTore} from './store.js';
+import { getDACompatibleHtml, postData } from './target/da.js';
+import { fetchTargetHtmlFromStore } from './store.js';
 
 export function targetCompatibleHtml(html) {
-    if (window.streamConfig.target === 'da') {
-        let modifiedHtml = getDACompatibleHtml(html);
-        modifiedHtml = populateMetadataBlock(modifiedHtml);
-        pushTargetHtmlToSTore(modifiedHtml);
-        return modifiedHtml;
-    }
-}
-
-function populateMetadataBlock(html) {
-    const metadataMap = JSON.parse(window.sessionStorage.getItem('metadataMap')) || {};
-    if(Object.keys(metadataMap).length === 0) {
-        return html; // No metadata to add
-    }
-    let metaHtml = "<div><div class='metadata'>";
-
-    for (const [key, value] of Object.entries(metadataMap)) {
-        metaHtml += `<div><div><p>${key}</p></div><div><p>${value}</p></div></div>`;
-    }
-    metaHtml += "</div></div>";
-    return html + metaHtml;
+    if (!window.streamConfig.target === 'da') return html;
+    let modifiedHtml = getDACompatibleHtml(html);
+    return modifiedHtml;
 }
 
 export async function persistOnTarget() {
-    if (window.streamConfig.target === 'da') {
-        return await postData(window.streamConfig.targetUrl, fetchTargetHtmlFromStorage(window.streamConfig.contentUrl));
-    }
+  if (!window.streamConfig.target === 'da') return;
+  return await postData(window.streamConfig.targetUrl, fetchTargetHtmlFromStore(window.streamConfig.contentUrl));
 }
