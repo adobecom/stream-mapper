@@ -51,7 +51,3 @@ export function mapNotificationContent(blockContent, figContent) {
     })
 
 }
-
-export function changeNotificationContent(html, blockEl, newContent) {
-    
-}
