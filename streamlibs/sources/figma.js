@@ -1,154 +1,120 @@
 import { mapMarqueeContent } from '../blocks/marquee.js';
 import { mapTextContent } from '../blocks/text.js';
-import {mapMediaContent} from "../blocks/media.js";
-import {mapNotificationContent} from "../blocks/notification.js";
+import { mapMediaContent } from '../blocks/media.js';
+import { mapNotificationContent } from '../blocks/notification.js';
+import { handleError, safeFetch } from '../error-handler.js';
 
 export async function fetchFigmaContent() {
-    const htmlAndMapping = await getFigmaContent(window.streamConfig.contentUrl);
-    // window.sessionStorage.setItem('previewer-html', htmlAndMapping.html);
-    return htmlAndMapping;
+    return await getFigmaContent(window.streamConfig.contentUrl);
 }
 
 async function getFigmaContent(figmaUrl) {
     const blockMapping = await fetchFigmaMapping(figmaUrl);
-    let html = "";
-
-    if (blockMapping?.details?.components) {
-        html = await createHTML(blockMapping, figmaUrl);
-        // html = fixRelativeLinks(html);
-        // pushToStorage({'url': figmaUrl, 'html': html});
+    
+    if (!blockMapping?.details?.components) {
+        return { html: [], blockMapping };
     }
 
-    return {
-      html,
-      blockMapping
-    };
+    const html = await createHTML(blockMapping, figmaUrl);
+    return { html, blockMapping };
 }
 
 
 async function fetchFigmaMapping(figmaUrl) {
-    const config = await import('../utils.js').then(m => m.getConfig());
-    const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: config.streamMapper.figmaAuthToken // add a valid token
-        },
-        body: JSON.stringify({ figmaUrl: figmaUrl }) 
-      };
-      
-      const response = await fetch(config.streamMapper.figmaMappingUrl, options)
+    try {
+        const config = await import('../utils.js').then(m => m.getConfig());
+        
+        const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: config.streamMapper.figmaAuthToken
+            },
+            body: JSON.stringify({ figmaUrl })
+        });
 
-      if (!response.ok) {
-        document.body.innerHTML = `<div class="enigma-error-page">
-                                    <img src = "https://enigma--cc--aishwaryamathuria.aem.live/enigma/assets/errorgif.webp">
-                                    <div>
-                                      <h1> Oops!! Something broke.</h1>
-                                      <h1> Give it another go?</h1>
-                                    </div>
-                                  </div>`
-        console.error("Error getting figma mapping");
-        throw new Error("Error getting figma mapping");
-      }
-
-      const mapping = await response.json();
-      return mapping;
+        return await response.json();
+    } catch (error) {
+        handleError(error, 'getting figma mapping');
+        throw error;
+    }
 }
 
 async function createHTML(blockMapping, figmaUrl) {
     const blocks = blockMapping.details.components;
+    updateLoaderText("Building the map—block by block");
 
-    document.querySelector("#loader-content").innerText = "Building the map—block by block ";
     const htmlParts = await Promise.all(
-        blocks.map(async (obj) => {
-            if (obj.id !== null && obj.path !== null) {
-                console.log('found a valid block with id: ', obj.id);
-
-                // Fetch doc and figContent in parallel
-                const [doc, figContent] = await Promise.all([
-                    fetchContent(obj.path, obj.id),
-                    fetchBlockContent(obj.figId, obj.id, figmaUrl)
-                ]);
-
-                let blockContent = getHtml(doc, obj.id, obj.variant);
-                
-                // Map figma content
-                blockContent = mapFigmaContent(blockContent, obj.properties, obj.id, figContent);
-                obj.blockDomEl = blockContent;
-                if (blockContent) return blockContent
-                else return '';
-            }
-            return ''; // If id or path is null, return empty string
-        })
+        blocks.map(block => processBlock(block, figmaUrl))
     );
 
-    // Join all HTML parts in order
-    // return htmlParts.join('');
-    return htmlParts;
+    return htmlParts.filter(Boolean);
+}
+
+async function processBlock(block, figmaUrl) {
+    if (!block.id || !block.path) {
+        return '';
+    }
+
+    console.log('Processing block with id:', block.id);
+
+    const [doc, figContent] = await Promise.all([
+        fetchContent(block.path),
+        fetchBlockContent(block.figId, block.id, figmaUrl)
+    ]);
+
+    let blockContent = getHtml(doc, block.id, block.variant);
+    blockContent = mapFigmaContent(blockContent, block.properties, block.id, figContent);
+    
+    block.blockDomEl = blockContent;
+    return blockContent || '';
 }
 
 async function fetchBlockContent(figId, id, figmaUrl) {
-    const config = await import('../utils.js').then(m => m.getConfig());
-    const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: config.streamMapper.figmaAuthToken // add a valid token
-        },
-        body: JSON.stringify({ figmaUrl: figmaUrl, figId: figId, id: id}) 
-      };
-      
-      const response = await fetch(config.streamMapper.figmaBlockContentUrl, options)
+    try {
+        const config = await import('../utils.js').then(m => m.getConfig());
+        
+        const response = await safeFetch(config.streamMapper.figmaBlockContentUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: config.streamMapper.figmaAuthToken
+            },
+            body: JSON.stringify({ figmaUrl, figId, id })
+        });
 
-      if (!response.ok) {
-        document.body.innerHTML = `<div class="enigma-error-page">
-                                    <img src = "https://enigma--cc--aishwaryamathuria.aem.live/enigma/assets/errorgif.webp">
-                                    <div>
-                                      <h1> Oops!! Something broke.</h1>
-                                      <h1> Give it another go?</h1>
-                                    </div>
-                                  </div>`
-        console.error("Error getting block content");
+        return await response.json();
+    } catch (error) {
+        handleError(error, 'getting block content');
         return {};
-      }
-
-      const mapping = await response.json();
-      return mapping;
+    }
 }
 
 function mapFigmaContent(blockContent, props, name, figContent) {
-    console.log('inside mapFigmaContent');
-    // const elements = getLevelElements(blockContent);
-    switch(name){
-        case 'marquee': 
-            mapMarqueeContent(blockContent, figContent);
-            break;
-        case 'text':
-            mapTextContent(blockContent, figContent);
-            break;
-        case 'media':
-            mapMediaContent(blockContent, figContent);
-            break;
-        case 'notification':
-            mapNotificationContent(blockContent, figContent);
-            break;
-        default:
-            break;
+    const contentMappers = {
+        'marquee': mapMarqueeContent,
+        'text': mapTextContent,
+        'media': mapMediaContent,
+        'notification': mapNotificationContent
+    };
+
+    const mapper = contentMappers[name];
+    if (mapper) {
+        mapper(blockContent, figContent);
     }
 
     return blockContent;
 }
 
+// Helper function for finding non-div elements (currently unused)
 function getLevelElements(parent) {
     const levelElements = [];
     
-    // Recursively find all non-div child elements
     function findElements(node) {
         node.childNodes.forEach(child => {
             if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() !== 'div') {
                 levelElements.push(child);
             }
-            // Recurse if the child is an element (including div)
             if (child.nodeType === Node.ELEMENT_NODE && child.nodeType !== 'picture') {
                 findElements(child);
             }
@@ -162,40 +128,38 @@ function getLevelElements(parent) {
 function getHtml(resp, id, variant) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(resp, 'text/html');
+    
     if (id === 'editorial-card') {
-        return doc.querySelector('div')
-    } else {
-        return doc.querySelectorAll("." + id)[variant];
+        return doc.querySelector('div');
     }
+    
+    return doc.querySelectorAll(`.${id}`)[variant];
 }
 
 
 async function fetchContent(contentUrl) {
     try {
-        const response = await fetch(contentUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const content = await response.text();
-        return content;
+        return await fetchWithRetry(contentUrl);
     } catch (error) {
-          try {
-            const response = await fetch(contentUrl);
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            const content = await response.text();
-            return content;
+        handleError(error, 'fetching content');
+        return null;
+    }
+}
+
+async function fetchWithRetry(url, retries = 1) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            const response = await safeFetch(url);
+            return await response.text();
         } catch (error) {
-            document.body.innerHTML = `<div class="enigma-error-page">
-                                        <img src = "https://enigma--cc--aishwaryamathuria.aem.live/enigma/assets/errorgif.webp">
-                                        <div>
-                                          <h1> Oops!! Something broke.</h1>
-                                          <h1> Give it another go?</h1>
-                                        </div>
-                                      </div>`
-            console.error('Error fetching content:', error);
-            return null;
+            if (i === retries) throw error;
         }
+    }
+}
+
+function updateLoaderText(text) {
+    const loader = document.querySelector("#loader-content");
+    if (loader) {
+        loader.innerText = text;
     }
 }

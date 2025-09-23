@@ -1,5 +1,6 @@
+import { handleError, safeFetch } from '../error-handler.js';
+
 export function getDACompatibleHtml(html) {
-    console.log('inside da get da compatible html');
     html = replacePictureWithImg(html);
     html = html.replaceAll('\n', '');
     html = html.replaceAll('"', "'");
@@ -7,10 +8,9 @@ export function getDACompatibleHtml(html) {
     return html;
 }
 
-function replacePictureWithImg(htmlString) {
+function replacePictureWithImg(html) {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
-
+    const doc = parser.parseFromString(html, 'text/html');
     doc.querySelectorAll('picture').forEach(picture => {
         const img = picture.querySelector('img');
         if (img) {
@@ -23,62 +23,29 @@ function replacePictureWithImg(htmlString) {
             picture.replaceWith(wrapperP);
         }
     });
-
     return doc.body.innerHTML;
 }
 
+function wrapHTMLForDA(html) {
+  return `<body><header></header><main>${html}</main><footer></footer>`;
+}
+
 export async function postData(url, html) {
-    html = wrapHTMLForDA(html);
+    const wrappedHtml = wrapHTMLForDA(html);
     try {
-        const response = await fetch('https://admin.da.live/source/' + url + ".html", {
+        const response = await safeFetch(`https://admin.da.live/source/${url}.html`, {
             method: "POST",
             headers: {
-                "Authorization": `${(await import('../utils.js')).getConfig().streamMapper.daToken}`,
+                "Authorization": window.streamConfig.token,
                 "Content-Type": "application/x-www-form-urlencoded"
             },
-            body: new URLSearchParams({ data: html }) // Encoding data as application/x-www-form-urlencoded
+            body: new URLSearchParams({ data: wrappedHtml })
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-
+        
         const result = await response.json();
-        console.log('Response:', JSON.stringify(result));
-
-        // Dispatch custom event for UI to handle
-        const daContentPushedEvent = new CustomEvent('daContentPushed', {
-            detail: {
-                url: url,
-                result: result,
-                timestamp: new Date().toISOString()
-            }
-        });
-        document.dispatchEvent(daContentPushedEvent);
-
-        firePreviewRequest(url);
-        // window.open(result.source.editUrl, '_blank');
+        
     } catch (error) {
-        console.error("Error:", error);
+        handleError(error, "posting to DA");
+        throw error;
     }
-}
-
-async function firePreviewRequest(url) {
-    const parts = url.split('/');
-    if (parts.length >= 3) {
-        parts.splice(2, 0, 'main');
-    }
-    const updatedPath = parts.join('/');
-    const config = await import('../utils.js').then(m => m.getConfig());
-    const response = fetch('https://admin.hlx.page/preview/' + updatedPath, {
-        method: "POST",
-        headers: {
-            "Authorization": `${config.streamMapper.daToken}`,
-            "accept": "*/*"
-        },
-    });
-}
-
-function wrapHTMLForDA(html) {
-    return "<body><header></header><main>" + html + "</main><footer></footer>";
 }

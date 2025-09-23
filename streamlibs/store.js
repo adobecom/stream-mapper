@@ -1,7 +1,7 @@
-export function fetchTargetHtmlFromStorage(contentUrl) {
+export function fetchTargetHtmlFromStore() {
     return window.sessionStorage.getItem('targetHtml');
 }
 
-export function pushTargetHtmlToSTore(html) {
+export function pushTargetHtmlToStore(html) {
     window.sessionStorage.setItem('targetHtml', html);
 }

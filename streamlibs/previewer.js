@@ -3,8 +3,10 @@ import {
   persistOnTarget,
   targetCompatibleHtml
 } from './target.js';
-import { fetchDAContent } from './sources/da.js';
-import { pushTargetHtmlToSTore } from './store.js';
+import {
+  pushTargetHtmlToStore,
+  fetchTargetHtmlFromStore
+ } from './store.js';
 import {
   getLibs,
   getQueryParam,
@@ -13,42 +15,38 @@ import {
   initializeTokens,
   getIdNameMap
 } from './utils.js';
+import { handleError } from './error-handler.js';
 
 async function initiatePreviewer() {
     let html = '';
     let blockMapping = '';
-
-    if (window.streamConfig.source === 'figma') {
-        const pageComponents = await fetchFigmaContent();
-        html = pageComponents.html;
-        html.forEach((h, idx) => {
-            if (typeof h == 'object') {
-                h.id = `block-${idx}`;
-            }
-        });
-        blockMapping = pageComponents.blockMapping;
-    } else if (window.streamConfig.source === 'da') {
-        html = await fetchDAContent();
-    }
+    const pageComponents = await fetchFigmaContent();
+    html = pageComponents.html;
+    html.forEach((h, idx) => {
+        if (typeof h == 'object') {
+            h.id = `block-${idx}`;
+        }
+    });
+    blockMapping = pageComponents.blockMapping;
     html = html.map((h) => h.outerHTML).join('');
     html = fixRelativeLinks(html);
     html = wrapDivs(html);
-    targetCompatibleHtml(html);
-    pushTargetHtmlToSTore(html);
-    await startHTMLPainting(html);
+    html = targetCompatibleHtml(html);
+    pushTargetHtmlToStore(html);
+    await startHTMLPainting();
     document.querySelector("#loader-container").remove();
 }
 
-async function startHTMLPainting(html) {
-    paintHtmlOnPage(html);
+async function startHTMLPainting() {
+    paintHtmlOnPage();
     window["page-load-ok-milo"]?.remove();
     const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
     await loadArea();
 }
 
-async function paintHtmlOnPage(html) {
+async function paintHtmlOnPage() {
     const mainEle = document.createElement('main');
-    mainEle.innerHTML = html;
+    mainEle.innerHTML = fetchTargetHtmlFromStore();
     document.body.appendChild(mainEle);
 
     const pushToDABtn = createPushButton();
@@ -81,25 +79,32 @@ async function handlePushClick(event) {
 }
 
 export default async function initPreviewer() {
-  // Clear all storage items
-  window.sessionStorage.clear();
-  
-  window.streamConfig = {
-      source: getQueryParam('source'),
-      contentUrl: getQueryParam('contentUrl'),
-      target: getQueryParam('target'),
-      targetUrl: getQueryParam('targetUrl'),
-      token: getQueryParam('token')
-  };
-  
-  await initializeTokens(window.streamConfig.token);
-  if (!window.streamConfig.source || !window.streamConfig.contentUrl || !window.streamConfig.target || !window.streamConfig.targetUrl) {
-      throw new Error("Source, content Url, target url or target cannot be empty! Stoppping all processing!");
+  try {
+    window.sessionStorage.clear();
+    window.streamConfig = {
+        source: getQueryParam('source'),
+        contentUrl: getQueryParam('contentUrl'),
+        target: getQueryParam('target'),
+        targetUrl: getQueryParam('targetUrl'),
+        token: getQueryParam('token')
+    };
+    
+    await initializeTokens(window.streamConfig.token);
+    if (!window.streamConfig.source || !window.streamConfig.contentUrl || !window.streamConfig.target || !window.streamConfig.targetUrl) {
+        throw new Error("Source, content Url, target url or target cannot be empty! Stoppping all processing!");
+    }
+    await initiatePreviewer();
+  } catch (error) {
+    handleError(error, 'initializing previewer');
+    throw error;
   }
-  await initiatePreviewer();
 }
 
 export async function persist() {
-  await persistOnTarget();
-  console.log('Successfully persisted on DA');
+  try {
+    await persistOnTarget();
+  } catch (error) {
+    handleError(error, 'persisting content');
+    throw error;
+  }
 }
