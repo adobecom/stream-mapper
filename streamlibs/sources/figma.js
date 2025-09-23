@@ -3,18 +3,18 @@ import { mapTextContent } from '../blocks/text.js';
 import {mapMediaContent} from "../blocks/media.js";
 import {mapNotificationContent} from "../blocks/notification.js";
 
-export async function fetchFigmaContent(figmaUrl, CONFIGS) {
-    const htmlAndMapping = await getFigmaContent(figmaUrl, CONFIGS);
+export async function fetchFigmaContent(figmaUrl) {
+    const htmlAndMapping = await getFigmaContent(figmaUrl);
     // window.sessionStorage.setItem('previewer-html', htmlAndMapping.html);
     return htmlAndMapping;
 }
 
-async function getFigmaContent(figmaUrl, CONFIGS) {
-    const blockMapping = await fetchFigmaMapping(figmaUrl, CONFIGS);
+async function getFigmaContent(figmaUrl) {
+    const blockMapping = await fetchFigmaMapping(figmaUrl);
     let html = "";
 
     if (blockMapping?.details?.components) {
-        html = await createHTML(blockMapping, figmaUrl, CONFIGS);
+        html = await createHTML(blockMapping, figmaUrl);
         // html = fixRelativeLinks(html);
         // pushToStorage({'url': figmaUrl, 'html': html});
     }
@@ -26,17 +26,18 @@ async function getFigmaContent(figmaUrl, CONFIGS) {
 }
 
 
-async function fetchFigmaMapping(figmaUrl, CONFIGS) {
+async function fetchFigmaMapping(figmaUrl) {
+    const config = await import('../utils.js').then(m => m.getConfig());
     const options = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: CONFIGS.figmaAuthToken // add a valid token
+          Authorization: config.streamMapper.figmaAuthToken // add a valid token
         },
         body: JSON.stringify({ figmaUrl: figmaUrl }) 
       };
       
-      const response = await fetch(CONFIGS.figmaMappingUrl, options)
+      const response = await fetch(config.streamMapper.figmaMappingUrl, options)
 
       if (!response.ok) {
         document.body.innerHTML = `<div class="enigma-error-page">
@@ -54,7 +55,7 @@ async function fetchFigmaMapping(figmaUrl, CONFIGS) {
       return mapping;
 }
 
-async function createHTML(blockMapping, figmaUrl, CONFIGS) {
+async function createHTML(blockMapping, figmaUrl) {
     const blocks = blockMapping.details.components;
 
     document.querySelector("#loader-content").innerText = "Building the map—block by block ";
@@ -66,7 +67,7 @@ async function createHTML(blockMapping, figmaUrl, CONFIGS) {
                 // Fetch doc and figContent in parallel
                 const [doc, figContent] = await Promise.all([
                     fetchContent(obj.path, obj.id),
-                    fetchBlockContent(obj.figId, obj.id, figmaUrl, CONFIGS)
+                    fetchBlockContent(obj.figId, obj.id, figmaUrl)
                 ]);
 
                 let blockContent = getHtml(doc, obj.id, obj.variant);
@@ -86,17 +87,18 @@ async function createHTML(blockMapping, figmaUrl, CONFIGS) {
     return htmlParts;
 }
 
-async function fetchBlockContent(figId, id, figmaUrl, CONFIGS) {
+async function fetchBlockContent(figId, id, figmaUrl) {
+    const config = await import('../utils.js').then(m => m.getConfig());
     const options = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: CONFIGS.figmaAuthToken // add a valid token
+          Authorization: config.streamMapper.figmaAuthToken // add a valid token
         },
         body: JSON.stringify({ figmaUrl: figmaUrl, figId: figId, id: id}) 
       };
       
-      const response = await fetch(CONFIGS.figmaBlockContentUrl, options)
+      const response = await fetch(config.streamMapper.figmaBlockContentUrl, options)
 
       if (!response.ok) {
         document.body.innerHTML = `<div class="enigma-error-page">

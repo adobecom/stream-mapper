@@ -1,36 +1,17 @@
-import {fetchFigmaContent} from './sources/figma.js';
-import {renderEditableHtml} from './editor.js';
-import {targetCompatibleHtml} from './target.js';
-import {persistOnTarget} from './target.js';
+import { fetchFigmaContent } from './sources/figma.js';
+import { renderEditableHtml } from './editor.js';
+import {
+  persistOnTarget,
+  targetCompatibleHtml
+} from './target.js';
 import { fetchDAContent } from './sources/da.js';
-
-const CONFIGS = {
-    'figmaMappingUrl': 'https://440859-genesis-dev.adobeio-static.net/api/v1/web/genesis-aio/fig-comps',
-    'figmaAuthToken': '',
-    'daToken': '',
-    'figmaBlockContentUrl': 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details'
-}
-
-const storedFigmaAuthToken = window.localStorage.getItem('figmaAuthToken');
-const storedDaToken = window.localStorage.getItem('daToken');
-if (storedFigmaAuthToken && !CONFIGS.figmaAuthToken) {
-  CONFIGS.figmaAuthToken = storedFigmaAuthToken;
-}
-if (storedDaToken && !CONFIGS.daToken) {
-  CONFIGS.daToken = storedDaToken;
-}
-
-const idNameMap = {
-  "marquee": "Marquee",
-  "text": "Text",
-  "media": "Media",
-  "howto": "HowTo",
-  "aside": "Aside",
-  "notification": "Notification",
-}
-
-
-window.parent.postMessage({'iframeReady': true}, '*');
+import {
+  getQueryParam,
+  fixRelativeLinks,
+  wrapDivs,
+  initializeTokens,
+  getIdNameMap
+} from './utils.js';
 
 async function initPreviewer() {
     window.localStorage.removeItem('previewer-html');
@@ -43,8 +24,9 @@ async function initPreviewer() {
     const target = getQueryParam('target');
     const targetUrl = getQueryParam('targetUrl');
     const token = getQueryParam('token');
-    CONFIGS.figmaAuthToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
-    CONFIGS.daToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
+    
+    // Initialize tokens
+    await initializeTokens(token);
 
     if (!source || !contentUrl || !target || !targetUrl) {
         throw new Error("Source, content Url, target url or target cannot be empty! Stoppping all processing!");
@@ -56,14 +38,10 @@ async function initPreviewer() {
 }
 
 export async function persist(source, contentUrl, target, targetUrl) {
-    await persistOnTarget(contentUrl, target, targetUrl, CONFIGS);
+    await persistOnTarget(contentUrl, target, targetUrl);
     console.log('Successfully persisted on DA');
 }
 
-function fixRelativeLinks(html) {
-    let updatedHtml = html.replaceAll("./media","https://main--milo--adobecom.aem.page/media");
-    return updatedHtml;
-}
 
 async function initiatePreviewer(source, contentUrl, editable, target, targetUrl, context) {
     let html = '';
@@ -82,6 +60,7 @@ async function initiatePreviewer(source, contentUrl, editable, target, targetUrl
           components: []
         }
       }
+      const idNameMap = await getIdNameMap();
       html.forEach((d) => {
         blockMapping.details.components.push({
           id: d.classList[0],
@@ -97,7 +76,7 @@ async function initiatePreviewer(source, contentUrl, editable, target, targetUrl
 
     } else if (source === 'figma') {
         window.localStorage.removeItem('previewer-html');
-        const pageComponents = await fetchFigmaContent(contentUrl, CONFIGS);
+        const pageComponents = await fetchFigmaContent(contentUrl);
         html = pageComponents.html;
         html.forEach((h, idx) => {
           if (typeof h == 'object') {
@@ -106,7 +85,7 @@ async function initiatePreviewer(source, contentUrl, editable, target, targetUrl
         });
         blockMapping = pageComponents.blockMapping;
     } else if (source === 'da') {
-      html = await fetchDAContent(contentUrl, CONFIGS);
+      html = await fetchDAContent(contentUrl);
     }
 
     document.querySelector("#loader-content").innerText = "Building your HTML—precision in progress ";
@@ -125,7 +104,7 @@ async function initiatePreviewer(source, contentUrl, editable, target, targetUrl
       })
     );
 
-    targetCompatibleHtml(html, target, CONFIGS);
+    targetCompatibleHtml(html, target);
     await startHTMLPainting(html, source, contentUrl, target, targetUrl);
     document.querySelector("#loader-container").remove();
     
@@ -148,41 +127,6 @@ async function startHTMLPainting(html, source, contentUrl, target, targetUrl) {
     await loadArea();
 }
 
-function wrapDivs(htmlString) {
-  const container = document.createElement('div');
-  container.innerHTML = htmlString;
-
-  const children = Array.from(container.children);
-  const newContainer = document.createElement('div');
-  let wrapper = null;
-
-  for (const child of children) {
-    if (child.tagName === 'DIV') {
-      if (child.classList.length > 0) {
-        if (!wrapper) wrapper = document.createElement('div');
-        wrapper.appendChild(child);
-      } else {
-        if (wrapper) {
-          newContainer.appendChild(wrapper);
-          wrapper = null;
-        }
-        newContainer.appendChild(child);
-      }
-    } else {
-      if (wrapper) {
-        newContainer.appendChild(wrapper);
-        wrapper = null;
-      }
-      newContainer.appendChild(child);
-    }
-  }
-
-  if (wrapper) {
-    newContainer.appendChild(wrapper);
-  }
-
-  return newContainer.innerHTML;
-}
   
 
 async function paintHtmlOnPage(html, source, contentUrl, target, targetUrl) {
@@ -218,11 +162,6 @@ async function paintHtmlOnPage(html, source, contentUrl, target, targetUrl) {
     });
 }
 
-// TODO: manage error handling
-function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
-}
 
 
 initPreviewer();
