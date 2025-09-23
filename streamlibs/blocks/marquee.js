@@ -56,32 +56,3 @@ export function mapMarqueeContent(blockContent, figContent) {
         }
     });
 }
-
-export function changeMarqueeContent(html, blockEl, newContent) {
-    const ks = Object.keys(newContent);
-    ks.forEach((k) => {
-        switch(k) {
-        case "heading":
-            const h = blockEl?.querySelector('h1, h2, h3, h4, h5');
-            if (h) h.innerText = newContent["heading"];
-            break;
-        case "body":
-            const b = blockEl?.querySelector(':scope > div:nth-child(2) h1 + p');
-            if (b) b.innerText = newContent["body"];
-            break;
-        case "cta":
-            const btn = blockEl?.querySelector(':scope > div:nth-child(2)')?.querySelector('a em, em a, strong a, a strong');
-            if (btn) btn.innerText = newContent["cta"];
-            break;
-        case "thumbnail":
-            const img = blockEl?.querySelector('img');
-            if (img) {
-              img.src = newContent["thumbnail"]["message"];
-              const pic = img.closest('picture');
-              pic.querySelectorAll("source").forEach((s) => s.srcset = newContent["thumbnail"]["message"]);
-            }
-            break;
-        }
-    });
-    return html;
-}
