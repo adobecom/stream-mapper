@@ -31,6 +31,7 @@ const CONFIG = {
     figmaAuthToken: '',
     daToken: '',
     figmaBlockContentUrl: 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details',
+    blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/blockmappings',
     idNameMap: {
       "marquee": "Marquee",
       "text": "Text",
