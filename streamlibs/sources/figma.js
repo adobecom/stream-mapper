@@ -3,8 +3,8 @@ import { mapTextContent } from '../blocks/text.js';
 import {mapMediaContent} from "../blocks/media.js";
 import {mapNotificationContent} from "../blocks/notification.js";
 
-export async function fetchFigmaContent(figmaUrl) {
-    const htmlAndMapping = await getFigmaContent(figmaUrl);
+export async function fetchFigmaContent() {
+    const htmlAndMapping = await getFigmaContent(window.streamConfig.contentUrl);
     // window.sessionStorage.setItem('previewer-html', htmlAndMapping.html);
     return htmlAndMapping;
 }

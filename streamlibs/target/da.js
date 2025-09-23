@@ -56,23 +56,24 @@ export async function postData(url, html) {
         });
         document.dispatchEvent(daContentPushedEvent);
 
-        firePreviewRequest(url, CONFIGS);
+        firePreviewRequest(url);
         // window.open(result.source.editUrl, '_blank');
     } catch (error) {
         console.error("Error:", error);
     }
 }
 
-function firePreviewRequest(url, CONFIGS) {
+async function firePreviewRequest(url) {
     const parts = url.split('/');
     if (parts.length >= 3) {
         parts.splice(2, 0, 'main');
     }
     const updatedPath = parts.join('/');
+    const config = await import('../utils.js').then(m => m.getConfig());
     const response = fetch('https://admin.hlx.page/preview/' + updatedPath, {
         method: "POST",
         headers: {
-            "Authorization": `${CONFIGS.daToken}`,
+            "Authorization": `${config.streamMapper.daToken}`,
             "accept": "*/*"
         },
     });
