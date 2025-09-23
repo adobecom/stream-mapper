@@ -1,0 +1,40 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      window.addEventListener('message', async (e) => {
+        const u = JSON.parse(event.data).url;
+        const res = await fetch(`${u}?martech=off`);
+        const block = await res.text();
+        document.querySelector('body main').innerHTML = block;
+
+        // Create a new meta tag
+        const metaTag = document.createElement('meta');
+
+        // Set the attributes for the meta tag
+        metaTag.name = 'template'; // Specify the meta tag name
+        metaTag.content = 'helpxNext-article'; // Set the content
+
+        // Append the meta tag to the head section
+        document.head.appendChild(metaTag);
+
+        console.log('Meta tag added:', metaTag);
+
+        const { loadArea } = await import(
+          `https://main--milo--adobecom.aem.live/libs/utils/utils.js`
+        );
+        await loadArea();
+      });
+    </script>
+    <script src="./scripts/preview.js" type="module"></script>
+    <style>
+      body {
+        display: none;
+      }
+    </style>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <main></main>
+  </body>
+</html>
