@@ -2,6 +2,7 @@ import { mapMarqueeContent } from '../blocks/marquee.js';
 import { mapTextContent } from '../blocks/text.js';
 import { mapMediaContent } from '../blocks/media.js';
 import { mapNotificationContent } from '../blocks/notification.js';
+import { mapAsideContent } from '../blocks/aside.js';
 import { handleError, safeFetch } from '../error-handler.js';
 
 export async function fetchFigmaContent() {
@@ -10,11 +11,9 @@ export async function fetchFigmaContent() {
 
 async function getFigmaContent(figmaUrl) {
     const blockMapping = await fetchFigmaMapping(figmaUrl);
-    
     if (!blockMapping?.details?.components) {
         return { html: [], blockMapping };
     }
-
     const html = await createHTML(blockMapping, figmaUrl);
     return { html, blockMapping };
 }
@@ -23,7 +22,6 @@ async function getFigmaContent(figmaUrl) {
 async function fetchFigmaMapping(figmaUrl) {
     try {
         const config = await import('../utils.js').then(m => m.getConfig());
-        
         const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
             method: 'POST',
             headers: {
@@ -32,7 +30,6 @@ async function fetchFigmaMapping(figmaUrl) {
             },
             body: JSON.stringify({ figmaUrl })
         });
-
         return await response.json();
     } catch (error) {
         handleError(error, 'getting figma mapping');
@@ -43,11 +40,9 @@ async function fetchFigmaMapping(figmaUrl) {
 async function createHTML(blockMapping, figmaUrl) {
     const blocks = blockMapping.details.components;
     updateLoaderText("Building the map—block by block");
-
     const htmlParts = await Promise.all(
         blocks.map(block => processBlock(block, figmaUrl))
     );
-
     return htmlParts.filter(Boolean);
 }
 
@@ -90,26 +85,23 @@ async function fetchBlockContent(figId, id, figmaUrl) {
     }
 }
 
-function mapFigmaContent(blockContent, props, name, figContent) {
+async function mapFigmaContent(blockContent, props, name, figContent) {
     const contentMappers = {
         'marquee': mapMarqueeContent,
         'text': mapTextContent,
         'media': mapMediaContent,
-        'notification': mapNotificationContent
+        'notification': mapNotificationContent,
+        'aside': mapAsideContent
     };
-
     const mapper = contentMappers[name];
     if (mapper) {
-        mapper(blockContent, figContent);
+        await mapper(blockContent, figContent);
     }
-
     return blockContent;
 }
 
-// Helper function for finding non-div elements (currently unused)
 function getLevelElements(parent) {
     const levelElements = [];
-    
     function findElements(node) {
         node.childNodes.forEach(child => {
             if (child.nodeType === Node.ELEMENT_NODE && child.tagName.toLowerCase() !== 'div') {
@@ -120,7 +112,6 @@ function getLevelElements(parent) {
             }
         });
     }
-    
     findElements(parent);
     return levelElements;
 }
@@ -128,14 +119,11 @@ function getLevelElements(parent) {
 function getHtml(resp, id, variant) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(resp, 'text/html');
-    
     if (id === 'editorial-card') {
         return doc.querySelector('div');
     }
-    
     return doc.querySelectorAll(`.${id}`)[variant];
 }
-
 
 async function fetchContent(contentUrl) {
     try {
@@ -159,7 +147,5 @@ async function fetchWithRetry(url, retries = 1) {
 
 function updateLoaderText(text) {
     const loader = document.querySelector("#loader-content");
-    if (loader) {
-        loader.innerText = text;
-    }
+    if (loader) loader.innerText = text;
 }

@@ -61,4 +61,3 @@ export async function initializeTokens(token) {
     config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
     config.streamMapper.daToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
 }
-

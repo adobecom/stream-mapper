@@ -1,30 +1,58 @@
-export function mapAsideContent(blockContent, figContent) {
+export async function mapAsideContent(blockContent, figContent) {
+    const properties = figContent?.details?.properties;
+    if (!properties) return;
+    
+    try {
+        const { getConfig } = await import('../utils.js');
+        const config = await getConfig();
+        const mappingUrl = `${config.streamMapper.blockMappingsUrl}/aside.json`;
+        
+        const response = await fetch(mappingUrl);
+        const mappingData = await response.json();
+        
+        Object.keys(properties).forEach(key => {
+            const mappingConfig = mappingData.data.find(item => item.key === key);
+            if (!mappingConfig) return;
+            
+            const element = blockContent.querySelector(mappingConfig.selector);
+            if (!element) return;
+            
+            applyMapping(element, properties[key], mappingConfig);
+        });
+    } catch (error) {
+        console.warn('Could not load aside mapping:', error);
+    }
+}
 
-    const x = figContent?.details?.properties;
-
-    const ks = Object.keys(x);
-    ks.forEach((k) => {
-        switch(k) {
-        case  "detail":
-            const detail = blockContent.querySelector(':scope div div p');
-            if (x.detail === '') detail.remove();
-            else detail.innerHTML = x.detail;
-            break;
-        case 'heading':
-            const heading = blockContent.querySelector(':scope h3');
-            if (x.heading === '') heading.remove();
-            else heading.innerHTML = x.heading;
-            break;
-        case 'body':
-            const body = blockContent.querySelector(':scope h3 + p');
-            if (x.body === '') body.remove();
-            else body.innerHTML = x.body;
-            break;
-        case 'actions':
-            const action = blockContent.querySelector(':scope em a, :scope a em').closest('p');
-            if (!x.actions) {
-                action.remove();
+function applyMapping(element, value, mappingConfig) {
+    const { type } = mappingConfig;
+    
+    switch (type) {
+        case 'text':
+            if (value === '') {
+                element.remove();
+            } else {
+                element.innerHTML = value;
             }
-        }
-    });
+            break;
+            
+        case 'img':
+            if (value === '') {
+                element.remove();
+            } else {
+                element.src = value;
+            }
+            break;
+            
+        case 'a':
+            if (value === '') {
+                element.remove();
+            } else {
+                element.href = value;
+            }
+            break;
+            
+        default:
+            console.warn(`Unknown mapping type: ${type}`);
+    }
 }
