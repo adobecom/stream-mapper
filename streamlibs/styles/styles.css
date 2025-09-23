@@ -1,12 +1,3 @@
-/* 
- * Put project specific base styles here.
- *
- * Note: The proect does not load this file.
- *       You will need to load these using scripts.js.
- * 
- *
- */
-
 :root {
   --static-color-white: #fff;
   --static-color-light-green: #0f996d;
