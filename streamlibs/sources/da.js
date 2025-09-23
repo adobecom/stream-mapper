@@ -1,6 +1,6 @@
 
-export async function fetchDAContent(daUrl, showerrorscreen = true) {
-    let html = await getDAContent(daUrl, showerrorscreen);
+export async function fetchDAContent(showerrorscreen = true) {
+    let html = await getDAContent(window.streamConfig.contentUrl, showerrorscreen);
     // window.sessionStorage.setItem('previewer-html', htmlAndMapping.html);
     console.log(html);
     const parser = new DOMParser();

@@ -20,12 +20,6 @@ const STYLES = '';
 const LIBS = '/libs';
 
 const CONFIG = {
-  // codeRoot: '',
-  // contentRoot: '',
-  // imsClientId: 'college',
-  // imsScope: 'AdobeID,openid,gnav',
-  // geoRouting: 'off',
-  // fallbackRouting: 'off',
   decorateArea,
   locales: {
     '': { ietf: 'en-US', tk: 'hah7vzn.css' },
@@ -68,4 +62,6 @@ const miloLibs = setLibs(LIBS);
   const config = setConfig({ ...CONFIG, miloLibs });
   console.log(config);
   await loadArea();
+  const { default: initPreviewer } = await import('./previewer.js');
+  await initPreviewer();
 }());

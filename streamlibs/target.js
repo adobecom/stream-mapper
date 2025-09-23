@@ -1,8 +1,8 @@
 import {getDACompatibleHtml, postData} from './target/da.js';
 import {fetchTargetHtmlFromStorage, pushTargetHtmlToSTore} from './store.js';
 
-export function targetCompatibleHtml(html, target) {
-    if (target === 'da') {
+export function targetCompatibleHtml(html) {
+    if (window.streamConfig.target === 'da') {
         let modifiedHtml = getDACompatibleHtml(html);
         modifiedHtml = populateMetadataBlock(modifiedHtml);
         pushTargetHtmlToSTore(modifiedHtml);
@@ -24,8 +24,8 @@ function populateMetadataBlock(html) {
     return html + metaHtml;
 }
 
-export async function persistOnTarget(contentUrl, target, targetUrl) {
-    if (target === 'da') {
-        return await postData(targetUrl, fetchTargetHtmlFromStorage(contentUrl));
+export async function persistOnTarget() {
+    if (window.streamConfig.target === 'da') {
+        return await postData(window.streamConfig.targetUrl, fetchTargetHtmlFromStorage(window.streamConfig.contentUrl));
     }
 }
