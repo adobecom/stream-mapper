@@ -1,6 +1,6 @@
 
-export async function fetchDAContent(daUrl, CONFIGS, showerrorscreen = true) {
-    let html = await getDAContent(daUrl, CONFIGS, showerrorscreen);
+export async function fetchDAContent(daUrl, showerrorscreen = true) {
+    let html = await getDAContent(daUrl, showerrorscreen);
     // window.sessionStorage.setItem('previewer-html', htmlAndMapping.html);
     console.log(html);
     const parser = new DOMParser();
@@ -10,7 +10,7 @@ export async function fetchDAContent(daUrl, CONFIGS, showerrorscreen = true) {
     return html;
 }
 
-async function getDAContent(daUrl, CONFIGS, showerrorscreen = true) {
+async function getDAContent(daUrl, showerrorscreen = true) {
     let url = daUrl;
     if (!url.startsWith('/')) {
         url = '/' + url;
@@ -24,7 +24,7 @@ async function getDAContent(daUrl, CONFIGS, showerrorscreen = true) {
         method: 'GET',
         headers: {
           'Content-Type': 'text/html',
-          Authorization: CONFIGS.figmaAuthToken // add a valid token
+          Authorization: (await import('../utils.js')).getConfig().streamMapper.figmaAuthToken // add a valid token
         }
     };
       

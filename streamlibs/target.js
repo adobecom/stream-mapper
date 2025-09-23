@@ -1,10 +1,9 @@
 import {getDACompatibleHtml, postData} from './target/da.js';
 import {fetchTargetHtmlFromStorage, pushTargetHtmlToSTore} from './store.js';
 
-export function targetCompatibleHtml(html, target, CONFIGS) {
-
+export function targetCompatibleHtml(html, target) {
     if (target === 'da') {
-        let modifiedHtml = getDACompatibleHtml(html, CONFIGS);
+        let modifiedHtml = getDACompatibleHtml(html);
         modifiedHtml = populateMetadataBlock(modifiedHtml);
         pushTargetHtmlToSTore(modifiedHtml);
         return modifiedHtml;
@@ -25,8 +24,8 @@ function populateMetadataBlock(html) {
     return html + metaHtml;
 }
 
-export async function persistOnTarget(contentUrl, target, targetUrl, CONFIGS) {
+export async function persistOnTarget(contentUrl, target, targetUrl) {
     if (target === 'da') {
-        return await postData(targetUrl, fetchTargetHtmlFromStorage(contentUrl), CONFIGS);
+        return await postData(targetUrl, fetchTargetHtmlFromStorage(contentUrl));
     }
 }

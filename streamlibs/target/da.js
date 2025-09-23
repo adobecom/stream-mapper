@@ -27,13 +27,13 @@ function replacePictureWithImg(htmlString) {
     return doc.body.innerHTML;
 }
 
-export async function postData(url, html, CONFIGS) {
+export async function postData(url, html) {
     html = wrapHTMLForDA(html);
     try {
         const response = await fetch('https://admin.da.live/source/' + url + ".html", {
             method: "POST",
             headers: {
-                "Authorization": `${CONFIGS.daToken}`,
+                "Authorization": `${(await import('../utils.js')).getConfig().streamMapper.daToken}`,
                 "Content-Type": "application/x-www-form-urlencoded"
             },
             body: new URLSearchParams({ data: html }) // Encoding data as application/x-www-form-urlencoded
