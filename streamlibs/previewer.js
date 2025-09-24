@@ -13,7 +13,6 @@ import {
   fixRelativeLinks,
   wrapDivs,
   initializeTokens,
-  getIdNameMap
 } from './utils.js';
 import { handleError } from './error-handler.js';
 

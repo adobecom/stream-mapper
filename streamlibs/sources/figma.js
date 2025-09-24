@@ -39,7 +39,6 @@ async function fetchFigmaMapping(figmaUrl) {
 
 async function createHTML(blockMapping, figmaUrl) {
     const blocks = blockMapping.details.components;
-    updateLoaderText("Building the map—block by block");
     const htmlParts = await Promise.all(
         blocks.map(block => processBlock(block, figmaUrl))
     );
@@ -143,9 +142,4 @@ async function fetchWithRetry(url, retries = 1) {
             if (i === retries) throw error;
         }
     }
-}
-
-function updateLoaderText(text) {
-    const loader = document.querySelector("#loader-content");
-    if (loader) loader.innerText = text;
 }
