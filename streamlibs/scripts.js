@@ -1,4 +1,4 @@
-import { setLibs, getLibs } from './utils.js';
+import { setLibs, getLibs } from './utils/utils.js';
 
 function decorateArea(area = document) {
   const eagerLoad = (parent, selector) => {

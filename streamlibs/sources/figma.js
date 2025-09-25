@@ -3,7 +3,7 @@ import { mapTextContent } from '../blocks/text.js';
 import { mapMediaContent } from '../blocks/media.js';
 import { mapNotificationContent } from '../blocks/notification.js';
 import { mapAsideContent } from '../blocks/aside.js';
-import { handleError, safeFetch } from '../error-handler.js';
+import { handleError, safeFetch } from '../utils/error-handler.js';
 
 export async function fetchFigmaContent() {
     return await getFigmaContent(window.streamConfig.contentUrl);
@@ -21,7 +21,7 @@ async function getFigmaContent(figmaUrl) {
 
 async function fetchFigmaMapping(figmaUrl) {
     try {
-        const config = await import('../utils.js').then(m => m.getConfig());
+        const config = await import('../utils/utils.js').then(m => m.getConfig());
         const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
             method: 'POST',
             headers: {
@@ -66,7 +66,7 @@ async function processBlock(block, figmaUrl) {
 
 async function fetchBlockContent(figId, id, figmaUrl) {
     try {
-        const config = await import('../utils.js').then(m => m.getConfig());
+        const config = await import('../utils/utils.js').then(m => m.getConfig());
         
         const response = await safeFetch(config.streamMapper.figmaBlockContentUrl, {
             method: 'POST',

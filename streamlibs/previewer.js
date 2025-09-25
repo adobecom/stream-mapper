@@ -2,19 +2,19 @@ import { fetchFigmaContent } from './sources/figma.js';
 import {
   persistOnTarget,
   targetCompatibleHtml
-} from './target.js';
+} from './target/da.js';
 import {
   pushTargetHtmlToStore,
   fetchTargetHtmlFromStore
- } from './store.js';
+ } from './store/store.js';
 import {
   getLibs,
   getQueryParam,
   fixRelativeLinks,
   wrapDivs,
   initializeTokens,
-} from './utils.js';
-import { handleError } from './error-handler.js';
+} from './utils/utils.js';
+import { handleError } from './utils/error-handler.js';
 
 async function initiatePreviewer() {
     let html = '';

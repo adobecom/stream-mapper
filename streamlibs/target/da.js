@@ -1,4 +1,5 @@
-import { handleError, safeFetch } from '../error-handler.js';
+import { handleError, safeFetch } from '../utils/error-handler.js';
+import { fetchTargetHtmlFromStore } from '../store/store.js';
 
 export function getDACompatibleHtml(html) {
     html = replacePictureWithImg(html);
@@ -48,4 +49,15 @@ export async function postData(url, html) {
         handleError(error, "posting to DA");
         throw error;
     }
+}
+
+export function targetCompatibleHtml(html) {
+  if (!window.streamConfig.target === 'da') return html;
+  let modifiedHtml = getDACompatibleHtml(html);
+  return modifiedHtml;
+}
+
+export async function persistOnTarget() {
+if (!window.streamConfig.target === 'da') return;
+return await postData(window.streamConfig.targetUrl, fetchTargetHtmlFromStore(window.streamConfig.contentUrl));
 }
