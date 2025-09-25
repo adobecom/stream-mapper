@@ -3,21 +3,21 @@ export async function mapAsideContent(blockContent, figContent) {
     if (!properties) return;
     
     try {
-        const { getConfig } = await import('../utils.js');
+        const { getConfig } = await import('../utils/utils.js');
         const config = await getConfig();
         const mappingUrl = `${config.streamMapper.blockMappingsUrl}/aside.json`;
         
         const response = await fetch(mappingUrl);
         const mappingData = await response.json();
         
-        Object.keys(properties).forEach(key => {
-            const mappingConfig = mappingData.data.find(item => item.key === key);
-            if (!mappingConfig) return;
+        mappingData.data.forEach(mappingConfig => {
+            const value = properties[mappingConfig.key];
+            if (value === undefined) return;
             
             const element = blockContent.querySelector(mappingConfig.selector);
             if (!element) return;
             
-            applyMapping(element, properties[key], mappingConfig);
+            applyMapping(element, value, mappingConfig);
         });
     } catch (error) {
         console.warn('Could not load aside mapping:', error);
