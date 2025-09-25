@@ -33,7 +33,7 @@ const CONFIG = {
     figmaBlockContentUrl: 'http://localhost:8080/api/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
-    blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/blockmappings',
+    blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
     idNameMap: {
       "marquee": "Marquee",
       "text": "Text",
