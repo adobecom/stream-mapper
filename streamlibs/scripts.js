@@ -27,10 +27,12 @@ const CONFIG = {
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
   streamMapper: {
-    figmaMappingUrl: 'https://440859-genesis-dev.adobeio-static.net/api/v1/web/genesis-aio/fig-comps',
+    // figmaMappingUrl: 'https://440859-genesis-dev.adobeio-static.net/api/v1/web/genesis-aio/fig-comps',
+    // figmaBlockContentUrl: 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details',
+    figmaMappingUrl: 'http://localhost:8080/api/fig-comps',
+    figmaBlockContentUrl: 'http://localhost:8080/api/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
-    figmaBlockContentUrl: 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/blockmappings',
     idNameMap: {
       "marquee": "Marquee",
@@ -63,6 +65,8 @@ const miloLibs = setLibs(LIBS);
   const config = setConfig({ ...CONFIG, miloLibs });
   console.log(config);
   await loadArea();
+  const metaTag = document.querySelector('meta[name="initiate-previewer"]');
+  if (metaTag && metaTag.getAttribute('content') === 'off') return;
   const { default: initPreviewer } = await import('./previewer.js');
   await initPreviewer();
 }());

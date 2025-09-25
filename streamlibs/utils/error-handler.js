@@ -14,7 +14,7 @@ export function handleError(error, context = '') {
     showErrorPage();
 }
 
-export async function safeFetch(url, options = {}) {
+export async function safeFetch(url, options = {}, customSettings = {}) {
     try {
         const response = await fetch(url, options);
         if (!response.ok) {
@@ -22,7 +22,15 @@ export async function safeFetch(url, options = {}) {
         }
         return response;
     } catch (error) {
-        handleError(error, 'fetching data');
+        if (!customSettings.donotShowErrorPage) handleError(error, 'fetching data');
         throw error;
     }
+}
+
+export async function safeJsonFetch(componentJSONUrl, options = {}) {
+    const { getConfig } = await import('../utils/utils.js');
+    const config = await getConfig();
+    const url = `${config.streamMapper.blockMappingsUrl}/${componentJSONUrl}`;
+    const response = await safeFetch(url, options, {donotShowErrorPage: true});
+    return await response.json();
 }
