@@ -5,7 +5,8 @@ import {
 } from './target/da.js';
 import {
   pushTargetHtmlToStore,
-  fetchTargetHtmlFromStore
+  fetchPreviewHtmlFromStore,
+  pushPreviewHtmlToStore
  } from './store/store.js';
 import {
   getLibs,
@@ -30,9 +31,10 @@ async function initiatePreviewer() {
     html = html.map((h) => h.outerHTML).join('');
     html = fixRelativeLinks(html);
     html = wrapDivs(html);
+    pushPreviewHtmlToStore(html);
+    await startHTMLPainting();
     html = targetCompatibleHtml(html);
     pushTargetHtmlToStore(html);
-    await startHTMLPainting();
     document.querySelector("#loader-container").remove();
 }
 
@@ -45,7 +47,7 @@ async function startHTMLPainting() {
 
 async function paintHtmlOnPage() {
     const mainEle = document.createElement('main');
-    mainEle.innerHTML = fetchTargetHtmlFromStore();
+    mainEle.innerHTML = fetchPreviewHtmlFromStore();
     document.body.appendChild(mainEle);
 
     const pushToDABtn = createPushButton();

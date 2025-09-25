@@ -7,34 +7,34 @@ export async function mapMarqueeContent(blockContent, figContent) {
     try {
         const mappingData = await safeJsonFetch("marquee.json");
         mappingData.data.forEach(mappingConfig => {
-            if (properties[mappingConfig.key] === 'undefined') return;
             const value = properties[mappingConfig.key];
-            const element = blockContent.querySelector(mappingConfig.selector);
-            if (!element) return;
-            // debugger;
             const isHandled = handleComponents(blockContent, value, mappingConfig);
             if (!isHandled) return;
-            switch (mappingConfig.type) {
+            switch (mappingConfig.key) {
               case 'background':
-                handleMarqueeBackground({el: blockContent, value, selector: mappingConfig.selector});
+                handleMarqueeBackground({ el: blockContent, value, selector: mappingConfig.selector });
                 break;
               default:
                 break;
             }
-        });
+         });
+         blockContent.querySelectorAll('.to-remove').forEach(el => el.remove());
     } catch (error) {
         console.warn('Could not load marquee mapping:', error);
     }
 }
 
-function handleMarqueeBackground({el, value, selector}) {
+function handleMarqueeBackground({ el, value, selector }) {
   const backgroundEl = el.querySelector(selector);
   if (value.startsWith('http')) {
-    const p = document.createElement('p');
     const img = document.createElement('img');
-    p.innerHTML = img;
     img.src = value;
-    backgroundEl.innerHTML = p;
+    const pic = document.createElement('picture');
+    const source = document.createElement('source');
+    source.srcset = value;
+    source.type = 'image/webp';
+    pic.append(...[source, img]);
+    backgroundEl.append(pic);
   } else {
     backgroundEl.innerHTML = value;
   }
