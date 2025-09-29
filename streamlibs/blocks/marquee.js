@@ -1,4 +1,4 @@
-import { handleComponents } from '../components/components.js';
+import { handleComponents, handleButtonComponent } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
 export default async function mapBlockContent(blockContent, figContent) {
@@ -8,7 +8,7 @@ export default async function mapBlockContent(blockContent, figContent) {
         const mappingData = await safeJsonFetch("marquee.json");
         mappingData.data.forEach(mappingConfig => {
             const value = properties[mappingConfig.key];
-            handleComponents(blockContent, value, mappingConfig);
+            const areaEl = handleComponents(blockContent, value, mappingConfig);
             switch (mappingConfig.key) {
               case 'colorTheme':
                 if (value == 'light') blockContent.classList.add('light');
@@ -17,10 +17,13 @@ export default async function mapBlockContent(blockContent, figContent) {
                 blockContent.classList.add('split');
                 break;
               case 'background':
-                handleBackground({ el: blockContent, value, selector: mappingConfig.selector });
+                handleBackground({ el: blockContent, value, areaEl });
+                break;
+              case 'actions':
+                handleActionButtons({ configData: properties, el: blockContent, value, areaEl });
                 break;
               case 'photoCredit':
-                handlePhotoCredits({ el: blockContent, value, selector: mappingConfig.selector });
+                handlePhotoCredits({ el: blockContent, value, areaEl });
                 break;
               default:
                 break;
@@ -32,8 +35,7 @@ export default async function mapBlockContent(blockContent, figContent) {
     }
 }
 
-function handleBackground({ el, value, selector }) {
-  const backgroundEl = el.querySelector(selector);
+function handleBackground({ el, value, areaEl }) {
   if (value.startsWith('http')) {
     const img = document.createElement('img');
     img.src = value;
@@ -42,14 +44,23 @@ function handleBackground({ el, value, selector }) {
     source.srcset = value;
     source.type = 'image/webp';
     pic.append(...[source, img]);
-    backgroundEl.append(pic);
+    areaEl.append(pic);
   } else {
-    backgroundEl.innerHTML = value;
+    areaEl.innerHTML = value;
   }
 }
 
-function handlePhotoCredits({ el, value, selector }) {
+function handlePhotoCredits({ mappingData, el, value, areaEl }) {
   if (!value) return;
-  const pictureCreditsEl = el.querySelector(selector);
-  pictureCreditsEl.insertAdjacentHTML('afterend', value);
+  areaEl.insertAdjacentHTML('afterend', value);
+}
+
+function handleActionButtons({ configData, el, value, areaEl }) {
+  if (!value) return;
+  if (configData.action1) {
+    handleButtonComponent({ actionArea: areaEl, buttonType: configData.action1.btnType, buttonText: configData.action1.btnText });
+  }
+  if (configData.action2) {
+    handleButtonComponent({ actionArea: areaEl, buttonType: configData.action2.btnType, buttonText: configData.action2.btnText });
+  }
 }
