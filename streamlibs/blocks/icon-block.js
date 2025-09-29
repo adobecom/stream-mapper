@@ -5,14 +5,14 @@ export default async function mapBlockContent(blockContent, figContent) {
     const properties = figContent?.details?.properties;
     if (!properties) return;
     try {
-        const mappingData = await safeJsonFetch("marquee.json");
+        const mappingData = await safeJsonFetch("icon-block.json");
         mappingData.data.forEach(mappingConfig => {
             const value = properties[mappingConfig.key];
             const isHandled = handleComponents(blockContent, value, mappingConfig);
             if (!isHandled) return;
             switch (mappingConfig.key) {
               case 'background':
-                handleMarqueeBackground({ el: blockContent, value, selector: mappingConfig.selector });
+                handleIconBlockBackground({ el: blockContent, value, selector: mappingConfig.selector });
                 break;
               default:
                 break;
@@ -24,18 +24,6 @@ export default async function mapBlockContent(blockContent, figContent) {
     }
 }
 
-function handleMarqueeBackground({ el, value, selector }) {
-  const backgroundEl = el.querySelector(selector);
-  if (value.startsWith('http')) {
-    const img = document.createElement('img');
-    img.src = value;
-    const pic = document.createElement('picture');
-    const source = document.createElement('source');
-    source.srcset = value;
-    source.type = 'image/webp';
-    pic.append(...[source, img]);
-    backgroundEl.append(pic);
-  } else {
-    backgroundEl.innerHTML = value;
-  }
+function handleIconBlockBackground({ el, value, selector }) {
+  // pass
 }

@@ -36,6 +36,7 @@ const CONFIG = {
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
     idNameMap: {
       "marquee": "Marquee",
+      "icon-block": "IconBlock",
       "text": "Text",
       "media": "Media",
       "howto": "HowTo",
