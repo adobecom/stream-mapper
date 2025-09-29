@@ -1,8 +1,3 @@
-import { mapMarqueeContent } from '../blocks/marquee.js';
-import { mapTextContent } from '../blocks/text.js';
-import { mapMediaContent } from '../blocks/media.js';
-import { mapNotificationContent } from '../blocks/notification.js';
-import { mapAsideContent } from '../blocks/aside.js';
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
 export async function fetchFigmaContent() {
@@ -85,17 +80,10 @@ async function fetchBlockContent(figId, id, figmaUrl) {
 }
 
 async function mapFigmaContent(blockContent, props, name, figContent) {
-    const contentMappers = {
-        'marquee': mapMarqueeContent,
-        'text': mapTextContent,
-        'media': mapMediaContent,
-        'notification': mapNotificationContent,
-        'aside': mapAsideContent
-    };
-    const mapper = contentMappers[name];
-    if (mapper) {
-        await mapper(blockContent, figContent);
-    }
+    // const mapper = contentMappers[name];
+    // if (!mapper) return;
+    const {default: mapBlockContent} = await import(`../blocks/${name}.js`);
+    await mapBlockContent(blockContent, figContent);
     return blockContent;
 }
 
