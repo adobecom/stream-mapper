@@ -9,11 +9,8 @@ export function handleComponents(el, value, mappingConfig) {
     case 'container':
       handleContainerComponent({ el, selector: mappingConfig.selector, value });
       break;
-    case 'append-after':
-      break;
     default:
-      console.warn(`Unknown mapping type: ${componentType}`);
-      return false;
+      break
   }
   return true;
 }

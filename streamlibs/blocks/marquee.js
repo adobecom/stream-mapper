@@ -8,11 +8,19 @@ export default async function mapBlockContent(blockContent, figContent) {
         const mappingData = await safeJsonFetch("marquee.json");
         mappingData.data.forEach(mappingConfig => {
             const value = properties[mappingConfig.key];
-            const isHandled = handleComponents(blockContent, value, mappingConfig);
-            if (!isHandled) return;
+            handleComponents(blockContent, value, mappingConfig);
             switch (mappingConfig.key) {
+              case 'colorTheme':
+                if (value == 'light') blockContent.classList.add('light');
+                break;
+              case 'isSplit':
+                blockContent.classList.add('split');
+                break;
               case 'background':
-                handleMarqueeBackground({ el: blockContent, value, selector: mappingConfig.selector });
+                handleBackground({ el: blockContent, value, selector: mappingConfig.selector });
+                break;
+              case 'photoCredit':
+                handlePhotoCredits({ el: blockContent, value, selector: mappingConfig.selector });
                 break;
               default:
                 break;
@@ -24,7 +32,7 @@ export default async function mapBlockContent(blockContent, figContent) {
     }
 }
 
-function handleMarqueeBackground({ el, value, selector }) {
+function handleBackground({ el, value, selector }) {
   const backgroundEl = el.querySelector(selector);
   if (value.startsWith('http')) {
     const img = document.createElement('img');
@@ -38,4 +46,10 @@ function handleMarqueeBackground({ el, value, selector }) {
   } else {
     backgroundEl.innerHTML = value;
   }
+}
+
+function handlePhotoCredits({ el, value, selector }) {
+  if (!value) return;
+  const pictureCreditsEl = el.querySelector(selector);
+  pictureCreditsEl.insertAdjacentHTML('afterend', value);
 }
