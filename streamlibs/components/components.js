@@ -1,16 +1,3 @@
-export function handleComponents(el, value, mappingConfig) {
-  switch (mappingConfig.type) {
-    case 'text':
-      return handleTextComponent({ el, selector: mappingConfig.selector, value });
-    case 'image':
-      return handleImageComponent({ el, selector: mappingConfig.selector, value });
-    case 'container':
-      return handleContainerComponent({ el, selector: mappingConfig.selector, value });
-    default:
-      return;
-  }
-}
-
 function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
@@ -39,5 +26,18 @@ export function handleButtonComponent({ actionArea, buttonType, buttonText }) {
     actionArea.innerHTML += `<em><a href='https://www.adobe.com'>${buttonText}</a></em>`;
   } else {
     actionArea.innerHTML += `<a href='https://www.adobe.com'>${buttonText}</a>`;
+  }
+}
+
+export function handleComponents(el, value, mappingConfig) {
+  switch (mappingConfig.type) {
+    case 'text':
+      return handleTextComponent({ el, selector: mappingConfig.selector, value });
+    case 'image':
+      return handleImageComponent({ el, selector: mappingConfig.selector, value });
+    case 'container':
+      return handleContainerComponent({ el, selector: mappingConfig.selector, value });
+    default:
+      return null;
   }
 }
