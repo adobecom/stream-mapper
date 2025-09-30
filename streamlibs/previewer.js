@@ -2,12 +2,12 @@
 import { fetchFigmaContent } from './sources/figma.js';
 import {
   persistOnTarget,
-  targetCompatibleHtml
+  targetCompatibleHtml,
 } from './target/da.js';
 import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
-  pushPreviewHtmlToStore
+  pushPreviewHtmlToStore,
 } from './store/store.js';
 import {
   getLibs,
@@ -84,14 +84,14 @@ export default async function initPreviewer() {
       contentUrl: getQueryParam('contentUrl'),
       target: getQueryParam('target'),
       targetUrl: getQueryParam('targetUrl'),
-      token: getQueryParam('token')
+      token: getQueryParam('token'),
     };
     await initializeTokens(window.streamConfig.token);
     if (
-      !window.streamConfig.source ||
-      !window.streamConfig.contentUrl ||
-      !window.streamConfig.target ||
-      !window.streamConfig.targetUrl
+      !window.streamConfig.source
+      || !window.streamConfig.contentUrl
+      || !window.streamConfig.target
+      || !window.streamConfig.targetUrl
     ) {
       throw new Error(
         'Source, content Url, target url or target cannot be empty! Stoppping all processing!',
