@@ -2,17 +2,13 @@ export function handleComponents(el, value, mappingConfig) {
   switch (mappingConfig.type) {
     case 'text':
       return handleTextComponent({ el, selector: mappingConfig.selector, value });
-      break;
     case 'image':
       return handleImageComponent({ el, selector: mappingConfig.selector, value });
-      break;
     case 'container':
       return handleContainerComponent({ el, selector: mappingConfig.selector, value });
-      break;
     default:
-      break
+      return;
   }
-  return false;
 }
 
 function handleTextComponent({ el, value, selector }) {

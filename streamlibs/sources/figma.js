@@ -13,7 +13,6 @@ async function getFigmaContent(figmaUrl) {
     return { html, blockMapping };
 }
 
-
 async function fetchFigmaMapping(figmaUrl) {
     try {
         const config = await import('../utils/utils.js').then(m => m.getConfig());
@@ -53,7 +52,8 @@ async function processBlock(block, figmaUrl) {
     ]);
 
     let blockContent = getHtml(doc, block.id, block.variant);
-    blockContent = mapFigmaContent(blockContent, block.properties, block.id, figContent);
+    figContent.details.properties.miloTag = block.tag;
+    blockContent = mapFigmaContent(blockContent, block, figContent);
     
     block.blockDomEl = blockContent;
     return blockContent || '';
@@ -79,10 +79,8 @@ async function fetchBlockContent(figId, id, figmaUrl) {
     }
 }
 
-async function mapFigmaContent(blockContent, props, name, figContent) {
-    // const mapper = contentMappers[name];
-    // if (!mapper) return;
-    const {default: mapBlockContent} = await import(`../blocks/${name}.js`);
+async function mapFigmaContent(blockContent, block, figContent) {
+    const {default: mapBlockContent} = await import(`../blocks/${block.name}.js`);
     await mapBlockContent(blockContent, figContent);
     return blockContent;
 }
