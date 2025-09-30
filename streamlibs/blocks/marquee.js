@@ -35,10 +35,11 @@ function handlePhotoCredits(value, areaEl) {
   areaEl.insertAdjacentHTML('afterend', value);
 }
 
-function handleActionButtons(configData, value, areaEl) {
+function handleActionButtons(el, configData, value, areaEl) {
   if (!value) return;
   if (configData.action1) {
     handleButtonComponent({
+      el,
       actionArea: areaEl,
       buttonType: configData.action1.btnType,
       buttonText: configData.action1.btnText,
@@ -46,6 +47,7 @@ function handleActionButtons(configData, value, areaEl) {
   }
   if (configData.action2) {
     handleButtonComponent({
+      el,
       actionArea: areaEl,
       buttonType: configData.action2.btnType,
       buttonText: configData.action2.btnText,
@@ -93,7 +95,7 @@ export default async function mapBlockContent(blockContent, figContent) {
           if (!properties.isSplit) handleForegroundPhoto(value, areaEl);
           break;
         case 'actions':
-          handleActionButtons(properties, value, areaEl);
+          handleActionButtons(blockContent, properties, value, areaEl);
           break;
         case 'photoCredit':
           handlePhotoCredits(value, areaEl);
