@@ -1,4 +1,4 @@
-import { setLibs, getLibs } from './utils/utils.js';
+import { setLibs } from './utils/utils.js';
 
 function decorateArea(area = document) {
   const eagerLoad = (parent, selector) => {
@@ -6,9 +6,9 @@ function decorateArea(area = document) {
     img?.removeAttribute('loading');
   };
   (async function loadLCPImage() {
-    const marquee = document.querySelector('.marquee');
+    const marquee = area.querySelector('.marquee');
     if (!marquee) {
-      eagerLoad(document, 'img');
+      eagerLoad(area, 'img');
       return;
     }
     eagerLoad(marquee, 'div:first-child img');
@@ -35,14 +35,14 @@ const CONFIG = {
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
     idNameMap: {
-      "marquee": "Marquee",
-      "icon-block": "IconBlock",
-      "text": "Text",
-      "media": "Media",
-      "howto": "HowTo",
-      "aside": "Aside",
-      "notification": "Notification",
-    }
+      marquee: 'Marquee',
+      'icon-block': 'IconBlock',
+      text: 'Text',
+      media: 'Media',
+      howto: 'HowTo',
+      aside: 'Aside',
+      notification: 'Notification',
+    },
   },
 };
 
@@ -63,8 +63,7 @@ const miloLibs = setLibs(LIBS);
 
 (async function loadPage() {
   const { loadArea, setConfig } = await import(`${miloLibs}/utils/utils.js`);
-  const config = setConfig({ ...CONFIG, miloLibs });
-  console.log(config);
+  setConfig({ ...CONFIG, miloLibs });
   await loadArea();
   const metaTag = document.querySelector('meta[name="initiate-previewer"]');
   if (metaTag && metaTag.getAttribute('content') === 'off') return;
