@@ -22,9 +22,8 @@ export default async function mapBlockContent(blockContent, figContent) {
           break;
       }
     });
-    blockContent.querySelectorAll('.to-remove').forEach(el => el.remove());
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     // Could not load icon-block mapping
   }
 }
-

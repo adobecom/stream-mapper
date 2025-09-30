@@ -1,21 +1,15 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
-// eslint-disable-next-line import/prefer-default-export
-export async function fetchFigmaContent() {
-  // eslint-disable-next-line no-return-await
-  return await getFigmaContent(window.streamConfig.contentUrl);
-}
-
 async function fetchFigmaMapping(figmaUrl) {
   try {
-    const config = await import('../utils/utils.js').then(m => m.getConfig());
+    const config = await import('../utils/utils.js').then((m) => m.getConfig());
     const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken
+        Authorization: config.streamMapper.figmaAuthToken,
       },
-      body: JSON.stringify({ figmaUrl })
+      body: JSON.stringify({ figmaUrl }),
     });
     return await response.json();
   } catch (error) {
@@ -33,15 +27,7 @@ function getHtml(resp, id, variant) {
   return doc.querySelectorAll(`.${id}`)[variant];
 }
 
-async function fetchContent(contentUrl) {
-  try {
-    return await fetchWithRetry(contentUrl);
-  } catch (error) {
-    handleError(error, 'fetching content');
-    return null;
-  }
-}
-
+// eslint-disable-next-line consistent-return
 async function fetchWithRetry(url, retries = 1) {
   for (let i = 0; i <= retries; i += 1) {
     try {
@@ -55,16 +41,25 @@ async function fetchWithRetry(url, retries = 1) {
   }
 }
 
+async function fetchContent(contentUrl) {
+  try {
+    return await fetchWithRetry(contentUrl);
+  } catch (error) {
+    handleError(error, 'fetching content');
+    return null;
+  }
+}
+
 async function fetchBlockContent(figId, id, figmaUrl) {
   try {
-    const config = await import('../utils/utils.js').then(m => m.getConfig());
+    const config = await import('../utils/utils.js').then((m) => m.getConfig());
     const response = await safeFetch(config.streamMapper.figmaBlockContentUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken
+        Authorization: config.streamMapper.figmaAuthToken,
       },
-      body: JSON.stringify({ figmaUrl, figId, id })
+      body: JSON.stringify({ figmaUrl, figId, id }),
     });
     return await response.json();
   } catch (error) {
@@ -74,7 +69,7 @@ async function fetchBlockContent(figId, id, figmaUrl) {
 }
 
 async function mapFigmaContent(blockContent, block, figContent) {
-  const {default: mapBlockContent} = await import(`../blocks/${block.name}.js`);
+  const { default: mapBlockContent } = await import(`../blocks/${block.name}.js`);
   await mapBlockContent(blockContent, figContent);
   return blockContent;
 }
@@ -83,7 +78,7 @@ async function processBlock(block, figmaUrl) {
   if (!block.id || !block.path) return '';
   const [doc, figContent] = await Promise.all([
     fetchContent(block.path),
-    fetchBlockContent(block.figId, block.id, figmaUrl)
+    fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
   let blockContent = getHtml(doc, block.id, block.variant);
   figContent.details.properties.miloTag = block.tag;
@@ -95,7 +90,7 @@ async function processBlock(block, figmaUrl) {
 async function createHTML(blockMapping, figmaUrl) {
   const blocks = blockMapping.details.components;
   const htmlParts = await Promise.all(
-    blocks.map((block) => processBlock(block, figmaUrl))
+    blocks.map((block) => processBlock(block, figmaUrl)),
   );
   return htmlParts.filter(Boolean);
 }
@@ -107,4 +102,10 @@ async function getFigmaContent(figmaUrl) {
   }
   const html = await createHTML(blockMapping, figmaUrl);
   return { html, blockMapping };
+}
+
+// eslint-disable-next-line import/prefer-default-export
+export async function fetchFigmaContent() {
+  // eslint-disable-next-line no-return-await
+  return await getFigmaContent(window.streamConfig.contentUrl);
 }

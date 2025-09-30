@@ -1,3 +1,7 @@
+/* stylelint-disable color-function-notation */
+/* stylelint-disable color-function-alias-notation */
+/* stylelint-disable media-feature-range-notation */
+/* stylelint-disable keyframes-name-pattern */
 .da-push-icon {
   position: relative;
   display: block;
@@ -95,16 +99,11 @@ img.da-process-wait {
   }
 
   @keyframes rotation {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+    0% {  transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
   .cta-button {
-    display: block; /* Allows margin auto to work */
     background-color: #7155fa;
     color: white;
     font-size: 18px;
@@ -115,13 +114,13 @@ img.da-process-wait {
     text-decoration: none;
     transition: all 0.3s ease-in-out;
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0, 123, 255, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 123, 255, 20%);
     text-align: center;
     width: fit-content;
     margin: 20px auto;
     position: fixed;
     z-index: 1000;
-    top: 0px;
+    top: 0;
     right: 20px;
     display: flex;
     align-items: center;
@@ -129,8 +128,8 @@ img.da-process-wait {
   }
 
   .cta-button:hover {
-    color: #ffffff !important; /* Darker blue */
-    box-shadow: 0 6px 10px rgba(0, 123, 255, 0.3);
+    color: #fff !important; /* Darker blue */
+    box-shadow: 0 6px 10px rgba(0, 123, 255, 30%);
     transform: scale(1.05);
   }
 
@@ -162,10 +161,6 @@ img.da-process-wait {
   }
   
   @keyframes blink {
-    0%, 100% {
-      opacity: 0;
-    }
-    50% {
-      opacity: 1;
-    }
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
   }

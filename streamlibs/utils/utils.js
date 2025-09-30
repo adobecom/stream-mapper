@@ -29,7 +29,7 @@ export function wrapDivs(htmlString) {
   const children = Array.from(container.children);
   const result = document.createElement('div');
   let wrapper = null;
-  children.forEach(child => {
+  children.forEach((child) => {
     const needsWrapper = child.tagName === 'DIV' && child.classList.length > 0;
     if (needsWrapper) {
       wrapper = wrapper || document.createElement('div');

@@ -5,11 +5,11 @@ import { fetchTargetHtmlFromStore } from '../store/store.js';
 function replacePictureWithImg(html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('picture').forEach(picture => {
+  doc.querySelectorAll('picture').forEach((picture) => {
     const img = picture.querySelector('img');
     if (img) {
       const newImg = document.createElement('img');
-      Array.from(img.attributes).forEach(attr => {
+      Array.from(img.attributes).forEach((attr) => {
         newImg.setAttribute(attr.name, attr.value);
       });
       const wrapperP = document.createElement('p');
@@ -24,7 +24,7 @@ export function getDACompatibleHtml(html) {
   html = replacePictureWithImg(html);
   html = html.replaceAll('\n', '');
   html = html.replaceAll('"', "'");
-  html = html.replaceAll('alt= ','');
+  html = html.replaceAll("alt= ','");
   return html;
 }
 
@@ -39,7 +39,7 @@ export async function postData(url, html) {
       method: 'POST',
       headers: {
         Authorization: window.streamConfig.token,
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ data: wrappedHtml }),
     });
