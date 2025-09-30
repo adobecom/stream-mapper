@@ -24,6 +24,11 @@ function handleBackground(value, areaEl) {
     areaEl.innerHTML = value;
   }
 }
+function handleForegroundPhoto(value, areaEl) {
+  if (!areaEl) return;
+  areaEl.querySelectorAll('source').forEach((source) => source.srcset = value);
+  areaEl.querySelector('img').src = value;
+}
 
 function handlePhotoCredits(value, areaEl) {
   if (!value) return;
@@ -75,8 +80,17 @@ export default async function mapBlockContent(blockContent, figContent) {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
-        case 'background':
-          handleBackground(value, areaEl);
+        case 'split-background':
+          if (properties.isSplit) handleBackground(value, areaEl);
+          break;
+        case 'standard-background':
+          if (!properties.isSplit) handleBackground(value, areaEl);
+          break;
+        case 'split-photo':
+          if (properties.isSplit) handleForegroundPhoto(value, areaEl);
+          break;
+        case 'standard-photo':
+          if (!properties.isSplit) handleForegroundPhoto(value, areaEl);
           break;
         case 'actions':
           handleActionButtons(properties, value, areaEl);
