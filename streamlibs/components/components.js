@@ -19,13 +19,28 @@ function handleContainerComponent({ el, value, selector }) {
   return containerEl;
 }
 
-export function handleButtonComponent({ actionArea, buttonType, buttonText }) {
-  if (buttonType.toLowerCase().includes('accent')) {
+export function handleButtonComponent({
+  el,
+  actionArea,
+  buttonType,
+  buttonText,
+}) {
+  const btnType = buttonType.toLowerCase();
+  // Button type
+  if (btnType.includes('accent')) {
     actionArea.innerHTML += `<strong><a href='https://www.adobe.com'>${buttonText}</a></strong>`;
-  } else if (buttonType.toLowerCase().includes('outline')) {
+  } else if (btnType.includes('outline')) {
     actionArea.innerHTML += `<em><a href='https://www.adobe.com'>${buttonText}</a></em>`;
   } else {
     actionArea.innerHTML += `<a href='https://www.adobe.com'>${buttonText}</a>`;
+  }
+  // Button size
+  if (btnType.includes('xxl button')) {
+    el.classList.add('xxl-button');
+  } else if (btnType.includes('xl button')) {
+    el.classList.add('xl-button');
+  } else if (btnType.includes('l button')) {
+    el.classList.add('l-button');
   }
 }
 

@@ -24,16 +24,22 @@ function handleBackground(value, areaEl) {
     areaEl.innerHTML = value;
   }
 }
+function handleForegroundPhoto(value, areaEl) {
+  if (!areaEl) return;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
+  areaEl.querySelector('img').src = value;
+}
 
 function handlePhotoCredits(value, areaEl) {
   if (!value) return;
   areaEl.insertAdjacentHTML('afterend', value);
 }
 
-function handleActionButtons(configData, value, areaEl) {
+function handleActionButtons(el, configData, value, areaEl) {
   if (!value) return;
   if (configData.action1) {
     handleButtonComponent({
+      el,
       actionArea: areaEl,
       buttonType: configData.action1.btnType,
       buttonText: configData.action1.btnText,
@@ -41,6 +47,7 @@ function handleActionButtons(configData, value, areaEl) {
   }
   if (configData.action2) {
     handleButtonComponent({
+      el,
       actionArea: areaEl,
       buttonType: configData.action2.btnType,
       buttonText: configData.action2.btnText,
@@ -75,11 +82,20 @@ export default async function mapBlockContent(blockContent, figContent) {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
-        case 'background':
-          handleBackground(value, areaEl);
+        case 'split-background':
+          if (properties.isSplit) handleBackground(value, areaEl);
+          break;
+        case 'standard-background':
+          if (!properties.isSplit) handleBackground(value, areaEl);
+          break;
+        case 'split-photo':
+          if (properties.isSplit) handleForegroundPhoto(value, areaEl);
+          break;
+        case 'standard-photo':
+          if (!properties.isSplit) handleForegroundPhoto(value, areaEl);
           break;
         case 'actions':
-          handleActionButtons(properties, value, areaEl);
+          handleActionButtons(blockContent, properties, value, areaEl);
           break;
         case 'photoCredit':
           handlePhotoCredits(value, areaEl);
