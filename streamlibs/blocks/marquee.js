@@ -26,7 +26,7 @@ function handleBackground(value, areaEl) {
 }
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
-  areaEl.querySelectorAll('source').forEach((source) => source.srcset = value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value });
   areaEl.querySelector('img').src = value;
 }
 
