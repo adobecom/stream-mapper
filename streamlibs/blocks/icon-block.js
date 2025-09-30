@@ -20,7 +20,7 @@ export default async function mapBlockContent(blockContent, figContent) {
          });
          blockContent.querySelectorAll('.to-remove').forEach(el => el.remove());
     } catch (error) {
-        console.warn('Could not load marquee mapping:', error);
+        // Could not load icon-block mapping
     }
 }
 

@@ -40,21 +40,14 @@ async function createHTML(blockMapping, figmaUrl) {
 }
 
 async function processBlock(block, figmaUrl) {
-    if (!block.id || !block.path) {
-        return '';
-    }
-
-    console.log('Processing block with id:', block.id);
-
+    if (!block.id || !block.path) return '';
     const [doc, figContent] = await Promise.all([
         fetchContent(block.path),
         fetchBlockContent(block.figId, block.id, figmaUrl)
     ]);
-
     let blockContent = getHtml(doc, block.id, block.variant);
     figContent.details.properties.miloTag = block.tag;
     blockContent = mapFigmaContent(blockContent, block, figContent);
-    
     block.blockDomEl = blockContent;
     return blockContent || '';
 }

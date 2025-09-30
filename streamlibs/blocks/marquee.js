@@ -36,7 +36,7 @@ export default async function mapBlockContent(blockContent, figContent) {
          blockContent.querySelectorAll('.to-remove').forEach(el => el.remove());
          handleVariants(blockContent, properties);
     } catch (error) {
-        console.warn('Could not load marquee mapping:', error);
+        // Could not load marquee mapping
     }
 }
 

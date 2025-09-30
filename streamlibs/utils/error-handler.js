@@ -10,7 +10,6 @@ export function showErrorPage() {
 }
 
 export function handleError(error, context = '') {
-    console.error(`Error ${context}:`, error);
     showErrorPage();
 }
 

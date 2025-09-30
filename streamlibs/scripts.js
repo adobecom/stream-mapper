@@ -64,7 +64,6 @@ const miloLibs = setLibs(LIBS);
 (async function loadPage() {
   const { loadArea, setConfig } = await import(`${miloLibs}/utils/utils.js`);
   const config = setConfig({ ...CONFIG, miloLibs });
-  console.log(config);
   await loadArea();
   const metaTag = document.querySelector('meta[name="initiate-previewer"]');
   if (metaTag && metaTag.getAttribute('content') === 'off') return;
