@@ -49,7 +49,7 @@ function handleActionButtons(configData, value, areaEl) {
 }
 
 function handleVariants(blockContent, properties) {
-  if (properties?.isSplit === SETTING_SPLIT_HALF) blockContent.classList.add(VARIANT_SPLIT_HALF);
+  if (properties?.isSplit === SETTING_SPLIT_HALF) blockContent.classList.add(SETTING_SPLIT_HALF);
   if (properties?.isSplit === SETTING_SPLIT_THIRD) blockContent.classList.add(VARIANT_SPLIT_THIRD);
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.miloTag.toLowerCase().includes(SETTING_SM)) {

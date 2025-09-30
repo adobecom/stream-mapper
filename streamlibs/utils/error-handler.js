@@ -9,6 +9,7 @@ export function showErrorPage() {
       </div>`;
 }
 
+// eslint-disable-next-line no-unused-vars
 export function handleError(error, context = '') {
   showErrorPage();
 }
