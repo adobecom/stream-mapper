@@ -19,7 +19,12 @@ function handleContainerComponent({ el, value, selector }) {
   return containerEl;
 }
 
-export function handleButtonComponent({ el, actionArea, buttonType, buttonText }) {
+export function handleButtonComponent({
+  el,
+  actionArea,
+  buttonType,
+  buttonText,
+}) {
   const btnType = buttonType.toLowerCase();
   // Button type
   if (btnType.includes('accent')) {
