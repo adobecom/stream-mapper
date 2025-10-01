@@ -41,11 +41,11 @@ function handleAnchorFooterLink(blockContent, value) {
 
 function handleAnchorField(blockContent, value) {
   const div = document.createElement('div');
-  if(value.heading) div.innerHTML += `<h4>${value.heading}</h4>`;
-  if(value.text) div.innerHTML += `<p>${value.text}</p>`;
-  div.innerHTML += `<p><a href='#'>#Bookmark to section</a></p>`;
+  if (value.heading) div.innerHTML += `<h4>${value.heading}</h4>`;
+  if (value.text) div.innerHTML += `<p>${value.text}</p>`;
+  div.innerHTML += '<p><a href="#">#Bookmark to section</a></p>';
   const divOuter = document.createElement('div');
-  divOuter .append(div);
+  divOuter.append(div);
   blockContent.append(divOuter);
 }
 
@@ -93,7 +93,8 @@ export default async function mapBlockContent(blockContent, figContent) {
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
         case 'anchor-info':
-          const anchorFields = mappingConfig['selector'].split(',').map(field => field.trim());
+          const anchorFields = mappingConfig.selector.split(',').map((field) => field.trim());
+          // eslint-disable-next-line no-restricted-syntax
           for (const anchorField of anchorFields) {
             switch (anchorField) {
               case 'anchor-title':
@@ -106,19 +107,20 @@ export default async function mapBlockContent(blockContent, figContent) {
                 handleAnchorFooterLink(blockContent, properties[anchorField]);
                 break;
               default:
-                if (properties[anchorField]) handleAnchorField(blockContent, properties[anchorField]);
+                if (properties[anchorField]) {
+                  handleAnchorField(blockContent, properties[anchorField]);
+                }
                 break;
             }
           }
+          break;
         default:
           break;
       }
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(blockContent, properties);
-    console.log(blockContent);
   } catch (error) {
-    console.log(error);
     // Could not load anchor marquee mapping
   }
 }
