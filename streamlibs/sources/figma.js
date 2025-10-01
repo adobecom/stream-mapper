@@ -69,7 +69,7 @@ async function fetchBlockContent(figId, id, figmaUrl) {
 }
 
 async function mapFigmaContent(blockContent, block, figContent) {
-  const { default: mapBlockContent } = await import(`../blocks/${block.name}.js`);
+  const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
   await mapBlockContent(blockContent, figContent);
   return blockContent;
 }
