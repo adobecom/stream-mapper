@@ -31,9 +31,9 @@ export default async function mapBlockContent(blockContent, figContent) {
           if (value) handleBackground(value, areaEl);
           break;
         case 'media': {
-          const caption = properties.caption ? properties.caption : null;
-          if (value) handleMediaCaption(caption, areaEl);
-          break;
+            const caption = properties.caption ? properties.caption : null;
+            if (value) handleMediaCaption(caption, areaEl);
+            break;
           }
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
