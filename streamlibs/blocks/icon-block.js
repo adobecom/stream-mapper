@@ -5,7 +5,7 @@ import { safeJsonFetch } from '../utils/error-handler.js';
 function handleIconBlockBackground({ el, value, selector }) {
   // pass
 }
-export default async function mapBlockContent(blockContent, figContent) {
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {

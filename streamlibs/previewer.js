@@ -13,7 +13,6 @@ import {
   getLibs,
   getQueryParam,
   fixRelativeLinks,
-  wrapDivs,
   initializeTokens,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
@@ -29,7 +28,6 @@ async function initiatePreviewer() {
   });
   html = html.map((h) => h.outerHTML).join('');
   html = fixRelativeLinks(html);
-  html = wrapDivs(html);
   pushPreviewHtmlToStore(html);
   await startHTMLPainting();
   html = targetCompatibleHtml(html);

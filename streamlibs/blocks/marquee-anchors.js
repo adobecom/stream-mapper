@@ -1,20 +1,10 @@
-import { handleComponents, handleButtonComponent } from '../components/components.js';
+import {
+  handleComponents,
+  handleActionButtons,
+  handleBackground,
+} from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
-function handleBackground(value, areaEl) {
-  if (value.startsWith('http')) {
-    const img = document.createElement('img');
-    img.src = value;
-    const pic = document.createElement('picture');
-    const source = document.createElement('source');
-    source.srcset = value;
-    source.type = 'image/webp';
-    pic.append(...[source, img]);
-    areaEl.append(pic);
-  } else {
-    areaEl.innerHTML = value;
-  }
-}
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
   const pic = areaEl.querySelector('picture');
@@ -54,27 +44,7 @@ function handleVariants(blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
 }
 
-function handleActionButtons(el, configData, value, areaEl) {
-  if (!value) return;
-  if (configData.action1) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action1.btnType,
-      buttonText: configData.action1.btnText,
-    });
-  }
-  if (configData.action2) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action2.btnType,
-      buttonText: configData.action2.btnText,
-    });
-  }
-}
-
-export default async function mapBlockContent(blockContent, figContent) {
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {
@@ -92,7 +62,7 @@ export default async function mapBlockContent(blockContent, figContent) {
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
-        case 'anchor-info':
+        case 'anchor-info': {
           const anchorFields = mappingConfig.selector.split(',').map((field) => field.trim());
           // eslint-disable-next-line no-restricted-syntax
           for (const anchorField of anchorFields) {
@@ -114,6 +84,7 @@ export default async function mapBlockContent(blockContent, figContent) {
             }
           }
           break;
+        }
         default:
           break;
       }

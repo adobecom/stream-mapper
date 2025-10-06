@@ -23,29 +23,6 @@ export function fixRelativeLinks(html) {
   return html.replaceAll('./media', 'https://main--milo--adobecom.aem.page/media');
 }
 
-export function wrapDivs(htmlString) {
-  const container = document.createElement('div');
-  container.innerHTML = htmlString;
-  const children = Array.from(container.children);
-  const result = document.createElement('div');
-  let wrapper = null;
-  children.forEach((child) => {
-    const needsWrapper = child.tagName === 'DIV' && child.classList.length > 0;
-    if (needsWrapper) {
-      wrapper = wrapper || document.createElement('div');
-      wrapper.appendChild(child);
-    } else {
-      if (wrapper) {
-        result.appendChild(wrapper);
-        wrapper = null;
-      }
-      result.appendChild(child);
-    }
-  });
-  if (wrapper) result.appendChild(wrapper);
-  return result.innerHTML;
-}
-
 export async function getConfig() {
   const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
   return miloGetConfig();
