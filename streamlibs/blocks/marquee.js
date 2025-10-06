@@ -1,4 +1,8 @@
-import { handleComponents, handleButtonComponent } from '../components/components.js';
+import {
+  handleComponents,
+  handleActionButtons,
+  handleBackground,
+} from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
 const SETTING_SPLIT_HALF = 'half';
@@ -10,20 +14,6 @@ const SETTING_SM = '-sm';
 const VARIANT_LARGE = 'large';
 const VARIANT_SMALL = 'small';
 
-function handleBackground(value, areaEl) {
-  if (value.startsWith('http')) {
-    const img = document.createElement('img');
-    img.src = value;
-    const pic = document.createElement('picture');
-    const source = document.createElement('source');
-    source.srcset = value;
-    source.type = 'image/webp';
-    pic.append(...[source, img]);
-    areaEl.append(pic);
-  } else {
-    areaEl.innerHTML = value;
-  }
-}
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
@@ -33,26 +23,6 @@ function handleForegroundPhoto(value, areaEl) {
 function handlePhotoCredits(value, areaEl) {
   if (!value) return;
   areaEl.insertAdjacentHTML('afterend', value);
-}
-
-function handleActionButtons(el, configData, value, areaEl) {
-  if (!value) return;
-  if (configData.action1) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action1.btnType,
-      buttonText: configData.action1.btnText,
-    });
-  }
-  if (configData.action2) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action2.btnType,
-      buttonText: configData.action2.btnText,
-    });
-  }
 }
 
 function handleVariants(blockContent, properties) {

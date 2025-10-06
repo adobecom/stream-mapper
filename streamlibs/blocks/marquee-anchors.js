@@ -1,20 +1,10 @@
-import { handleComponents, handleButtonComponent } from '../components/components.js';
+import {
+  handleComponents,
+  handleActionButtons,
+  handleBackground,
+} from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
-function handleBackground(value, areaEl) {
-  if (value.startsWith('http')) {
-    const img = document.createElement('img');
-    img.src = value;
-    const pic = document.createElement('picture');
-    const source = document.createElement('source');
-    source.srcset = value;
-    source.type = 'image/webp';
-    pic.append(...[source, img]);
-    areaEl.append(pic);
-  } else {
-    areaEl.innerHTML = value;
-  }
-}
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
   const pic = areaEl.querySelector('picture');
@@ -52,26 +42,6 @@ function handleAnchorField(blockContent, value) {
 function handleVariants(blockContent, properties) {
   if (properties['anchor-background']) blockContent.classList.add('transparent');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-}
-
-function handleActionButtons(el, configData, value, areaEl) {
-  if (!value) return;
-  if (configData.action1) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action1.btnType,
-      buttonText: configData.action1.btnText,
-    });
-  }
-  if (configData.action2) {
-    handleButtonComponent({
-      el,
-      actionArea: areaEl,
-      buttonType: configData.action2.btnType,
-      buttonText: configData.action2.btnText,
-    });
-  }
 }
 
 export default async function mapBlockContent(blockContent, figContent) {

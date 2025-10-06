@@ -25,7 +25,7 @@ export function handleButtonComponent({
   buttonType,
   buttonText,
 }) {
-  const btnType = buttonType.toLowerCase();
+  const btnType = buttonType ? buttonType.toLowerCase() : '';
   // Button type
   if (btnType.includes('accent')) {
     actionArea.innerHTML += `<strong><a href='https://www.adobe.com'>${buttonText}</a></strong>`;
@@ -54,5 +54,63 @@ export function handleComponents(el, value, mappingConfig) {
       return handleContainerComponent({ el, selector: mappingConfig.selector, value });
     default:
       return null;
+  }
+}
+
+export function handleSpacer(el, spacer, position) {
+  if (!spacer) return;
+  let spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m ')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return;
+  el.classList.add(`${spacerClass}-spacing-${position}`);
+}
+
+export function handleActionButtons(el, configData, value, areaEl) {
+  if (!value) return;
+  if (configData.action1) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action1.btnType,
+      buttonText: configData.action1.text,
+    });
+  }
+  if (configData.action2) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action2.btnType,
+      buttonText: configData.action2.text,
+    });
+  }
+  if (configData.action3) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action2.btnType,
+      buttonText: configData.action2.text,
+    });
+  }
+}
+
+export function handleBackground(value, areaEl) {
+  if (value.startsWith('http')) {
+    const img = document.createElement('img');
+    img.src = value;
+    const pic = document.createElement('picture');
+    const source = document.createElement('source');
+    source.srcset = value;
+    source.type = 'image/webp';
+    pic.append(...[source, img]);
+    areaEl.append(pic);
+  } else {
+    areaEl.innerHTML = value;
   }
 }
