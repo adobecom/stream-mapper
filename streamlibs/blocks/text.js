@@ -3,6 +3,7 @@ import {
   handleSpacer,
   handleActionButtons,
   handleBackground,
+  handleAccentBar,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -12,13 +13,14 @@ function handleMediaCaption(caption, areaEl) {
   areaEl.closest('p').innerHTML += captionTxt;
 }
 
-function handleVariants(blockContent, properties) {
+function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
+  if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
 }
 
-export default async function mapBlockContent(blockContent, figContent) {
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {
@@ -43,8 +45,8 @@ export default async function mapBlockContent(blockContent, figContent) {
       }
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
-    handleVariants(blockContent, properties);
+    handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
-    // Could not load text mapping
+    console.log(error); // Could not load text mapping
   }
 }

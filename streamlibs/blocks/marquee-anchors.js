@@ -44,7 +44,7 @@ function handleVariants(blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
 }
 
-export default async function mapBlockContent(blockContent, figContent) {
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {

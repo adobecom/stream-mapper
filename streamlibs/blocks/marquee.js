@@ -42,7 +42,7 @@ function handleVariants(blockContent, properties) {
   }
 }
 
-export default async function mapBlockContent(blockContent, figContent) {
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {

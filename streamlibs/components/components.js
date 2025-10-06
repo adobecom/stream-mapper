@@ -1,3 +1,5 @@
+import { ACCENT_BARS } from '../utils/constants.js';
+
 function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
@@ -113,4 +115,13 @@ export function handleBackground(value, areaEl) {
   } else {
     areaEl.innerHTML = value;
   }
+}
+
+export function handleAccentBar(secEl, blockEl, accentType) {
+  if (!ACCENT_BARS[accentType]) return;
+  const accentBar = document.createElement('div');
+  accentBar.classList.add(...['text', 'accent-bar']);
+  accentBar.innerHTML += `<div>${ACCENT_BARS[accentType]}</div>`;
+  secEl.insertBefore(accentBar, blockEl.nextSibling);
+  debugger
 }
