@@ -59,7 +59,7 @@ export function handleComponents(el, value, mappingConfig) {
 
 export function handleSpacer(el, spacer, position) {
   if (!spacer) return;
-  let spacerName = spacer.toLowerCase().trim();
+  const spacerName = spacer.toLowerCase().trim();
   let spacerClass = '';
   if (spacerName.includes(' m ')) spacerClass = 'm';
   else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';

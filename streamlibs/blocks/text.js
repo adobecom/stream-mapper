@@ -30,10 +30,11 @@ export default async function mapBlockContent(blockContent, figContent) {
         case 'background':
           if (value) handleBackground(value, areaEl);
           break;
-        case 'media':
+        case 'media': {
           const caption = properties.caption ? properties.caption : null;
           if (value) handleMediaCaption(caption, areaEl);
           break;
+          }
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
@@ -44,6 +45,6 @@ export default async function mapBlockContent(blockContent, figContent) {
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(blockContent, properties);
   } catch (error) {
-    console.log(error); // Could not load text mapping
+    // Could not load text mapping
   }
 }
