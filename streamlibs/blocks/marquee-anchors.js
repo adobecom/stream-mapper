@@ -62,7 +62,7 @@ export default async function mapBlockContent(blockContent, figContent) {
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
-        case 'anchor-info':
+        case 'anchor-info': {
           const anchorFields = mappingConfig.selector.split(',').map((field) => field.trim());
           // eslint-disable-next-line no-restricted-syntax
           for (const anchorField of anchorFields) {
@@ -84,6 +84,7 @@ export default async function mapBlockContent(blockContent, figContent) {
             }
           }
           break;
+        }
         default:
           break;
       }
