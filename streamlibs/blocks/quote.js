@@ -13,7 +13,7 @@ function handleLayout(layout, blockEl) {
       break;
     case 'right':
       blockEl.classList.add('align-right');
-    break;
+      break;
     default:
       break;
   }
@@ -21,9 +21,10 @@ function handleLayout(layout, blockEl) {
 
 function handleVariants(blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
+  if (properties?.borders) blockContent.classList.add('borders'); 
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
-  if (properties?.gridSize) handleGridLayout(properties.gridSize, blockContent, 'desktop');
+  if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
   if (properties?.layout) handleLayout(properties.layout, blockContent);
 }
 

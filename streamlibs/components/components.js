@@ -137,8 +137,9 @@ export function handleAccentBar(secEl, blockEl, accentType) {
 }
 
 export function handleGridLayout(gridSize, blockEl, device) {
-  for (const size in gridSize) {
-    if (size in gridSize) {
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in GRID_SIZES) {
+    if (gridSize.includes(size)) {
       blockEl.classList.add(`${GRID_SIZES[size]}-${device}`);
       return;
     }
@@ -149,7 +150,7 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   if (!value || value.startsWith('#fff')) return;
   const sectionMetadata = document.createElement('div');
   sectionMetadata.classList.add('section-metadata');
-  sectionMetadata.innerHTML += `<div><div>background</div><div></div></div>`;
+  sectionMetadata.innerHTML += '<div><div>background</div><div></div></div>';
   const backgroundValue = sectionMetadata.querySelector(':scope > div > div:last-child');
   if (value.startsWith('http')) {
     const img = document.createElement('img');
@@ -161,7 +162,7 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
     pic.append(...[source, img]);
     backgroundValue.append(pic);
   } else {
-    backgroundValue.innerHTML = value
+    backgroundValue.innerHTML = value;
   }
   secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
 }

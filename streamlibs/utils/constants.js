@@ -5,11 +5,11 @@ export const ACCENT_BARS = {
   'Accent Bar / CC Video': '#99F',
   'Accent Bar / CC Illustration': '#FF9A00',
   'Accent Bar / CC 3D': '#99E83F',
-}
+};
 
 export const GRID_SIZES = {
-  '6': 'max-width-6',
-  '8': 'max-width-8',
-  '10': 'max-width-10',
-  '12': 'max-width-12',
-}
+  6: 'max-width-6',
+  8: 'max-width-8',
+  10: 'max-width-10',
+  12: 'max-width-12',
+};

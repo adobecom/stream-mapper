@@ -17,7 +17,9 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
-  if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  if (properties?.accentBar?.name) {
+    handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  }
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
