@@ -134,7 +134,6 @@ export function handleAccentBar(secEl, blockEl, accentType) {
   accentBar.classList.add(...['text', 'accent-bar']);
   accentBar.innerHTML += `<div>${ACCENT_BARS[accentType]}</div>`;
   secEl.insertBefore(accentBar, blockEl.nextSibling);
-  debugger
 }
 
 export function handleGridLayout(gridSize, blockEl, device) {
