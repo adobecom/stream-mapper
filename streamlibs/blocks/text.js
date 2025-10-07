@@ -47,6 +47,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
-    console.log(error); // Could not load text mapping
+    // Could not load text mapping
   }
 }

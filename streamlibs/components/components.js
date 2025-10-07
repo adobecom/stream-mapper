@@ -1,4 +1,7 @@
-import { ACCENT_BARS } from '../utils/constants.js';
+import {
+  ACCENT_BARS,
+  GRID_SIZES,
+} from '../utils/constants.js';
 
 function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
@@ -18,6 +21,12 @@ function handleContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
   if (!value) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
+  return containerEl;
+}
+
+function handleLogoContainerComponent({ el, value, selector }) {
+  const containerEl = el.querySelector(selector);
+  if (!value) return containerEl.classList.add('to-remove');
   return containerEl;
 }
 
@@ -54,6 +63,8 @@ export function handleComponents(el, value, mappingConfig) {
       return handleImageComponent({ el, selector: mappingConfig.selector, value });
     case 'container':
       return handleContainerComponent({ el, selector: mappingConfig.selector, value });
+    case 'logoContainer':
+      return handleLogoContainerComponent({ el, selector: mappingConfig.selector, value });
     default:
       return null;
   }
@@ -124,4 +135,34 @@ export function handleAccentBar(secEl, blockEl, accentType) {
   accentBar.innerHTML += `<div>${ACCENT_BARS[accentType]}</div>`;
   secEl.insertBefore(accentBar, blockEl.nextSibling);
   debugger
+}
+
+export function handleGridLayout(gridSize, blockEl, device) {
+  for (const size in gridSize) {
+    if (size in gridSize) {
+      blockEl.classList.add(`${GRID_SIZES[size]}-${device}`);
+      return;
+    }
+  }
+}
+
+export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
+  if (!value || value.startsWith('#fff')) return;
+  const sectionMetadata = document.createElement('div');
+  sectionMetadata.classList.add('section-metadata');
+  sectionMetadata.innerHTML += `<div><div>background</div><div></div></div>`;
+  const backgroundValue = sectionMetadata.querySelector(':scope > div > div:last-child');
+  if (value.startsWith('http')) {
+    const img = document.createElement('img');
+    img.src = value;
+    const pic = document.createElement('picture');
+    const source = document.createElement('source');
+    source.srcset = value;
+    source.type = 'image/png';
+    pic.append(...[source, img]);
+    backgroundValue.append(pic);
+  } else {
+    backgroundValue.innerHTML = value
+  }
+  secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
 }
