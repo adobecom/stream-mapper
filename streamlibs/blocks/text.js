@@ -4,7 +4,7 @@ import {
   handleActionButtons,
   handleBackground,
   handleAccentBar,
-  handleGridLayout
+  handleGridLayout,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
