@@ -27,10 +27,8 @@ const CONFIG = {
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
   streamMapper: {
-    // figmaMappingUrl: 'https://440859-genesis-dev.adobeio-static.net/api/v1/web/genesis-aio/fig-comps',
-    // figmaBlockContentUrl: 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details',
-    figmaMappingUrl: 'http://localhost:8080/api/fig-comps',
-    figmaBlockContentUrl: 'http://localhost:8080/api/fig-comp-details',
+    figmaMappingUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/api/v1/web/genesis-aio/fig-comps',
+    figmaBlockContentUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/genesis-aio/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
