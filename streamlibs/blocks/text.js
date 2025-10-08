@@ -17,7 +17,9 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
-  if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  if (properties?.accentBar?.name) {
+    handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  }
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
@@ -47,6 +49,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
-    console.log(error); // Could not load text mapping
+    // Could not load text mapping
   }
 }
