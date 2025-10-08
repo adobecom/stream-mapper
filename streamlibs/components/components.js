@@ -8,6 +8,10 @@ function handleTextComponent({ el, value, selector }) {
   if (!value) return textEl.classList.add('to-remove');
   textEl.innerHTML = '';
   const lines = value.split('\n');
+  if (lines.length === 1) {
+    textEl.innerHTML += value;
+    return textEl;
+  }
   lines.forEach((line) => {
     textEl.innerHTML += `<p>${line}</p>`;
   });
