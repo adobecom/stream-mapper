@@ -69,11 +69,15 @@ async function fetchBlockContent(figId, id, figmaUrl) {
 }
 
 async function mapFigmaContent(blockContent, block, figContent) {
-  const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
-  const sectionWrapper = document.createElement('div');
-  sectionWrapper.append(blockContent);
-  await mapBlockContent(sectionWrapper, blockContent, figContent);
-  return sectionWrapper;
+  try {
+    const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
+    const sectionWrapper = document.createElement('div');
+    sectionWrapper.append(blockContent);
+    await mapBlockContent(sectionWrapper, blockContent, figContent);
+    return sectionWrapper;
+  } catch (error) {
+    return '<div></div>';
+  }
 }
 
 async function processBlock(block, figmaUrl) {
