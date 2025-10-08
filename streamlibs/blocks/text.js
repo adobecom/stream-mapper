@@ -4,6 +4,7 @@ import {
   handleActionButtons,
   handleBackground,
   handleAccentBar,
+  handleGridLayout
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -17,6 +18,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
+  if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
   if (properties?.accentBar?.name) {
     handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
   }

@@ -6,7 +6,11 @@ import {
 function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
-  textEl.innerHTML = value;
+  textEl.innerHTML = '';
+  const lines = value.split('\n');
+  lines.forEach((line) => {
+    textEl.innerHTML += `<p>${line}</p>`;
+  });
   return textEl;
 }
 
