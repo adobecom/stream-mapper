@@ -117,8 +117,8 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action2.variant,
-      buttonText: configData.action2.text,
+      buttonType: configData.action3.variant,
+      buttonText: configData.action3.text,
     });
   }
 }
