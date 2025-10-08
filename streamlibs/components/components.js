@@ -49,6 +49,7 @@ export function handleButtonComponent({
   const btnType = buttonType ? buttonType.toLowerCase() : '';
 
   // Button type
+  // eslint-disable-next-line no-restricted-syntax
   for (const type in ACTION_BUTTONS_TYPES) {
     if (btnType.includes(type)) {
       actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('/buttonText/', buttonText);
@@ -56,6 +57,7 @@ export function handleButtonComponent({
   }
 
   // Button size
+  // eslint-disable-next-line no-restricted-syntax
   for (const size in ACTION_BUTTONS_SIZES) {
     if (btnType.includes(size)) {
       el.classList.add(ACTION_BUTTONS_SIZES[size]);
