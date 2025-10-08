@@ -1,6 +1,8 @@
 import {
   ACCENT_BARS,
   GRID_SIZES,
+  ACTION_BUTTONS_TYPES,
+  ACTION_BUTTONS_SIZES,
 } from '../utils/constants.js';
 
 function handleTextComponent({ el, value, selector }) {
@@ -45,21 +47,19 @@ export function handleButtonComponent({
   buttonText,
 }) {
   const btnType = buttonType ? buttonType.toLowerCase() : '';
+
   // Button type
-  if (btnType.includes('accent')) {
-    actionArea.innerHTML += `<strong><a href='https://www.adobe.com'>${buttonText}</a></strong>`;
-  } else if (btnType.includes('outline')) {
-    actionArea.innerHTML += `<em><a href='https://www.adobe.com'>${buttonText}</a></em>`;
-  } else {
-    actionArea.innerHTML += `<a href='https://www.adobe.com'>${buttonText}</a>`;
+  for (const type in ACTION_BUTTONS_TYPES) {
+    if (btnType.includes(type)) {
+      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('/buttonText/', buttonText);
+    }
   }
+
   // Button size
-  if (btnType.includes('xxl button')) {
-    el.classList.add('xxl-button');
-  } else if (btnType.includes('xl button')) {
-    el.classList.add('xl-button');
-  } else if (btnType.includes('l button')) {
-    el.classList.add('l-button');
+  for (const size in ACTION_BUTTONS_SIZES) {
+    if (btnType.includes(size)) {
+      el.classList.add(ACTION_BUTTONS_SIZES[size]);
+    }
   }
 }
 
@@ -99,7 +99,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action1.btnType,
+      buttonType: configData.action1.variant,
       buttonText: configData.action1.text,
     });
   }
@@ -107,7 +107,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action2.btnType,
+      buttonType: configData.action2.variant,
       buttonText: configData.action2.text,
     });
   }
@@ -115,7 +115,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action2.btnType,
+      buttonType: configData.action2.variant,
       buttonText: configData.action2.text,
     });
   }

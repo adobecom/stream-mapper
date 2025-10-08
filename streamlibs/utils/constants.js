@@ -13,3 +13,15 @@ export const GRID_SIZES = {
   10: 'max-width-10',
   12: 'max-width-12',
 };
+
+export const ACTION_BUTTONS_TYPES = {
+  accent: '<strong><a href="https://www.adobe.com">/buttonText/</a></strong>',
+  outline: '<em><a href="https://www.adobe.com">/buttonText/</a></em>',
+  text: '<a href="https://www.adobe.com">/buttonText/</a>',
+};
+
+export const ACTION_BUTTONS_SIZES = {
+  ' xxl button': 'xxl-button',
+  ' xl button': 'xl-button',
+  ' l button': 'l-button',
+};
