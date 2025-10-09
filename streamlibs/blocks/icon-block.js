@@ -21,7 +21,7 @@ function handleIconSize(blockContent, properties, tag, sizeKey) {
   if (properties?.miloTag?.includes(tag)) {
     let size = '';
     const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim();
-    if (sizeValue.includes(' m ')) size = 'm';
+    if (sizeValue.includes('m')) size = 'm';
     if (sizeValue.includes('l')) size = 'l';
     if (size) {
       blockContent?.classList.add(`${size}-icon`);
