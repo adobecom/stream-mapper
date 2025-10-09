@@ -24,6 +24,9 @@ function getHtml(resp, id, variant) {
   if (id === 'editorial-card') {
     return doc.querySelector('div');
   }
+  if (id === 'icon-block-cards') {
+    return doc.querySelectorAll('.icon-block')[variant];
+  }
   return doc.querySelectorAll(`.${id}`)[variant];
 }
 

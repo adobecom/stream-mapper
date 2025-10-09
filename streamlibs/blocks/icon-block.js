@@ -41,13 +41,24 @@ function handleVariants(sectionWrapper, blockContent, properties) {
 }
 
 function handleProductLockup(value, areaEl) {
+  if (!value) return;
+
   const anchorElement = areaEl.querySelector('a');
   const productName = value?.productTile?.name;
   const productLogo = LOGOS[productName];
 
-  if (productLogo && anchorElement) {
+  if (anchorElement && productLogo) {
     anchorElement.setAttribute('href', productLogo);
     anchorElement.textContent = productLogo;
+  } else {
+    const src = productLogo;
+    if (src) {
+      areaEl.querySelectorAll('source').forEach((source) => {
+        source.srcset = src;
+      });
+      const imgEl = areaEl.querySelector('img');
+      if (imgEl) imgEl.src = src;
+    }
   }
 }
 
@@ -61,16 +72,22 @@ export default async function mapBlockContent(
   sectionWrapper,
   blockContent,
   figContent,
+  mapConfig,
 ) {
   const properties = figContent?.details?.properties;
+  let mappingData = {};
   if (!properties) return;
   try {
-    let configJson = 'icon-block.json';
-    if (properties?.miloTag?.includes('bio')) {
-      configJson = 'icon-bio-block.json';
+    if (!mapConfig) {
+      let configJson = 'icon-block.json';
+      if (properties?.miloTag?.includes('bio')) {
+        configJson = 'icon-bio-block.json';
+      }
+      mappingData = await safeJsonFetch(configJson);
+    } else {
+      mappingData = mapConfig;
     }
-    const mappingData = await safeJsonFetch(configJson);
-    mappingData.data.forEach((mappingConfig) => {
+    mappingData?.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
