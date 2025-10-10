@@ -1,5 +1,5 @@
 import {
-  handleAccentBar, handleActionButtons, handleComponents,
+  handleAccentBar, handleActionButtons, handleBackgroundWithSectionMetadata, handleComponents,
   handleSpacer,
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
@@ -15,17 +15,19 @@ function handleAlign(blockContent, value) {
   if (value === 'center') {
     blockContent?.classList.add('center');
   }
+  if (value === 'horizontal') {
+    blockContent?.classList.add('inline');
+  }
 }
 
 function handleIconSize(blockContent, properties, tag, sizeKey) {
-  if (properties?.miloTag?.includes(tag)) {
-    let size = '';
-    const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim();
-    if (sizeValue.includes('m')) size = 'm';
-    if (sizeValue.includes('l')) size = 'l';
-    if (size) {
-      blockContent?.classList.add(`${size}-icon`);
-    }
+  let size = '';
+  const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim();
+  if (sizeValue.includes('m')) size = 'm';
+  if (sizeValue.includes('l')) size = 'm';
+  if (sizeValue.includes('xl')) size = 'l';
+  if (size) {
+    blockContent?.classList.add(`${size}-icon`);
   }
 }
 
@@ -36,7 +38,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.accentBar?.name) {
     handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
   }
-  if (properties?.miloTag?.includes('bio')) handleAlign(blockContent, properties.align);
+  handleAlign(blockContent, properties.align);
   handleIconSize(blockContent, properties, properties?.miloTag, properties?.miloTag?.includes('bio') ? 'bioDetails' : 'productLockup');
 }
 
@@ -99,6 +101,9 @@ export default async function mapBlockContent(
           break;
         case 'bio':
           handleAvatar(value, areaEl);
+          break;
+        case 'background':
+          handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, value);
           break;
         default:
           break;

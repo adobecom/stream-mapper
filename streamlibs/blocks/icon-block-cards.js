@@ -1,3 +1,4 @@
+import { handleBackgroundWithSectionMetadata } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { extractByPattern } from '../utils/utils.js';
 import mapIconBlockContent from './icon-block.js';
@@ -56,17 +57,16 @@ function handleGrid(acc) {
   return acc;
 }
 
-function handlePositioning(acc) {
-  const { properties, finalArray } = acc;
+function handlePositioning(properties) {
   const positioningHorizontal = extractByPattern(properties?.miloTag, 'hz');
   const positionCenter = extractByPattern(properties?.miloTag, 'ctr');
   if (positioningHorizontal?.raw) {
-    finalArray.push('inline');
+    return 'horizontal';
   }
   if (positionCenter?.raw) {
-    finalArray.push('center');
+    return 'center';
   }
-  return acc;
+  return '';
 }
 
 function handleSectionMetadata(sectionWrapper, properties) {
@@ -79,7 +79,6 @@ function handleSectionMetadata(sectionWrapper, properties) {
     handleUps,
     handleSpacers,
     handleGrid,
-    handlePositioning,
   )({ finalArray: [], properties });
   const attributeDiv = document.createElement('div');
   attributeDiv.textContent = attributes.finalArray.join(', ');
@@ -100,27 +99,25 @@ export default async function mapBlockContent(
     const configJson = 'icon-card-block.json';
     const mappingData = await safeJsonFetch(configJson);
 
-    // Create multiple icon blocks
-    const numberOfBlocks = properties?.blocks?.length || 3; // Default to 3 blocks if not specified
+    const numberOfBlocks = properties?.blocks?.length;
 
-    // Create multiple copies of blockContent before looping
     const blockCopies = [];
     for (let i = 0; i < numberOfBlocks; i += 1) {
       const blockCopy = blockContent.cloneNode(true);
       blockCopies.push(blockCopy);
     }
-    // Check if sectionWrapper has a div with the class 'icon-block'
     const existingIconBlock = sectionWrapper.querySelector('div.icon-block');
     if (existingIconBlock) {
       existingIconBlock.classList.add('to-remove');
     }
 
-    // Map content for each blockCopy
+    const align = handlePositioning(properties);
+
     const iconBlockPromises = blockCopies
       .map((blockCopy, index) => mapIconBlockContent(
         sectionWrapper,
         blockCopy,
-        { details: { properties: properties?.blocks[index] } },
+        { details: { properties: { ...properties?.blocks[index], align } } },
         mappingData,
       ));
 
@@ -134,6 +131,7 @@ export default async function mapBlockContent(
 
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleSectionMetadata(sectionWrapper, properties);
+    handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties?.background);
   } catch (error) {
     console.log('saurabh', error);
   }
