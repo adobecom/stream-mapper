@@ -133,6 +133,6 @@ export default async function mapBlockContent(
     handleSectionMetadata(sectionWrapper, properties);
     handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties?.background);
   } catch (error) {
-    console.log('saurabh', error);
+    // Could not load icon-block mapping
   }
 }
