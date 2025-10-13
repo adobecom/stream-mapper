@@ -7,9 +7,10 @@ import { safeJsonFetch } from '../utils/error-handler.js';
 
 const CONTAINED_CLASS = 'contained';
 
-function handleRows(cols, colTemplate) {
+function handleRows(cols, colTemplate, isEnabled, properties) {
   const rowEl = colTemplate.parentNode;
-  cols.forEach((col) => {
+  cols.forEach((col, idx) => {
+    if (!properties[isEnabled[idx]]) return;
     const colEl = colTemplate.cloneNode(true);
     handleTextComponent({el: colEl, value: col.heading, selector: 'h3'});
     handleTextComponent({el: colEl, value: col.body, selector: 'p'});
@@ -32,9 +33,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
-        case 'rows':
-          const colTemplate = blockContent.querySelector(mappingConfig.selector);
-          handleRows(value, colTemplate, areaEl, sectionWrapper);
+        case 'colEnabled':
+          const isEnabled = mappingConfig.selector.split(',').map((col) => col.trim());
+          const colTemplate = blockContent.querySelector(':scope > div:last-child > div');
+          handleRows(properties["rows"], colTemplate, isEnabled, properties);
           break;
         case 'background':
           handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, value);
