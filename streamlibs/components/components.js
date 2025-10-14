@@ -117,8 +117,8 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action2.variant,
-      buttonText: configData.action2.text,
+      buttonType: configData.action3.variant,
+      buttonText: configData.action3.text,
     });
   }
 }
@@ -185,10 +185,15 @@ export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   if (!value || value.startsWith('#fff')) return;
-  const sectionMetadata = document.createElement('div');
-  sectionMetadata.classList.add('section-metadata');
+  let sectionMetadata = document.createElement('div');
+  if (secEl.querySelector('.section-metadata')) {
+    sectionMetadata = secEl.querySelector('.section-metadata');
+  } else {
+    sectionMetadata.classList.add('section-metadata');
+  }
   sectionMetadata.innerHTML += '<div><div>background</div><div></div></div>';
-  const backgroundValue = sectionMetadata.querySelector(':scope > div > div:last-child');
+
+  const backgroundValue = sectionMetadata.querySelector(':scope > div:last-child > div:last-child');
   if (value.startsWith('http')) {
     const img = document.createElement('img');
     img.src = value;

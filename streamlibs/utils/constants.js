@@ -16,6 +16,7 @@ export const GRID_SIZES = {
 
 export const ACTION_BUTTONS_TYPES = {
   accent: '<strong><a href="https://www.adobe.com">/buttonText/</a></strong>',
+  primary: '<strong><a class="fill" href="https://www.adobe.com">/buttonText/</a></strong>',
   outline: '<em><a href="https://www.adobe.com">/buttonText/</a></em>',
   text: '<a href="https://www.adobe.com">/buttonText/</a>',
 };
@@ -24,4 +25,8 @@ export const ACTION_BUTTONS_SIZES = {
   ' xxl button': 'xxl-button',
   ' xl button': 'xl-button',
   ' l button': 'l-button',
+};
+
+export const LOGOS = {
+  B_app_ExperienceCloud: 'https://cdn.experience.adobe.net/assets/HeroIcons.6620f5dc.svg#AdobeExperienceCloud',
 };
