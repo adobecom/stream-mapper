@@ -161,7 +161,7 @@ export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
   sectionMetadata.classList.add('section-metadata');
   sectionMetadata.innerHTML += '<div><div>style</div><div></div></div>';
   const styleLoc = sectionMetadata.querySelector(':scope > div > div:first-child');
-  switch(value) {
+  switch (value) {
     case 1:
       styleLoc.innerHTML += 'one-up';
       break;
@@ -173,11 +173,12 @@ export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
       break;
     case 4:
       styleLoc.innerHTML += 'four-up';
+      break;
     case 5:
       styleLoc.innerHTML += 'five-up';
       break;
     default:
-      break
+      break;
   }
   secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
 }
