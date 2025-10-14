@@ -27,8 +27,8 @@ const CONFIG = {
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
   streamMapper: {
-    figmaMappingUrl: 'http://localhost:8080/api/fig-comps',
-    figmaBlockContentUrl: 'http://localhost:8080/api/fig-comp-details',
+    figmaMappingUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/api/fig-comps',
+    figmaBlockContentUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/api/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
