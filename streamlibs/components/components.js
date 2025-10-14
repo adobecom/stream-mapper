@@ -5,7 +5,7 @@ import {
   ACTION_BUTTONS_SIZES,
 } from '../utils/constants.js';
 
-function handleTextComponent({ el, value, selector }) {
+export function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
   textEl.innerHTML = '';
@@ -154,6 +154,33 @@ export function handleGridLayout(gridSize, blockEl, device) {
       return;
     }
   }
+}
+
+export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
+  const sectionMetadata = document.createElement('div');
+  sectionMetadata.classList.add('section-metadata');
+  sectionMetadata.innerHTML += '<div><div>style</div><div></div></div>';
+  const styleLoc = sectionMetadata.querySelector(':scope > div > div:first-child');
+  switch (value) {
+    case 1:
+      styleLoc.innerHTML += 'one-up';
+      break;
+    case 2:
+      styleLoc.innerHTML += 'two-up';
+      break;
+    case 3:
+      styleLoc.innerHTML += 'three-up';
+      break;
+    case 4:
+      styleLoc.innerHTML += 'four-up';
+      break;
+    case 5:
+      styleLoc.innerHTML += 'five-up';
+      break;
+    default:
+      break;
+  }
+  secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
