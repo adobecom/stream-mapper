@@ -2,7 +2,9 @@ const CONTAINED_CLASS = 'contained';
 
 function handleVariants(blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.miloTag.toLowerCase().includes(CONTAINED_CLASS)) blockContent.classList.add(CONTAINED_CLASS);
+  if (properties?.miloTag.toLowerCase().includes(CONTAINED_CLASS)) {
+    blockContent.classList.add(CONTAINED_CLASS);
+  }
 }
 
 function handleColumns(hasCols, cols, rowDiv) {
@@ -19,8 +21,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {
-    const hasRows = properties.hasRows;
-    const hasCols = properties.hasCols;
+    const { hasRows, hasCols } = properties;
     if (properties.hasRowHeader) {
       const rowDiv = document.createElement('div');
       blockContent.appendChild(rowDiv);
