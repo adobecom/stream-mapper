@@ -10,7 +10,7 @@ const CONTAINED_CLASS = 'contained';
 function handleRows(cols, colTemplate, isEnabled, properties) {
   const rowEl = colTemplate.parentNode;
   cols.forEach((col, idx) => {
-    if (!properties[isEnabled[idx]]) return;
+    if (!properties.hasCols[idx]) return;
     const colEl = colTemplate.cloneNode(true);
     handleTextComponent({el: colEl, value: col.heading, selector: 'h3'});
     handleTextComponent({el: colEl, value: col.body, selector: 'p'});
