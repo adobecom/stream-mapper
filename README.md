@@ -1,5 +1,5 @@
 # Stream block mapper...
 
 ## Environments
-- Preview: https://main--stream-mapper--adobecom.aem.page/
-- Live: https://main--stream-mapper--adobecom.aem.live/
+- Preview URL: https://main--stream-mapper--adobecom.aem.page/
+- Live URL: https://main--stream-mapper--adobecom.aem.live/

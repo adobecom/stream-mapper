@@ -15,49 +15,44 @@ export const [setLibs, getLibs] = (() => {
 })();
 
 export function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param);
 }
 
 export function fixRelativeLinks(html) {
-    return html.replaceAll("./media", "https://main--milo--adobecom.aem.page/media");
-}
-
-export function wrapDivs(htmlString) {
-    const container = document.createElement('div');
-    container.innerHTML = htmlString;
-    const children = Array.from(container.children);
-    const result = document.createElement('div');
-    let wrapper = null;
-    children.forEach(child => {
-        const needsWrapper = child.tagName === 'DIV' && child.classList.length > 0;
-        if (needsWrapper) {
-            wrapper = wrapper || document.createElement('div');
-            wrapper.appendChild(child);
-        } else {
-            if (wrapper) {
-                result.appendChild(wrapper);
-                wrapper = null;
-            }
-            result.appendChild(child);
-        }
-    });
-    if (wrapper) result.appendChild(wrapper);
-    return result.innerHTML;
+  return html.replaceAll('./media', 'https://main--milo--adobecom.aem.page/media');
 }
 
 export async function getConfig() {
-    const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
-    return miloGetConfig();
+  const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
+  return miloGetConfig();
 }
 
 export async function getIdNameMap() {
-    const config = await getConfig();
-    return config.streamMapper.idNameMap || {};
+  const config = await getConfig();
+  return config.streamMapper.idNameMap || {};
 }
 
 export async function initializeTokens(token) {
-    const config = await getConfig();
-    config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
-    config.streamMapper.daToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
+  const config = await getConfig();
+  config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  config.streamMapper.daToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+}
+
+export function extractByPattern(tag, pattern) {
+  const parts = tag.split('-');
+  const match = parts.find((p) => (pattern instanceof RegExp
+    ? pattern.test(p) : p.includes(pattern)));
+  if (!match) return null;
+  const numMatch = match.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
+  if (numMatch) {
+    const [, prefix, number, suffix] = numMatch;
+    return {
+      raw: match,
+      prefix: prefix || null,
+      number: number ? parseInt(number, 10) : null,
+      suffix: suffix || null,
+    };
+  }
+  return { raw: match };
 }
