@@ -1,10 +1,22 @@
 import { handleActionButtons, handleComponents } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
+import { extractByPattern } from '../utils/utils.js';
 
 function handleForegroundImage(value, areaEl) {
   if (!value) return;
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
   areaEl.querySelector('img').src = value;
+}
+
+function handleCompact(sectionWrapper, blockContent, properties) {
+  const compact = extractByPattern(properties?.miloTag, 'compact');
+  if (compact?.raw) {
+    blockContent?.classList.add('medium-compact');
+  }
+}
+
+function handleVariants(sectionWrapper, blockContent, properties) {
+  handleCompact(blockContent, properties);
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
@@ -28,6 +40,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
       }
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
+    handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
     // Could not load media block
 
