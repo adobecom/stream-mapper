@@ -21,19 +21,6 @@ async function fetchFigmaMapping(figmaUrl) {
 const SPECIAL_OVERRIDES = {
   'editorial-card': ({ doc }) => doc.querySelector('div'),
   'icon-block-cards': ({ doc, variant }) => doc.querySelectorAll('.icon-block')[variant],
-  media: ({
-    doc, id, variant, figContent,
-  }) => {
-    const properties = figContent?.details?.properties;
-    if (properties) {
-      if (properties?.layout === 'image - copy') {
-        return doc.querySelectorAll(`.${id}`)[1];
-      }
-      return doc.querySelectorAll(`.${id}`)[0];
-    }
-    return doc.querySelector(`.${id}`)[variant];
-  },
-
 };
 
 function getHtml(resp, id, variant, figContent) {
