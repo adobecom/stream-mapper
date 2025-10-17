@@ -94,6 +94,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     handleVariants(blockContent, properties);
     handleSwap(blockContent, properties);
   } catch (error) {
-    // Could not load media
+    // Could not load media block
   }
 }
