@@ -56,3 +56,15 @@ export function extractByPattern(tag, pattern) {
   }
   return { raw: match };
 }
+
+export function divSwap(blockContent, divSelector, divSelector2) {
+  const div1 = blockContent.querySelector(divSelector);
+  const div2 = blockContent.querySelector(divSelector2);
+
+  if (!div1 || !div2) return;
+
+  const placeholder = document.createElement('div');
+  div1.replaceWith(placeholder);
+  div2.replaceWith(div1);
+  placeholder.replaceWith(div2);
+}
