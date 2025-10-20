@@ -117,8 +117,8 @@ export function handleActionButtons(el, configData, value, areaEl) {
     handleButtonComponent({
       el,
       actionArea: areaEl,
-      buttonType: configData.action2.variant,
-      buttonText: configData.action2.text,
+      buttonType: configData.action3.variant,
+      buttonText: configData.action3.text,
     });
   }
 }
@@ -189,11 +189,29 @@ export function addOrUpdateSectionMetadata(secEl, blockEl, property) {
 
 export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
   if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
   if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
   if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
   if (/5\s*up/i.test(value)) styleLoc.innerHTML += 'five-up';
   if (/6\s*up/i.test(value)) styleLoc.innerHTML += 'six-up';
+}
+
+export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
+  if (!spacer) return;
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  const spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m ')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return;
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {

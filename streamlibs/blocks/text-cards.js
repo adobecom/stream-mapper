@@ -1,8 +1,7 @@
 import {
   handleComponents,
-  handleSpacer,
+  handleSpacerWithSectionMetadata,
   handleActionButtons,
-  handleBackground,
   handleUpsWithSectionMetadata,
   handleBackgroundWithSectionMetadata,
   handleGridLayout,
@@ -11,8 +10,8 @@ import { safeJsonFetch } from '../utils/error-handler.js';
 
 function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
-  if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
+  if (properties?.topSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.topSpacer.name, 'top');
+  if (properties?.bottomSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.bottomSpacer.name, 'bottom');
   if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
 }
 
@@ -22,7 +21,6 @@ function handleListItems(blockTemplate, block, listItems, areaEl) {
     liTag.innerHTML = listItem;
     areaEl.appendChild(liTag);
   });
-  debugger
   if (!block.hasBullets) blockTemplate.classList.add('unstyled-list');
 }
 
@@ -53,7 +51,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.classList.add('to-remove');
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase());
-    if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase());
+    if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
     console.log(error); // Could not load text mapping
