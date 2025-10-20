@@ -113,6 +113,6 @@ export default async function mapBlockContent(
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
-    // Could not load icon-block mapping
+    console.log(error); // Could not load icon-block mapping
   }
 }

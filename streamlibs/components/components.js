@@ -156,44 +156,67 @@ export function handleGridLayout(gridSize, blockEl, device) {
   }
 }
 
-export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
-  const sectionMetadata = document.createElement('div');
-  sectionMetadata.classList.add('section-metadata');
-  sectionMetadata.innerHTML += '<div><div>style</div><div></div></div>';
-  const styleLoc = sectionMetadata.querySelector(':scope > div > div:first-child');
-  switch (value) {
-    case 1:
-      styleLoc.innerHTML += 'one-up';
-      break;
-    case 2:
-      styleLoc.innerHTML += 'two-up';
-      break;
-    case 3:
-      styleLoc.innerHTML += 'three-up';
-      break;
-    case 4:
-      styleLoc.innerHTML += 'four-up';
-      break;
-    case 5:
-      styleLoc.innerHTML += 'five-up';
-      break;
-    default:
-      break;
+export function addOrUpdateSectionMetadata(secEl, blockEl, property) {
+  // Check if section-metadata already exists
+  let sectionMetadata = secEl.querySelector(':scope > .section-metadata');
+  
+  // If not, create and insert it
+  if (!sectionMetadata) {
+    sectionMetadata = document.createElement('div');
+    sectionMetadata.classList.add('section-metadata');
+    secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
   }
-  secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
+  
+  // Check if property row already exists
+  const rows = sectionMetadata.querySelectorAll(':scope > div');
+  let propertyRow = null;
+  
+  rows.forEach((row) => {
+    const propertyName = row.querySelector(':scope > div:first-child');
+    if (propertyName && propertyName.textContent.trim() === property) {
+      propertyRow = row;
+    }
+  });
+  
+  // If property row doesn't exist, create it
+  if (!propertyRow) {
+    propertyRow = document.createElement('div');
+    propertyRow.innerHTML = `<div>${property}</div><div></div>`;
+    sectionMetadata.appendChild(propertyRow);
+  }
+  return propertyRow.querySelector(':scope > div:nth-child(2)');
+}
+
+export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
+  if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
+  if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
+  if (/5\s*up/i.test(value)) styleLoc.innerHTML += 'five-up';
+  if (/6\s*up/i.test(value)) styleLoc.innerHTML += 'six-up';
+}
+
+export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
+  if (!spacer) return;
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  const spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m ')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return;
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   if (!value || value.startsWith('#fff')) return;
-  let sectionMetadata = document.createElement('div');
-  if (secEl.querySelector('.section-metadata')) {
-    sectionMetadata = secEl.querySelector('.section-metadata');
-  } else {
-    sectionMetadata.classList.add('section-metadata');
-  }
-  sectionMetadata.innerHTML += '<div><div>background</div><div></div></div>';
-
-  const backgroundValue = sectionMetadata.querySelector(':scope > div:last-child > div:last-child');
+  const backgroundValue = addOrUpdateSectionMetadata(secEl, blockEl, 'background');
   if (value.startsWith('http')) {
     const img = document.createElement('img');
     img.src = value;
@@ -206,5 +229,4 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   } else {
     backgroundValue.innerHTML = value;
   }
-  secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
 }
