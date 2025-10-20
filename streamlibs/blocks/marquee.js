@@ -77,6 +77,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(blockContent, properties);
   } catch (error) {
-    // Could not load marquee mapping
+    console.log(error); // Could not load marquee mapping
   }
 }

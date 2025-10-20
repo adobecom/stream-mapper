@@ -24,6 +24,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
-    // Could not load icon-block mapping
+    console.log(error); // Could not load icon-block mapping
   }
 }
