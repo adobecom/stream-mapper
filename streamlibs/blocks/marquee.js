@@ -2,6 +2,7 @@ import {
   handleComponents,
   handleActionButtons,
   handleBackground,
+  handleProductLockup,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -68,7 +69,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
         case 'photoCredit':
-          handlePhotoCredits(value, areaEl);
+          if (value) handlePhotoCredits(value, areaEl);
+          break;
+        case 'productLockup':
+          handleProductLockup(value, areaEl);
           break;
         default:
           break;

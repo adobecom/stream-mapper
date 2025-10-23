@@ -32,9 +32,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
         const areaEl = handleComponents(blockTemplate, value, mappingConfig);
         switch (mappingConfig.key) {
           case 'image':
-            if (areaEl) {
-              replaceImage(blockTemplate.querySelector('picture'), value);
-            }
+            if (areaEl) replaceImage(blockTemplate.querySelector('picture'), value);
             break;
           default:
             break;

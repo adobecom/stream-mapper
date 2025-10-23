@@ -3,6 +3,7 @@ import {
   GRID_SIZES,
   ACTION_BUTTONS_TYPES,
   ACTION_BUTTONS_SIZES,
+  LOGOS,
 } from '../utils/constants.js';
 
 export function handleTextComponent({ el, value, selector }) {
@@ -88,7 +89,7 @@ export function handleSpacer(el, spacer, position) {
   else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
   else if (spacerName.includes('xxl')) spacerClass = 'xxl';
   else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' l')) spacerClass = 'l';
   else if (spacerName.includes(' xs ')) spacerClass = 'xs';
   else if (spacerName.includes(' s ')) spacerClass = 's';
   if (!spacerClass) return;
@@ -212,7 +213,7 @@ export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position
   else if (spacerName.includes(' xs ')) spacerClass = 'xs';
   else if (spacerName.includes(' s ')) spacerClass = 's';
   if (!spacerClass) return;
-  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
   styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
 }
 
@@ -237,4 +238,16 @@ export function replaceImage(pic, src) {
   if (!pic || !src) return;
   pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
   pic.querySelector('img').src = src;
+}
+
+export function handleProductLockup(value, areaEl) {
+  if (!value) return;
+  if (Array.isArray(value)) value = value[0];
+  const tileName = value?.productTile?.name || 'placeholder';
+  const a = document.createElement('a');
+  a.href = LOGOS[tileName] || LOGOS['placeholder'];
+  a.innerText = a.href;
+  areaEl.append(a);
+  const productName = value.productName;
+  if (productName) areaEl.innerHTML += productName;
 }
