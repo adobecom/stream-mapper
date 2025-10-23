@@ -187,9 +187,15 @@ export function addOrUpdateSectionMetadata(secEl, blockEl, property) {
   return propertyRow.querySelector(':scope > div:nth-child(2)');
 }
 
+export function handleColorThemeWithSectionMetadata(secEl, blockEl, value) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
+  styleLoc.innerHTML += value;
+}
+
 export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
-  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
   if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
   if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
   if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
@@ -202,7 +208,7 @@ export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   const spacerName = spacer.toLowerCase().trim();
   let spacerClass = '';
-  if (spacerName.includes(' m ')) spacerClass = 'm';
+  if (spacerName.includes(' m')) spacerClass = 'm';
   else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
   else if (spacerName.includes('xxl')) spacerClass = 'xxl';
   else if (spacerName.includes(' xl ')) spacerClass = 'xl';
@@ -229,4 +235,10 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   } else {
     backgroundValue.innerHTML = value;
   }
+}
+
+export function replaceImage(pic, src) {
+  if (!pic || !src) return;
+  pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
+  pic.querySelector('img').src = src;
 }
