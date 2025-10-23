@@ -4,7 +4,6 @@ import {
   ACTION_BUTTONS_TYPES,
   ACTION_BUTTONS_SIZES,
   LOGOS,
-  DEFAULT_TMP_URL,
 } from '../utils/constants.js';
 
 export function handleTextComponent({ el, value, selector }) {
@@ -250,7 +249,7 @@ export function handleGridLayoutWithSectionMetadata(secEl, blockEl, gridSize, de
 }
 
 export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
-  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');debugger
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   styleLoc.innerHTML += `, ${variant}`;
 }
 
@@ -265,12 +264,13 @@ export function handleProductLockup(value, areaEl) {
     areaEl.classList.add('to-remove');
     return;
   }
+  // eslint-disable-next-line prefer-destructuring, no-param-reassign
   if (Array.isArray(value)) value = value[0];
   const tileName = value?.productTile?.name || 'placeholder';
   const a = document.createElement('a');
-  a.href = LOGOS[tileName] || LOGOS['placeholder'];
+  a.href = LOGOS[tileName] || LOGOS.placeholder;
   a.innerText = a.href;
   areaEl.append(a);
-  const productName = value.productName;
+  const { productName } = value;
   if (productName) areaEl.innerHTML += productName;
 }

@@ -17,13 +17,13 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.bottomSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.bottomSpacer.name, 'bottom');
 }
 
-
 export function handleProductIcon(value, areaEl) {
   if (!value) return;
+  // eslint-disable-next-line prefer-destructuring, no-param-reassign
   if (Array.isArray(value)) value = value[0];
   const tileName = value?.name || 'placeholder';
   const a = areaEl.querySelector('a');
-  a.href = LOGOS[tileName] || LOGOS['placeholder'];
+  a.href = LOGOS[tileName] || LOGOS.placeholder;
   a.innerText = a.href;
 }
 

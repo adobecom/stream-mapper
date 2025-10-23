@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import {
   handleBackground,
   handleComponents,
@@ -8,7 +9,6 @@ import {
   handleGridLayoutWithSectionMetadata,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
-import { LOGOS } from '../utils/constants.js';
 
 function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) handleColorThemeWithSectionMetadata(sectionWrapper, blockContent, properties.colorTheme);

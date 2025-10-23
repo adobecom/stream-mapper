@@ -41,7 +41,7 @@ function handleAnchorField(blockContent, value) {
 }
 
 function handleVariants(blockContent, properties) {
-  if (properties['anchorBackground']) blockContent.classList.add('transparent');
+  if (properties.anchorBackground) blockContent.classList.add('transparent');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
 }
 
