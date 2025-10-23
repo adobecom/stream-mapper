@@ -1,3 +1,5 @@
+export const DEFAULT_TMP_URL = 'https://main--stream-mapper--adobecom.aem.live/stream';
+
 export const ACCENT_BARS = {
   'Accent Bar / CC Gradient': 'linear-gradient(90deg, #FA0F00 0%, #E9740A 15.42%, #FFCE2E 39.44%, #009C3B 67.99%, #2799F6 85.76%, #6349E0 95.42%, #9999FC 100%)',
   'Accent Bar / CC Photo': '#31A8FF',
@@ -15,10 +17,10 @@ export const GRID_SIZES = {
 };
 
 export const ACTION_BUTTONS_TYPES = {
-  accent: '<strong><a href="https://www.adobe.com">/buttonText/</a></strong>',
-  primary: '<strong><a class="fill" href="https://www.adobe.com">/buttonText/</a></strong>',
-  outline: '<em><a href="https://www.adobe.com">/buttonText/</a></em>',
-  text: '<a href="https://www.adobe.com">/buttonText/</a>',
+  accent: `<strong><a href="${DEFAULT_TMP_URL}">/buttonText/</a></strong>`,
+  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}">/buttonText/</a></strong>`,
+  outline: `<em><a href="${DEFAULT_TMP_URL}">/buttonText/</a></em>`,
+  text: `<a href="${DEFAULT_TMP_URL}">/buttonText/</a>`,
 };
 
 export const ACTION_BUTTONS_SIZES = {

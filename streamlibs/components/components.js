@@ -4,6 +4,7 @@ import {
   ACTION_BUTTONS_TYPES,
   ACTION_BUTTONS_SIZES,
   LOGOS,
+  DEFAULT_TMP_URL,
 } from '../utils/constants.js';
 
 export function handleTextComponent({ el, value, selector }) {

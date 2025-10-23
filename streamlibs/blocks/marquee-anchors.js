@@ -4,6 +4,7 @@ import {
   handleBackground,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
+import { DEFAULT_TMP_URL } from '../utils/constants.js';
 
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
@@ -26,7 +27,7 @@ function handleAnchorFooter(blockContent, value) {
 
 function handleAnchorFooterLink(blockContent, value) {
   const lastDiv = blockContent.querySelector(':scope > div:last-child > div');
-  lastDiv.innerHTML += ` <a href='https://www.adobe.com'>${value}</a>`;
+  lastDiv.innerHTML += ` <a href=${DEFAULT_TMP_URL}>${value}</a>`;
 }
 
 function handleAnchorField(blockContent, value) {
