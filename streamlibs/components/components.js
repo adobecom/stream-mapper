@@ -25,6 +25,7 @@ export function handleTextComponent({ el, value, selector }) {
 function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
   if (!value) return picEl.classList.add('to-remove');
+  // picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
   picEl.querySelector('img').src = value;
   return picEl;
 }
@@ -249,8 +250,7 @@ export function handleGridLayoutWithSectionMetadata(secEl, blockEl, gridSize, de
 }
 
 export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
-  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
-  debugger
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');debugger
   styleLoc.innerHTML += `, ${variant}`;
 }
 

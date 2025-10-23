@@ -5,7 +5,6 @@ import {
   handleSpacerWithSectionMetadata,
   handleUpsWithSectionMetadata,
   handleBackgroundWithSectionMetadata,
-  handleActionButtons,
   handleGridLayoutWithSectionMetadata,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
@@ -18,61 +17,21 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties.layout) handleGridLayoutWithSectionMetadata(sectionWrapper, blockContent, properties.layout, undefined);
 }
 
-function handleProductLockup(value, areaEl) {
-  const tileName = value?.productTile?.name || 'placeholder';
-  const a = document.createElement('a');
-  a.href = LOGOS[tileName] || LOGOS['placeholder'];
-  a.innerText = a.href;
-  areaEl.append(a);
-  const productName = value.productName;
-  if (productName) areaEl.innerHTML += productName;
-}
-
-function handleCardProductLockups(card, areaEl) {
-  areaEl.innerHTML = '';
-  const productLockup1 = card.productLockups[0];
-  handleProductLockup(productLockup1, areaEl);
-  if (!card.hasMultipleProductLockups) return;
-  const productLockup2 = card.productLockups[1];
-  handleProductLockup(productLockup2, areaEl);
-}
-
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {
-    const mappingData = await safeJsonFetch('card-editorial.json');
+    const mappingData = await safeJsonFetch('card-editorial-media.json');
     properties.cards.forEach((card) => {
-      blockContent.classList.remove('card-editorial');
+      blockContent.classList.remove('card-editorial-media');
       const blockTemplate = blockContent.cloneNode(true);
-      if (properties?.miloTag?.toLowerCase().includes('open')) blockTemplate.classList.add('open');
       sectionWrapper.appendChild(blockTemplate);
       mappingData.data.forEach((mappingConfig) => {
         const value = card[mappingConfig.key];
         const areaEl = handleComponents(blockTemplate, value, mappingConfig);
         switch (mappingConfig.key) {
-          case 'hasProductLockup': 
-            handleCardProductLockups(card, areaEl);
-            break;
           case 'background':
             handleBackground(value, areaEl);
-            break;
-          case 'media':
-            areaEl.innerHTML = '';
-            handleBackground(value, areaEl);
-            break;
-          case 'divider':
-            if (areaEl && card.divider) areaEl.innerHTML = '--- #686868';
-            else if (areaEl) areaEl.closest('p').classList.add('to-remove');
-            break;
-          case 'actions':
-            const actionArea = blockTemplate.querySelector(mappingConfig.selector);
-            if (!card.action1 && !card.action2) {
-              actionArea.classList.add('to-remove');
-              return;
-            }
-            actionArea.innerHTML = '';
-            handleActionButtons(blockTemplate, card, true, blockTemplate.querySelector(mappingConfig.selector));
             break;
           default:
             break;
