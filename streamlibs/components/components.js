@@ -125,6 +125,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
 }
 
 export function handleBackground(value, areaEl) {
+  if (!value) return;
   if (value.startsWith('http')) {
     const img = document.createElement('img');
     img.src = value;
@@ -241,7 +242,10 @@ export function replaceImage(pic, src) {
 }
 
 export function handleProductLockup(value, areaEl) {
-  if (!value) return;
+  if (!value) {
+    areaEl.classList.add('to-remove');
+    return;
+  }
   if (Array.isArray(value)) value = value[0];
   const tileName = value?.productTile?.name || 'placeholder';
   const a = document.createElement('a');
