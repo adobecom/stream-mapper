@@ -6,16 +6,16 @@ import {
   handleUpsWithSectionMetadata,
   handleBackgroundWithSectionMetadata,
   handleActionButtons,
+  handleGridLayoutWithSectionMetadata,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { LOGOS } from '../utils/constants.js';
 
 function handleVariants(sectionWrapper, blockContent, properties) {
-  if (properties?.colorTheme) {
-    handleColorThemeWithSectionMetadata(sectionWrapper, blockContent, properties.colorTheme);
-  }
+  if (properties?.colorTheme) handleColorThemeWithSectionMetadata(sectionWrapper, blockContent, properties.colorTheme);
   if (properties?.topSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.bottomSpacer.name, 'bottom');
+  if (properties.layout) handleGridLayoutWithSectionMetadata(sectionWrapper, blockContent, properties.layout, undefined);
 }
 
 function handleProductLockup(value, areaEl) {
@@ -45,10 +45,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     properties.cards.forEach((card) => {
       blockContent.classList.remove('card-editorial');
       const blockTemplate = blockContent.cloneNode(true);
+      if (properties?.miloTag?.toLowerCase().includes('open')) blockTemplate.classList.add('open');
+      if (properties.cardLayout == 'center') blockTemplate.classList.add('center');
       sectionWrapper.appendChild(blockTemplate);
       mappingData.data.forEach((mappingConfig) => {
         const value = card[mappingConfig.key];
         const areaEl = handleComponents(blockTemplate, value, mappingConfig);
+        blockTemplate.classList.add('open');
         switch (mappingConfig.key) {
           case 'hasProductLockup': 
             handleCardProductLockups(card, areaEl);
@@ -61,7 +64,8 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             handleBackground(value, areaEl);
             break;
           case 'divider':
-            areaEl.innerHTML = '--- #686868';
+            if (areaEl && card.divider) areaEl.innerHTML = '--- #686868';
+            else if (areaEl) areaEl.closest('p').classList.add('to-remove');
             break;
           case 'actions':
             const actionArea = blockTemplate.querySelector(mappingConfig.selector);
@@ -80,9 +84,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.classList.add('to-remove');
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase());
-    if (properties.background) {
-      handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
-    }
+    if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
     // eslint-disable-next-line no-console

@@ -236,6 +236,24 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   }
 }
 
+export function handleGridLayoutWithSectionMetadata(secEl, blockEl, gridSize, device) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in GRID_SIZES) {
+    if (gridSize.includes(size)) {
+      if (device) styleLoc.innerHTML += `, ${GRID_SIZES[size]}-${device}`;
+      else styleLoc.innerHTML += `, ${GRID_SIZES[size]}`;
+      return;
+    }
+  }
+}
+
+export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  debugger
+  styleLoc.innerHTML += `, ${variant}`;
+}
+
 export function replaceImage(pic, src) {
   if (!pic || !src) return;
   pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
