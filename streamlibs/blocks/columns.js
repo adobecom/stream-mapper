@@ -52,6 +52,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(blockContent, properties);
   } catch (error) {
-    console.log(error);// Could not load columns mapping
+    // eslint-disable-next-line no-console
+    console.log(error);
   }
 }

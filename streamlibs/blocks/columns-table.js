@@ -36,6 +36,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     handleVariants(blockContent, properties);
   } catch (error) {
-    // Could not load columns mapping
+    // eslint-disable-next-line no-console
+    console.log(error);
   }
 }

@@ -133,6 +133,7 @@ export default async function mapBlockContent(
     handleSectionMetadata(sectionWrapper, properties);
     handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties?.background);
   } catch (error) {
-    // Could not load icon-block mapping
+    // eslint-disable-next-line no-console
+    console.log(error);
   }
 }
