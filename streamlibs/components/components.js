@@ -97,6 +97,14 @@ export function handleSpacer(el, spacer, position) {
 
 export function handleActionButtons(el, configData, value, areaEl) {
   if (!value) return;
+  if (configData.action) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action.variant,
+      buttonText: configData.action.text,
+    });
+  }
   if (configData.action1) {
     handleButtonComponent({
       el,
