@@ -159,25 +159,21 @@ export function handleGridLayout(gridSize, blockEl, device) {
 export function addOrUpdateSectionMetadata(secEl, blockEl, property) {
   // Check if section-metadata already exists
   let sectionMetadata = secEl.querySelector(':scope > .section-metadata');
-  
   // If not, create and insert it
   if (!sectionMetadata) {
     sectionMetadata = document.createElement('div');
     sectionMetadata.classList.add('section-metadata');
     secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
   }
-  
   // Check if property row already exists
   const rows = sectionMetadata.querySelectorAll(':scope > div');
   let propertyRow = null;
-  
   rows.forEach((row) => {
     const propertyName = row.querySelector(':scope > div:first-child');
     if (propertyName && propertyName.textContent.trim() === property) {
       propertyRow = row;
     }
   });
-  
   // If property row doesn't exist, create it
   if (!propertyRow) {
     propertyRow = document.createElement('div');
