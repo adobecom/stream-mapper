@@ -7,6 +7,7 @@ function handleCaption(caption, blockContent) {
   if (!caption) return;
   const textArea = blockContent.querySelector(':scope > div');
   const captionTxt = caption.split('\n').map((line) => `<p><em>${line}</em></p>`);
+  // eslint-disable-next-line no-return-assign
   captionTxt.forEach((txt) => textArea.innerHTML += txt);
 }
 
@@ -16,13 +17,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   try {
     const mappingData = await safeJsonFetch('figure.json');
     blockContent.classList.remove('figure-list');
-    const figureTemplate = blockContent.querySelector(":scope > div");
+    const figureTemplate = blockContent.querySelector(':scope > div');
     properties.figures.forEach((figure) => {
       const figureCopy = figureTemplate.cloneNode(true);
       blockContent.appendChild(figureCopy);
       mappingData.data.forEach((mappingConfig) => {
         const value = figure[mappingConfig.key];
-        const areaEl = handleComponents(figureCopy, value, mappingConfig);
+        handleComponents(figureCopy, value, mappingConfig);
         switch (mappingConfig.key) {
           case 'caption':
             if (value) handleCaption(value, figureCopy);

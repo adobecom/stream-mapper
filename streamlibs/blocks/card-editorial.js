@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import {
   handleBackground,
   handleComponents,
@@ -21,10 +22,10 @@ function handleVariants(sectionWrapper, blockContent, properties) {
 function handleProductLockup(value, areaEl) {
   const tileName = value?.productTile?.name || 'placeholder';
   const a = document.createElement('a');
-  a.href = LOGOS[tileName] || LOGOS['placeholder'];
+  a.href = LOGOS[tileName] || LOGOS.placeholder;
   a.innerText = a.href;
   areaEl.append(a);
-  const productName = value.productName;
+  const { productName } = value;
   if (productName) areaEl.innerHTML += productName;
 }
 
@@ -51,7 +52,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
         const value = card[mappingConfig.key];
         const areaEl = handleComponents(blockTemplate, value, mappingConfig);
         switch (mappingConfig.key) {
-          case 'hasProductLockup': 
+          case 'hasProductLockup':
             handleCardProductLockups(card, areaEl);
             break;
           case 'background':
@@ -65,7 +66,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             if (areaEl && card.divider) areaEl.innerHTML = '--- #686868';
             else if (areaEl) areaEl.closest('p').classList.add('to-remove');
             break;
-          case 'actions':
+          case 'actions': {
             const actionArea = blockTemplate.querySelector(mappingConfig.selector);
             if (!card.action1 && !card.action2) {
               actionArea.classList.add('to-remove');
@@ -73,6 +74,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             }
             actionArea.innerHTML = '';
             handleActionButtons(blockTemplate, card, true, blockTemplate.querySelector(mappingConfig.selector));
+          }
             break;
           default:
             break;
