@@ -3,6 +3,7 @@ import {
   GRID_SIZES,
   ACTION_BUTTONS_TYPES,
   ACTION_BUTTONS_SIZES,
+  LOGOS,
 } from '../utils/constants.js';
 
 export function handleTextComponent({ el, value, selector }) {
@@ -23,6 +24,7 @@ export function handleTextComponent({ el, value, selector }) {
 function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
   if (!value) return picEl.classList.add('to-remove');
+  // picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
   picEl.querySelector('img').src = value;
   return picEl;
 }
@@ -88,7 +90,7 @@ export function handleSpacer(el, spacer, position) {
   else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
   else if (spacerName.includes('xxl')) spacerClass = 'xxl';
   else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' l')) spacerClass = 'l';
   else if (spacerName.includes(' xs ')) spacerClass = 'xs';
   else if (spacerName.includes(' s ')) spacerClass = 's';
   if (!spacerClass) return;
@@ -124,6 +126,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
 }
 
 export function handleBackground(value, areaEl) {
+  if (!value) return;
   if (value.startsWith('http')) {
     const img = document.createElement('img');
     img.src = value;
@@ -212,7 +215,7 @@ export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position
   else if (spacerName.includes(' xs ')) spacerClass = 'xs';
   else if (spacerName.includes(' s ')) spacerClass = 's';
   if (!spacerClass) return;
-  if (styleLoc.innerHTML) styleLoc.innerHTML += ', '
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
   styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
 }
 
@@ -233,8 +236,41 @@ export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
   }
 }
 
+export function handleGridLayoutWithSectionMetadata(secEl, blockEl, gridSize, device) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in GRID_SIZES) {
+    if (gridSize.includes(size)) {
+      if (device) styleLoc.innerHTML += `, ${GRID_SIZES[size]}-${device}`;
+      else styleLoc.innerHTML += `, ${GRID_SIZES[size]}`;
+      return;
+    }
+  }
+}
+
+export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  styleLoc.innerHTML += `, ${variant}`;
+}
+
 export function replaceImage(pic, src) {
   if (!pic || !src) return;
   pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
   pic.querySelector('img').src = src;
+}
+
+export function handleProductLockup(value, areaEl) {
+  if (!value) {
+    areaEl.classList.add('to-remove');
+    return;
+  }
+  // eslint-disable-next-line prefer-destructuring, no-param-reassign
+  if (Array.isArray(value)) value = value[0];
+  const tileName = value?.productTile?.name || 'placeholder';
+  const a = document.createElement('a');
+  a.href = LOGOS[tileName] || LOGOS.placeholder;
+  a.innerText = a.href;
+  areaEl.append(a);
+  const { productName } = value;
+  if (productName) areaEl.innerHTML += productName;
 }

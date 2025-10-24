@@ -1,3 +1,5 @@
+export const DEFAULT_TMP_URL = 'https://main--stream-mapper--adobecom.aem.live/stream';
+
 export const ACCENT_BARS = {
   'Accent Bar / CC Gradient': 'linear-gradient(90deg, #FA0F00 0%, #E9740A 15.42%, #FFCE2E 39.44%, #009C3B 67.99%, #2799F6 85.76%, #6349E0 95.42%, #9999FC 100%)',
   'Accent Bar / CC Photo': '#31A8FF',
@@ -15,10 +17,10 @@ export const GRID_SIZES = {
 };
 
 export const ACTION_BUTTONS_TYPES = {
-  accent: '<strong><a href="https://www.adobe.com">/buttonText/</a></strong>',
-  primary: '<strong><a class="fill" href="https://www.adobe.com">/buttonText/</a></strong>',
-  outline: '<em><a href="https://www.adobe.com">/buttonText/</a></em>',
-  text: '<a href="https://www.adobe.com">/buttonText/</a>',
+  accent: `<strong><a href="${DEFAULT_TMP_URL}">/buttonText/</a></strong>`,
+  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}">/buttonText/</a></strong>`,
+  outline: `<em><a href="${DEFAULT_TMP_URL}">/buttonText/</a></em>`,
+  text: `<a href="${DEFAULT_TMP_URL}">/buttonText/</a>`,
 };
 
 export const ACTION_BUTTONS_SIZES = {
@@ -28,5 +30,39 @@ export const ACTION_BUTTONS_SIZES = {
 };
 
 export const LOGOS = {
-  B_app_ExperienceCloud: 'https://cdn.experience.adobe.net/assets/HeroIcons.6620f5dc.svg#AdobeExperienceCloud',
+  placeholder: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/adobe-64.svg',
+  B_app_ExperienceCloud: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/experience-cloud.svg',
+  // Express
+  B_app_AdobeExpress: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/express-64.svg',
+  // GenAI
+  B_app_AdobeFirefly: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/firefly-64.svg',
+  // Cross Cloud
+  B_app_Behance: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/behance-64.svg',
+  B_app_Bridge: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/bridge-64.svg',
+  B_app_Capture: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/capture-64.svg',
+  B_app_Stock: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/stock-64.svg',
+  B_app_Portfolio: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/portfolio-64.svg',
+  // Print and Publishing
+  B_app_Illustrator: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/illustrator-64.svg',
+  B_app_InCopy: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/incopy-64.svg',
+  B_app_InDesign: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/indesign-64.svg',
+  B_app_InDesignServer: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/indesign-server.svg',
+  // Digital Imaging
+  B_app_Fresco: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/fresco-64.svg',
+  B_app_Photoshop: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/photoshop-64.svg',
+  B_app_Lightroom: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/lightroom-64.svg',
+  B_app_LightroomClassic: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/lightroom-classic-64.svg',
+  // 3D and AR
+  B_app_Substance3DPainter: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/substance-3d-painter-64.svg',
+  B_app_Substance3DDesigner: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/substance-3d-designer-64.svg',
+  B_app_Substance3DModeler: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/substance-3d-modeler-64.svg',
+  B_app_Substance3DStager: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/substance-3d-stager-64.svg',
+  B_app_Dimension: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/dimension-64.svg',
+  B_app_Substance3DAssets: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/substance-3d-assets-64.svg',
+  // Audio Video
+  B_app_PremierePro: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/premiere-pro-64.svg',
+  B_app_AfterEffects: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/after-effects-64.svg',
+  B_app_Audition: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/audition-64.svg',
+  B_app_MediaEncoder: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/media-encoder-64.svg',
+  'Frame.io': 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/frame-io-64.svg',
 };

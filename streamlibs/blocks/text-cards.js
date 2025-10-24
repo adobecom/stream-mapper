@@ -30,7 +30,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   try {
     const mappingData = await safeJsonFetch('text-cards.json');
     blockContent.classList.remove('text-cards');
-    properties.blocks.forEach((block, idx) => {
+    properties.blocks.forEach((block) => {
       const blockTemplate = blockContent.cloneNode(true);
       sectionWrapper.appendChild(blockTemplate);
       mappingData.data.forEach((mappingConfig) => {

@@ -4,6 +4,7 @@ import {
   handleBackground,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
+import { DEFAULT_TMP_URL } from '../utils/constants.js';
 
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
@@ -26,7 +27,7 @@ function handleAnchorFooter(blockContent, value) {
 
 function handleAnchorFooterLink(blockContent, value) {
   const lastDiv = blockContent.querySelector(':scope > div:last-child > div');
-  lastDiv.innerHTML += ` <a href='https://www.adobe.com'>${value}</a>`;
+  lastDiv.innerHTML += ` <a href=${DEFAULT_TMP_URL}>${value}</a>`;
 }
 
 function handleAnchorField(blockContent, value) {
@@ -40,7 +41,7 @@ function handleAnchorField(blockContent, value) {
 }
 
 function handleVariants(blockContent, properties) {
-  if (properties['anchor-background']) blockContent.classList.add('transparent');
+  if (properties.anchorBackground) blockContent.classList.add('transparent');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
 }
 
@@ -67,13 +68,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           // eslint-disable-next-line no-restricted-syntax
           for (const anchorField of anchorFields) {
             switch (anchorField) {
-              case 'anchor-title':
+              case 'anchorTitle':
                 handleAnchorTitle(blockContent, properties[anchorField]);
                 break;
-              case 'anchor-footer':
+              case 'anchorFooter':
                 handleAnchorFooter(blockContent, properties[anchorField]);
                 break;
-              case 'anchor-footer-link':
+              case 'anchorFooterLink':
                 handleAnchorFooterLink(blockContent, properties[anchorField]);
                 break;
               default:
