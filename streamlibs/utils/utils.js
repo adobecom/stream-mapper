@@ -68,3 +68,5 @@ export function divSwap(blockContent, divSelector, divSelector2) {
   div2.replaceWith(div1);
   placeholder.replaceWith(div2);
 }
+
+export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
