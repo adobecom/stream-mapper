@@ -43,6 +43,8 @@ async function startHTMLPainting() {
 }
 
 async function paintHtmlOnPage() {
+  const headerEle = document.createElement('header');
+  document.body.appendChild(headerEle);
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.appendChild(mainEle);
