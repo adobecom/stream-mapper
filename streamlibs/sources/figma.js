@@ -21,6 +21,7 @@ async function fetchFigmaMapping(figmaUrl) {
 const SPECIAL_OVERRIDES = {
   'editorial-card': ({ doc }) => doc.querySelector('div'),
   'icon-block-cards': ({ doc, variant }) => doc.querySelectorAll('.icon-block')[variant],
+  'aside-std': ({ doc, variant }) => doc.querySelectorAll('.aside')[variant],
 };
 
 function getHtml(resp, id, variant, figContent) {
