@@ -124,6 +124,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     // Clean up any marked-to-remove elements
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error mapping accordion block:', error);
   }
 }

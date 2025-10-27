@@ -8,10 +8,10 @@ import {
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
-function handleSwap(blockContent, properties) {
+function handleSwap(blockContent) {
   const foregroundDiv = blockContent.querySelector(':scope > div:last-child');
   const copyDiv = blockContent.querySelector(':scope > div:last-child > div:first-child');
-  foregroundDiv.append(copyDiv)
+  foregroundDiv.append(copyDiv);
 }
 
 export function handleForegroundImage(el, value, selector) {
@@ -27,7 +27,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
   if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
-  if (properties?.layout == 'center') blockContent.classList.add('center');
+  if (properties?.layout === 'center') blockContent.classList.add('center');
   if (properties?.layout.startsWith('image')) handleSwap(blockContent, properties);
 }
 

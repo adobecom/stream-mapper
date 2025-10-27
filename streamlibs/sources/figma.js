@@ -18,20 +18,9 @@ async function fetchFigmaMapping(figmaUrl) {
   }
 }
 
-const SPECIAL_OVERRIDES = {
-  'editorial-card': ({ doc }) => doc.querySelector('div'),
-  'icon-block-cards': ({ doc, variant }) => doc.querySelectorAll('.icon-block')[variant],
-};
-
-function getHtml(resp, miloId, id, variant, figContent) {
+function getHtml(resp, miloId, variant) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
-  // const overrideFunction = SPECIAL_OVERRIDES[id];
-  // if (overrideFunction) {
-  //   return overrideFunction({
-  //     doc, id, variant, figContent,
-  //   });
-  // }
   return doc.querySelectorAll(`.${miloId}`)[variant];
 }
 
@@ -94,7 +83,7 @@ async function processBlock(block, figmaUrl) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
-  let blockContent = getHtml(doc, block.miloId, block.id, block.variant, figContent);
+  let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
   blockContent = mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
