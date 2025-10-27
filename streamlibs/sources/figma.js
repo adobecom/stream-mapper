@@ -23,16 +23,16 @@ const SPECIAL_OVERRIDES = {
   'icon-block-cards': ({ doc, variant }) => doc.querySelectorAll('.icon-block')[variant],
 };
 
-function getHtml(resp, id, variant, figContent) {
+function getHtml(resp, miloId, id, variant, figContent) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
-  const overrideFunction = SPECIAL_OVERRIDES[id];
-  if (overrideFunction) {
-    return overrideFunction({
-      doc, id, variant, figContent,
-    });
-  }
-  return doc.querySelectorAll(`.${id}`)[variant];
+  // const overrideFunction = SPECIAL_OVERRIDES[id];
+  // if (overrideFunction) {
+  //   return overrideFunction({
+  //     doc, id, variant, figContent,
+  //   });
+  // }
+  return doc.querySelectorAll(`.${miloId}`)[variant];
 }
 
 // eslint-disable-next-line consistent-return
@@ -94,7 +94,7 @@ async function processBlock(block, figmaUrl) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
-  let blockContent = getHtml(doc, block.id, block.variant, figContent);
+  let blockContent = getHtml(doc, block.miloId, block.id, block.variant, figContent);
   figContent.details.properties.miloTag = block.tag;
   blockContent = mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
