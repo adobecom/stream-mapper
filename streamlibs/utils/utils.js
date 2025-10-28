@@ -28,11 +28,6 @@ export async function getConfig() {
   return miloGetConfig();
 }
 
-export async function getIdNameMap() {
-  const config = await getConfig();
-  return config.streamMapper.idNameMap || {};
-}
-
 export async function initializeTokens(token) {
   const config = await getConfig();
   config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;

@@ -1,14 +1,15 @@
 import { setLibs } from './utils/utils.js';
 
+// eslint-disable-next-line no-unused-vars
 function decorateArea(area = document) {
   const eagerLoad = (parent, selector) => {
     const img = parent.querySelector(selector);
     img?.removeAttribute('loading');
   };
   (async function loadLCPImage() {
-    const marquee = area.querySelector('.marquee');
+    const marquee = document.querySelector('.marquee');
     if (!marquee) {
-      eagerLoad(area, 'img');
+      eagerLoad(document, 'img');
       return;
     }
     eagerLoad(marquee, 'div:first-child img');
@@ -27,20 +28,11 @@ const CONFIG = {
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
   streamMapper: {
-    figmaMappingUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/api/fig-comps',
-    figmaBlockContentUrl: 'https://adobe-wcms-stream-service-deploy-ethos601-prod-va6-aff19e.cloud.adobe.io/api/fig-comp-details',
+    figmaMappingUrl: 'https://440859-genesis-dev.adobeio-static.net/api/v1/web/genesis-aio/fig-comps',
+    figmaBlockContentUrl: 'https://runtime.adobe.io/api/v1/web/440859-genesis-dev/genesis-aio/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
-    idNameMap: {
-      marquee: 'Marquee',
-      'icon-block': 'IconBlock',
-      text: 'Text',
-      media: 'Media',
-      howto: 'HowTo',
-      aside: 'Aside',
-      notification: 'Notification',
-    },
   },
 };
 
@@ -61,7 +53,8 @@ const miloLibs = setLibs(LIBS);
 
 (async function loadPage() {
   const { loadArea, setConfig } = await import(`${miloLibs}/utils/utils.js`);
-  setConfig({ ...CONFIG, miloLibs });
+  // eslint-disable-next-line no-unused-vars
+  const config = setConfig({ ...CONFIG, miloLibs });
   await loadArea();
   const metaTag = document.querySelector('meta[name="initiate-previewer"]');
   if (metaTag && metaTag.getAttribute('content') === 'off') return;

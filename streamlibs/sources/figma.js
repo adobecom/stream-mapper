@@ -18,22 +18,10 @@ async function fetchFigmaMapping(figmaUrl) {
   }
 }
 
-const SPECIAL_OVERRIDES = {
-  'editorial-card': ({ doc }) => doc.querySelector('div'),
-  'icon-block-cards': ({ doc, variant }) => doc.querySelectorAll('.icon-block')[variant],
-  'aside-std': ({ doc, variant }) => doc.querySelectorAll('.aside')[variant],
-};
-
-function getHtml(resp, id, variant, figContent) {
+function getHtml(resp, miloId, variant) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
-  const overrideFunction = SPECIAL_OVERRIDES[id];
-  if (overrideFunction) {
-    return overrideFunction({
-      doc, id, variant, figContent,
-    });
-  }
-  return doc.querySelectorAll(`.${id}`)[variant];
+  return doc.querySelectorAll(`.${miloId}`)[variant];
 }
 
 // eslint-disable-next-line consistent-return
@@ -95,7 +83,7 @@ async function processBlock(block, figmaUrl) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
-  let blockContent = getHtml(doc, block.id, block.variant, figContent);
+  let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
   blockContent = mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
@@ -122,5 +110,12 @@ async function getFigmaContent(figmaUrl) {
 // eslint-disable-next-line import/prefer-default-export
 export async function fetchFigmaContent() {
   // eslint-disable-next-line no-return-await
-  return await getFigmaContent(window.streamConfig.contentUrl);
+  const pageComponents = await getFigmaContent(window.streamConfig.contentUrl);
+  pageComponents.html.forEach((h, idx) => {
+    if (typeof h === 'object') {
+      h.id = `block-${idx}`;
+    }
+  });
+  pageComponents.html = pageComponents.html.map((h) => h.outerHTML).join('');
+  return pageComponents;
 }

@@ -47,6 +47,7 @@ export default async function mapAccordionChildContent(
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error mapping accordion child block:', error);
   }
 }
