@@ -65,3 +65,26 @@ export function divSwap(blockContent, divSelector, divSelector2) {
 }
 
 export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
+
+export const getFirstType = (text) => {
+  const cleaned = text
+    .toLowerCase()
+    .replace(/->|-/g, ' ')
+    .replace(/_/g, ' ')
+    .trim();
+
+  const words = cleaned.split(/\s+/);
+
+  const copyIndex = words.indexOf('copy');
+  const imageIndex = words.indexOf('image');
+
+  if (copyIndex === -1 && imageIndex === -1) {
+    return 'neither';
+  } if (copyIndex === -1) {
+    return 'image';
+  } if (imageIndex === -1) {
+    return 'copy';
+  }
+
+  return copyIndex < imageIndex ? 'copy' : 'image';
+};
