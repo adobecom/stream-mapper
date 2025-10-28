@@ -122,7 +122,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
 
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
-    divSwap(blockContent, ':scope > div:last-child > div:first-child:has(> h3)', ':scope > div:last-child > div:last-child:has( > picture ) ');
+    divSwap(blockContent, ':scope > div:last-child > div:first-child:has(> h3,h2)', ':scope > div:last-child > div:last-child:has( > picture ) ');
   }
   if (properties?.layout === 'center') {
     const imageDiv = blockContent.querySelector(':scope > div:last-child > div:last-child')?.remove();
