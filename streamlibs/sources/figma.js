@@ -110,5 +110,12 @@ async function getFigmaContent(figmaUrl) {
 // eslint-disable-next-line import/prefer-default-export
 export async function fetchFigmaContent() {
   // eslint-disable-next-line no-return-await
-  return await getFigmaContent(window.streamConfig.contentUrl);
+  const pageComponents = await getFigmaContent(window.streamConfig.contentUrl);
+  pageComponents.html.forEach((h, idx) => {
+    if (typeof h === 'object') {
+      h.id = `block-${idx}`;
+    }
+  });
+  pageComponents.html = pageComponents.html.map((h) => h.outerHTML).join('');
+  return pageComponents;
 }

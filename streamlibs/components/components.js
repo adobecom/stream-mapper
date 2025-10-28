@@ -268,10 +268,8 @@ export function replaceImage(pic, src) {
 }
 
 export function handleProductLockup(value, areaEl) {
-  if (!value) {
-    areaEl.classList.add('to-remove');
-    return;
-  }
+  if (!areaEl) return;
+  if (!value) return areaEl.classList.add('to-remove');
   // eslint-disable-next-line prefer-destructuring, no-param-reassign
   if (Array.isArray(value)) value = value[0];
   const tileName = value?.productTile?.name || 'placeholder';

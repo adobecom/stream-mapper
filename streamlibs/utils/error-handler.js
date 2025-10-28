@@ -1,9 +1,9 @@
-export function showErrorPage() {
+export function showErrorPage(context = '') {
   document.body.innerHTML = `
       <div class="enigma-error-page">
           <img src="https://enigma--cc--aishwaryamathuria.aem.live/enigma/assets/errorgif.webp">
           <div>
-              <h1>Oops!! Something broke.</h1>
+              <h1>Oops!! Something broke while ${context}</h1>
               <h1>Give it another go?</h1>
           </div>
       </div>`;
@@ -11,7 +11,9 @@ export function showErrorPage() {
 
 // eslint-disable-next-line no-unused-vars
 export function handleError(error, context = '') {
-  showErrorPage();
+  // eslint-disable-next-line no-console
+  console.log(error);
+  showErrorPage(context);
 }
 
 export async function safeFetch(url, options = {}, customSettings = {}) {
