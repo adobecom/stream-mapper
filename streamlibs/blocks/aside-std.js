@@ -1,6 +1,7 @@
 import {
   handleActionButtons,
   handleBackground,
+  handleButtonComponent,
   handleComponents,
   handleImageComponent,
   handleProductLockup,
@@ -63,8 +64,21 @@ function handleSwap(blockContent, properties) {
 
 function handleAvatar(value, areaEl) {
   if (!areaEl || !value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = LOGOS.placeholder; });
-  areaEl.querySelector('img').src = LOGOS.placeholder;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value || LOGOS.placeholder; });
+  areaEl.querySelector('img').src = value || LOGOS.placeholder;
+}
+export function handleActionsArray(el, configData, value, areaEl) {
+  if (!value) return;
+  if (configData.ctaButtonLabels) {
+    configData.ctaButtonLabels.forEach((ctaButton) => {
+      handleButtonComponent({
+        el,
+        actionArea: areaEl,
+        buttonType: ctaButton?.buttonName,
+        buttonText: ctaButton?.label,
+      });
+    });
+  }
 }
 
 export default async function mapBlockContent(
@@ -83,6 +97,9 @@ export default async function mapBlockContent(
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
           break;
+        case 'hasActionsArray':
+          handleActionsArray(blockContent, properties, value, areaEl);
+          break;
         case 'background':
           handleBackground(value, areaEl);
           break;
@@ -94,8 +111,10 @@ export default async function mapBlockContent(
         case 'logo':
           handleAvatar(value, areaEl);
           break;
-        case 'avatar':
-          handleAvatar(value, areaEl);
+        case 'avatarImage':
+          if (properties?.avatar) {
+            handleAvatar(value, areaEl);
+          }
           break;
         case 'media':
           handleImageComponent({

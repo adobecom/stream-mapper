@@ -7,7 +7,9 @@ import {
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
-import { divSwap, extractByPattern, getFirstType } from '../utils/utils.js';
+import {
+  compose, divSwap, extractByPattern, getFirstType,
+} from '../utils/utils.js';
 
 function handleProductLinks(value, areaEl, productLinks = []) {
   if (!value || !areaEl) {
@@ -75,7 +77,7 @@ function handleSplitHalf(blockContent, properties) {
   }
 }
 function handleIconSize(properties, sizeKey) {
-  let size = '';
+  let size = 'm';
   const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim() ?? 'm';
   if (sizeValue.includes('s')) size = 's';
   if (sizeValue.includes('m')) size = 'm';
@@ -106,7 +108,7 @@ function handleAvatarSizes(blockContent, properties) {
 }
 
 function handleVariants(sectionWrapper, blockContent, properties) {
-  if (properties?.productLockup?.productName && properties?.appSizes?.name) {
+  if (properties?.productLockup?.productName) {
     const size = handleIconSize(properties, 'appSizes');
     blockContent.classList.add(`${size ?? 'm'}-lockup`);
   }
@@ -130,8 +132,53 @@ function handleSwap(blockContent, properties) {
 
 function handleAvatar(value, areaEl) {
   if (!areaEl || !value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = LOGOS.placeholder; });
-  areaEl.querySelector('img').src = LOGOS.placeholder;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value || LOGOS.placeholder; });
+  areaEl.querySelector('img').src = value || LOGOS.placeholder;
+}
+
+function handleSpacer(spacer, position) {
+  if (!spacer) return '';
+  const spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m ')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return '';
+  return `${spacerClass}-spacing-${position}`;
+}
+
+function handleSpacers(acc) {
+  const { properties, finalArray } = acc;
+  if (properties?.topSpacer && properties?.miloTag.includes('inline')) {
+    const topSpace = handleSpacer(properties.topSpacer.name, 'top');
+    finalArray.push(topSpace);
+  }
+  if (properties?.bottomSpacer && properties?.miloTag.includes('inline')) {
+    const bottomSpace = handleSpacer(properties.bottomSpacer.name, 'bottom');
+    finalArray.push(bottomSpace);
+  }
+  return acc;
+}
+
+function handleSectionMetadata(sectionWrapper, properties) {
+  const sectionMetadata = document.createElement('div');
+  sectionMetadata.classList.add('section-metadata');
+  const div = document.createElement('div');
+  const styleDiv = document.createElement('div');
+  styleDiv.textContent = 'style';
+  const attributes = compose(
+    handleSpacers,
+  )({ finalArray: [], properties });
+  const attributeDiv = document.createElement('div');
+  attributeDiv.textContent = attributes.finalArray.join(', ');
+  div.appendChild(styleDiv);
+  div.appendChild(attributeDiv);
+  sectionMetadata.appendChild(div);
+  sectionWrapper.appendChild(sectionMetadata);
 }
 
 export default async function mapBlockContent(
@@ -146,6 +193,9 @@ export default async function mapBlockContent(
     const configData = properties?.miloTag.includes('inline') ? mappingData.inline : mappingData.split;
     configData.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
+      if ((mappingConfig.key === 'media' || mappingConfig.key === 'asideImage') && value && blockContent?.querySelector(mappingConfig.selector)?.classList.contains('to-remove')) {
+        blockContent?.querySelector(mappingConfig.selector).classList.remove('to-remove');
+      }
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'actions':
@@ -163,7 +213,7 @@ export default async function mapBlockContent(
           handleAvatar(value, areaEl);
           break;
         case 'avatar':
-          handleAvatar(value, areaEl);
+          handleAvatar(value?.image, areaEl);
           break;
         case 'media':
           handleImageComponent({
@@ -182,6 +232,7 @@ export default async function mapBlockContent(
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
+    handleSectionMetadata(sectionWrapper, properties);
   } catch (error) {
     console.error(error);
   }
