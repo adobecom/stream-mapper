@@ -21,7 +21,7 @@ export function handleTextComponent({ el, value, selector }) {
   return textEl;
 }
 
-function handleImageComponent({ el, value, selector }) {
+export function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
   if (!value) return picEl.classList.add('to-remove');
   picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
