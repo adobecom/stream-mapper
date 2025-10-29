@@ -280,3 +280,27 @@ export function handleProductLockup(value, areaEl) {
   const { productName } = value;
   if (productName) areaEl.innerHTML += productName;
 }
+
+export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
+  let sum = 0;
+  let masonryStyle = '';
+  for (const arrangement of masonryArrangement) {
+    const a = arrangement.toLowerCase();
+    const intPart = parseInt(arrangement.split(' ')[1].trim(), 10);
+    sum = sum + intPart;
+    if (sum < 12) {
+      masonryStyle += `${a}, `;
+    } else if (sum > 12) {
+      masonryStyle += `\n${a}`;
+      sum = 0;
+    } else if (sum === 12 && intPart === 12) {
+      masonryStyle += `full-width\n`;
+      sum = 0;
+    } else if (sum === 12) {
+      masonryStyle += `${a}\n`;
+      sum = 0;
+    }
+  }
+  styleLoc.innerHTML = masonryStyle;
+}
