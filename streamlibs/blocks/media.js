@@ -152,6 +152,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     let configData = mappingData.list;
     if (properties?.miloTag?.includes('plylst')) configData = mappingData.playlist;
     if (properties?.miloTag?.includes('app')) configData = mappingData.appstore;
+    if (properties?.miloTag?.includes('sbcpy')) configData = mappingData.subcopy;
     configData.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
