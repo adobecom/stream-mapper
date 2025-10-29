@@ -2,12 +2,10 @@
 import {
   handleBackground,
   handleComponents,
-  handleColorThemeWithSectionMetadata,
   handleSpacerWithSectionMetadata,
   handleMasonrysWithSectionMetadata,
   handleBackgroundWithSectionMetadata,
   handleActionButtons,
-  handleGridLayoutWithSectionMetadata,
   replaceImage,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
@@ -24,13 +22,13 @@ function handleBrickProductLockups(value, areaEl) {
   const lockupText = value?.name;
   if (tile1) {
     const a = document.createElement('a');
-    a.href = LOGOS[tileName] || LOGOS.placeholder;
+    a.href = LOGOS[tile1] || LOGOS.placeholder;
     a.innerText = a.href;
     areaEl.append(a);
   }
   if (tile2) {
     const a = document.createElement('a');
-    a.href = LOGOS[tileName] || LOGOS.placeholder;
+    a.href = LOGOS[tile2] || LOGOS.placeholder;
     a.innerText = a.href;
     areaEl.append(a);
   }
@@ -40,15 +38,13 @@ function handleBrickProductLockups(value, areaEl) {
 }
 
 function handlePhoto(value, brickProperties, blockTemplate, selectors) {
-  const selector = selectors.split(',').map((selector) => selector.trim());
+  const selector = selectors.split(',').map((s) => s.trim());
   let keepImg = null;
   let removeImg = null;
   if (brickProperties.brickType.toLowerCase().includes('horizontal')) {
-    removeImg = selector[0];
-    keepImg = selector[1];
+    [removeImg, keepImg] = selector;
   } else if (brickProperties.brickType.toLowerCase().includes('vertical')) {
-    removeImg = selector[1];
-    keepImg = selector[0];
+    [keepImg, removeImg] = selector;
   }
 
   if (keepImg) {
@@ -126,22 +122,20 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             if (brick.layout === 'center') blockTemplate.classList.add('center');
             break;
           case 'appList': {
-              const appListEl = blockTemplate.querySelector(mappingConfig.selector);
-              if (brick.appList.length) {
-                appListEl.innerHTML = '';
-                handleAppList(brick.appList, appListEl);
-              }
-              else appListEl.classList.add('to-remove');
-            }
+            const appListEl = blockTemplate.querySelector(mappingConfig.selector);
+            if (brick.appList.length) {
+              appListEl.innerHTML = '';
+              handleAppList(brick.appList, appListEl);
+            } else appListEl.classList.add('to-remove');
+          }
             break;
           case 'itemList': {
-              const itemListEl = blockTemplate.querySelector(mappingConfig.selector);
-              if (brick.itemList.length) {
-                itemListEl.innerHTML = '';
-                handleItemList(brick.itemList, itemListEl);
-              }
-              else itemListEl.classList.add('to-remove');
-            }
+            const itemListEl = blockTemplate.querySelector(mappingConfig.selector);
+            if (brick.itemList.length) {
+              itemListEl.innerHTML = '';
+              handleItemList(brick.itemList, itemListEl);
+            } else itemListEl.classList.add('to-remove');
+          }
             break;
           default:
             break;

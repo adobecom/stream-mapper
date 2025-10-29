@@ -68,5 +68,5 @@ export const LOGOS = {
 };
 
 export const SVG_ICONS = {
-  'placeholder': 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
-}
+  placeholder: 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
+};

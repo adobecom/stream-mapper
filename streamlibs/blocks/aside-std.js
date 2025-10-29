@@ -131,6 +131,7 @@ export default async function mapBlockContent(
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error(error);
   }
 }
