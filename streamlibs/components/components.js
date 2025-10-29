@@ -269,6 +269,7 @@ export function replaceImage(pic, src) {
 
 export function handleProductLockup(value, areaEl) {
   if (!areaEl) return;
+  // eslint-disable-next-line consistent-return
   if (!value) return areaEl.classList.add('to-remove');
   // eslint-disable-next-line prefer-destructuring, no-param-reassign
   if (Array.isArray(value)) value = value[0];
@@ -279,4 +280,29 @@ export function handleProductLockup(value, areaEl) {
   areaEl.append(a);
   const { productName } = value;
   if (productName) areaEl.innerHTML += productName;
+}
+
+export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
+  let sum = 0;
+  let masonryStyle = '';
+  // eslint-disable-next-line no-restricted-syntax
+  for (const arrangement of masonryArrangement) {
+    const a = arrangement.toLowerCase();
+    const intPart = parseInt(arrangement.split(' ')[1].trim(), 10);
+    sum += intPart;
+    if (sum < 12) {
+      masonryStyle += `${a}, `;
+    } else if (sum > 12) {
+      masonryStyle += `\n${a}`;
+      sum = 0;
+    } else if (sum === 12 && intPart === 12) {
+      masonryStyle += 'full-width\n';
+      sum = 0;
+    } else if (sum === 12) {
+      masonryStyle += `${a}\n`;
+      sum = 0;
+    }
+  }
+  styleLoc.innerHTML = masonryStyle;
 }

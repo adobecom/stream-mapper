@@ -66,3 +66,7 @@ export const LOGOS = {
   B_app_MediaEncoder: 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/media-encoder-64.svg',
   'Frame.io': 'https://www.adobe.com/cc-shared/assets/img/product-icons/svg/frame-io-64.svg',
 };
+
+export const SVG_ICONS = {
+  placeholder: 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
+};
