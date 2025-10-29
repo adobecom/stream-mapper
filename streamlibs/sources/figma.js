@@ -71,8 +71,12 @@ async function mapFigmaContent(blockContent, block, figContent) {
     const sectionWrapper = document.createElement('div');
     sectionWrapper.append(blockContent);
     const res = await mapBlockContent(sectionWrapper, blockContent, figContent);
-    if (Array.isArray(res)) return res;
-    else return sectionWrapper;
+    if (Array.isArray(res)) {
+      return res;
+    // eslint-disable-next-line no-else-return
+    } else {
+      return sectionWrapper;
+    }
   } catch (error) {
     return '<div></div>';
   }
@@ -115,9 +119,9 @@ export async function fetchFigmaContent() {
   let htmlDom = '';
   pageComponents.html.forEach((h, idx) => {
     if (Array.isArray(h)) {
-      h.forEach((h, idxx) => {
-        h.id = `block-${idx}-${idxx}`;
-        htmlDom += h.outerHTML;
+      h.forEach((hdash, idxx) => {
+        hdash.id = `block-${idx}-${idxx}`;
+        htmlDom += hdash.outerHTML;
       });
     } else if (typeof h === 'object') {
       h.id = `block-${idx}`;

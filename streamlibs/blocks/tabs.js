@@ -9,7 +9,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties.tabs[0]?.colorTheme) blockContent.classList.add(properties.tabs[0].colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
-  if (properties?.layout == 'center') blockContent.classList.add('center');
+  if (properties?.layout === 'center') blockContent.classList.add('center');
   if (properties?.name.toLowerCase().includes('radio')) blockContent.classList.add('radio');
   if (properties?.name.toLowerCase().includes('quiet')) blockContent.classList.add('quiet');
 }
@@ -24,7 +24,7 @@ function handleTabList(tabList, tabListEl) {
 
 function handleActiveTab(tabList, activeTabEl) {
   tabList.forEach((tab, idx) => {
-    if (tab.state === 'selected') activeTabEl.innerHTML = `${idx+1}`;
+    if (tab.state === 'selected') activeTabEl.innerHTML = `${idx + 1}`;
   });
 }
 
@@ -48,7 +48,7 @@ function createTabsSections(tabId, tabs, sectionWrapper) {
                 <div class="section-metadata">
                   <div>
                     <div>tab</div>
-                    <div>${tabId}, ${idx+1}</div>
+                    <div>${tabId}, ${idx + 1}</div>
                   </div>
                 </div>`;
     tabsSections.push(div);
@@ -84,6 +84,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
+    // eslint-disable-next-line consistent-return
     return createTabsSections(tabId, properties.tabs, sectionWrapper);
   } catch (error) {
     // eslint-disable-next-line no-console
