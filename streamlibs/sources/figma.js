@@ -70,8 +70,13 @@ async function mapFigmaContent(blockContent, block, figContent) {
     const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
     const sectionWrapper = document.createElement('div');
     sectionWrapper.append(blockContent);
-    await mapBlockContent(sectionWrapper, blockContent, figContent);
-    return sectionWrapper;
+    const res = await mapBlockContent(sectionWrapper, blockContent, figContent);
+    if (Array.isArray(res)) {
+      return res;
+    // eslint-disable-next-line no-else-return
+    } else {
+      return sectionWrapper;
+    }
   } catch (error) {
     return '<div></div>';
   }
@@ -85,7 +90,7 @@ async function processBlock(block, figmaUrl) {
   ]);
   let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
-  blockContent = mapFigmaContent(blockContent, block, figContent);
+  blockContent = await mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
   return blockContent || '';
 }
@@ -111,11 +116,18 @@ async function getFigmaContent(figmaUrl) {
 export async function fetchFigmaContent() {
   // eslint-disable-next-line no-return-await
   const pageComponents = await getFigmaContent(window.streamConfig.contentUrl);
+  let htmlDom = '';
   pageComponents.html.forEach((h, idx) => {
-    if (typeof h === 'object') {
+    if (Array.isArray(h)) {
+      h.forEach((hdash, idxx) => {
+        hdash.id = `block-${idx}-${idxx}`;
+        htmlDom += hdash.outerHTML;
+      });
+    } else if (typeof h === 'object') {
       h.id = `block-${idx}`;
+      htmlDom += h.outerHTML;
     }
   });
-  pageComponents.html = pageComponents.html.map((h) => h.outerHTML).join('');
+  pageComponents.html = htmlDom;
   return pageComponents;
 }
