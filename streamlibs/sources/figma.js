@@ -18,9 +18,29 @@ async function fetchFigmaMapping(figmaUrl) {
   }
 }
 
-function getHtml(resp, miloId, variant) {
+const SPECIAL_OVERRIDES = {
+  'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
+  media: ({
+    doc, id, variant, figContent,
+  }) => {
+    const properties = figContent?.details?.properties;
+    if (properties) {
+      return doc.querySelectorAll(`.${id}`)[0];
+    }
+    return doc.querySelector(`.${id}`)[variant];
+  },
+
+};
+
+function getHtml(resp, miloId, variant, figContent) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
+  const overrideFunction = SPECIAL_OVERRIDES[miloId];
+  if (overrideFunction) {
+    return overrideFunction({
+      doc, miloId, variant, figContent,
+    });
+  }
   return doc.querySelectorAll(`.${miloId}`)[variant];
 }
 
