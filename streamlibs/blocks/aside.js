@@ -229,10 +229,10 @@ export default async function mapBlockContent(
           break;
       }
     });
-    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
     handleSectionMetadata(sectionWrapper, properties);
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(error);
