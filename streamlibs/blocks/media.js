@@ -100,7 +100,7 @@ function handleFooterList(items, areaEl, properties) {
       span.classList.add('icon-play-circle');
     }
     a.appendChild(span);
-    a.innerHTML += item?.name ?? 'placeholder';
+    a.innerHTML += item?.text ?? 'placeholder';
     p.appendChild(a);
     fragment.appendChild(p);
   });
