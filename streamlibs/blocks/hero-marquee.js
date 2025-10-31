@@ -2,6 +2,7 @@ import {
   handleActionButtons,
   handleBackground, handleComponents, handleImageComponent, handleProductLockup,
 } from '../components/components.js';
+import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { divSwap, getFirstType } from '../utils/utils.js';
 
@@ -76,6 +77,12 @@ function blockBackground(value, areaEl, properties) {
   }
 }
 
+function handleLogo(value, areaEl) {
+  if (!areaEl || !value) return;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value || LOGOS.placeholder; });
+  areaEl.querySelector('img').src = value || LOGOS.placeholder;
+}
+
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
@@ -104,6 +111,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           break;
         case 'checklistItems':
           handleCheckList(value, areaEl, properties, blockContent);
+          break;
+        case 'logoImage':
+          handleLogo(value, areaEl);
           break;
         default:
           break;
