@@ -18,7 +18,7 @@ export const GRID_SIZES = {
 
 export const ACTION_BUTTONS_TYPES = {
   accent: `<strong><a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></strong> `,
-  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></strong> `,
+  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}#_button-fill">{leadingIcon}{buttonText}{trailingIcon}</a></strong> `,
   outline: `<em><a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></em> `,
   text: `<a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a> `,
 };

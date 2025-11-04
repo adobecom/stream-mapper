@@ -20,8 +20,22 @@ function replacePictureWithImg(html) {
   return doc.body.innerHTML;
 }
 
+function replaceSpanWithColonText(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  doc.querySelectorAll('span.icon').forEach((ele) => {
+    const classes = ele.classList[1];
+    const iconText = classes.split('icon-')[1];
+    ele.after(`:${iconText}:`);
+    ele.remove();
+  });
+  return doc.body.innerHTML;
+}
+// TODO: check span tag with icon and add in html
+
 export function getDACompatibleHtml(html) {
   html = replacePictureWithImg(html);
+  html = replaceSpanWithColonText(html);
   html = html.replaceAll('\n', '');
   html = html.replaceAll('"', "'");
   html = html.replaceAll("alt= ','");
