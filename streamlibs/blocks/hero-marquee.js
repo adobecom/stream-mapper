@@ -4,7 +4,7 @@ import {
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
-import { divSwap, getFirstType } from '../utils/utils.js';
+import { divSwap, getFirstType, getIconSize } from '../utils/utils.js';
 
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
@@ -32,15 +32,17 @@ function handleMedia(blockContent, selector, value, areaEl) {
   });
 }
 
-function handleCheckList(items, areaEl) {
+function handleCheckList(items, areaEl, properties) {
   if (!items || !areaEl) return;
   const fragment = document.createDocumentFragment();
   items.forEach((item) => {
     const li = document.createElement('li');
-    const span = document.createElement('span');
-    span.classList.add('icon');
-    span.classList.add('icon-checkmark');
-    li.appendChild(span);
+    if (properties?.checkmarks) {
+      const span = document.createElement('span');
+      span.classList.add('icon');
+      span.classList.add('icon-checkmark');
+      li.appendChild(span);
+    }
     li.innerHTML += item?.text ?? 'placeholder';
     fragment.appendChild(li);
   });
@@ -62,9 +64,16 @@ function handleMinHeight(blockContent, properties) {
       break;
   }
 }
+function handleProductLockupSize(blockContent, properties) {
+  if (properties?.productLockups?.length > 0) {
+    const [productLockup] = properties.productLockups;
+    const size = getIconSize(productLockup?.name);
+    blockContent.classList.add(`${size ?? 'm'}-lockup`);
+  }
+}
 
 function handleVariants(sectionWrapper, blockContent, properties) {
-  if (properties?.productLockups) blockContent.classList.add('m-lockup');
+  handleProductLockupSize(blockContent, properties);
   handleMinHeight(blockContent, properties);
   if (properties?.layout === 'centered') blockContent.classList.add('center');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);

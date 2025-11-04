@@ -88,3 +88,13 @@ export const getFirstType = (text) => {
 
   return copyIndex < imageIndex ? 'copy' : 'image';
 };
+
+export function getIconSize(sizeValue) {
+  let size = 'm';
+  if (sizeValue.includes('s')) size = 's';
+  if (sizeValue.includes('m')) size = 'm';
+  if (sizeValue.includes('l')) size = 'l';
+  if (sizeValue.includes('xl')) size = 'xl';
+  if (sizeValue.includes('xxl')) size = 'xxl';
+  return size;
+}
