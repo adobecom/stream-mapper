@@ -4,6 +4,7 @@ import {
   ACTION_BUTTONS_TYPES,
   ACTION_BUTTONS_SIZES,
   LOGOS,
+  ICON_CLASS,
 } from '../utils/constants.js';
 
 export function handleTextComponent({ el, value, selector }) {
@@ -42,19 +43,37 @@ function handleLogoContainerComponent({ el, value, selector }) {
   return containerEl;
 }
 
+function addSVGInButton(icon) {
+  if (!icon || !icon?.name) return null;
+  const { name } = icon;
+  const span = document.createElement('span');
+  span.classList.add('icon');
+  Object.keys(ICON_CLASS)?.forEach((key) => {
+    if (name?.toLowerCase().includes(key)) {
+      span.classList.add(`icon-${ICON_CLASS[key] || 'play'}`);
+    }
+  });
+  return span;
+}
+
 export function handleButtonComponent({
   el,
   actionArea,
   buttonType,
   buttonText,
+  leadingIcon,
+  trailingIcon,
+  hasLeadingIcon,
+  hasTrailingIcon,
 }) {
   const btnType = buttonType ? buttonType.toLowerCase() : 'm button / text';
-
   // Button type
   // eslint-disable-next-line no-restricted-syntax
   for (const type in ACTION_BUTTONS_TYPES) {
     if (btnType.includes(type)) {
-      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('{buttonText}', buttonText);
+      const leadingI = hasLeadingIcon ? addSVGInButton(leadingIcon) : null;
+      const trailingI = hasTrailingIcon ? addSVGInButton(trailingIcon) : null;
+      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('{buttonText}', buttonText).replace('{leadingIcon}', leadingI ? `${leadingI.outerHTML} ` : '').replace('{trailingIcon}', trailingI ? ` ${trailingI.outerHTML}` : '');
     }
   }
 
@@ -105,6 +124,10 @@ export function handleActionButtons(el, configData, value, areaEl) {
       actionArea: areaEl,
       buttonType: configData.action.variant,
       buttonText: configData.action.text ? configData.action.text : configData.action.value,
+      leadingIcon: configData.action.leadingIcon,
+      trailingIcon: configData.action.trailingIcon,
+      hasLeadingIcon: configData.action.hasLeadingIcon,
+      hasTrailingIcon: configData.action.hasTrailingIcon,
     });
   }
   if (configData.action1) {
@@ -113,6 +136,10 @@ export function handleActionButtons(el, configData, value, areaEl) {
       actionArea: areaEl,
       buttonType: configData.action1.variant,
       buttonText: configData.action1.text ? configData.action1.text : configData.action1.value,
+      leadingIcon: configData.action1.leadingIcon,
+      trailingIcon: configData.action1.trailingIcon,
+      hasLeadingIcon: configData.action1.hasLeadingIcon,
+      hasTrailingIcon: configData.action1.hasTrailingIcon,
     });
   }
   if (configData.action2) {
@@ -121,6 +148,10 @@ export function handleActionButtons(el, configData, value, areaEl) {
       actionArea: areaEl,
       buttonType: configData.action2.variant,
       buttonText: configData.action2.text ? configData.action2.text : configData.action2.value,
+      leadingIcon: configData.action2.leadingIcon,
+      trailingIcon: configData.action2.trailingIcon,
+      hasLeadingIcon: configData.action2.hasLeadingIcon,
+      hasTrailingIcon: configData.action2.hasTrailingIcon,
     });
   }
   if (configData.action3) {
@@ -129,6 +160,10 @@ export function handleActionButtons(el, configData, value, areaEl) {
       actionArea: areaEl,
       buttonType: configData.action3.variant,
       buttonText: configData.action3.text ? configData.action3.text : configData.action3.value,
+      leadingIcon: configData.action3.leadingIcon,
+      trailingIcon: configData.action3.trailingIcon,
+      hasLeadingIcon: configData.action3.hasLeadingIcon,
+      hasTrailingIcon: configData.action3a.hasTrailingIcon,
     });
   }
 }
