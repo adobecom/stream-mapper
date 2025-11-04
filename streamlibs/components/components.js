@@ -31,7 +31,7 @@ export function handleImageComponent({ el, value, selector }) {
 
 function handleContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
-  if (!value) return containerEl.classList.add('to-remove');
+  if (!value || (Array.isArray(value) && value.length < 1)) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
   return containerEl;
 }

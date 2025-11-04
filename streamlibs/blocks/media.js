@@ -100,7 +100,7 @@ function handleFooterList(items, areaEl, properties) {
       span.classList.add('icon-play-circle');
     }
     a.appendChild(span);
-    a.innerHTML += item?.name ?? 'placeholder';
+    a.innerHTML += item?.text ?? 'placeholder';
     p.appendChild(a);
     fragment.appendChild(p);
   });
@@ -109,6 +109,7 @@ function handleFooterList(items, areaEl, properties) {
 }
 
 function handleList(items, areaEl, properties, blockContent) {
+  if (!items || items.length < 1 || !areaEl) return;
   if (properties?.miloTag?.includes('plylst')) {
     handleFooterList(items, areaEl, properties, blockContent);
   } else {
@@ -184,9 +185,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           break;
       }
     });
-    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     console.error(error);
   }
