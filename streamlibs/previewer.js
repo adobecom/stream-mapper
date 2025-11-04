@@ -18,7 +18,7 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
-  addStreamOperation
+  addStreamOperation,
 } from './utils/operations.js';
 
 async function initiatePreviewer() {
