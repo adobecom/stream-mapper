@@ -54,7 +54,7 @@ export function handleButtonComponent({
   // eslint-disable-next-line no-restricted-syntax
   for (const type in ACTION_BUTTONS_TYPES) {
     if (btnType.includes(type)) {
-      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('/buttonText/', buttonText);
+      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('{buttonText}', buttonText);
     }
   }
 
