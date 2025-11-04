@@ -32,6 +32,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.classList.remove('text-cards');
     properties.blocks.forEach((block) => {
       const blockTemplate = blockContent.cloneNode(true);
+      if (properties.type.includes('center')) blockTemplate.classList.add('center');
       sectionWrapper.appendChild(blockTemplate);
       mappingData.data.forEach((mappingConfig) => {
         const value = block[mappingConfig.key];
