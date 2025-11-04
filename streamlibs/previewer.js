@@ -15,13 +15,20 @@ import {
   initializeTokens,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
-import { createStreamOperation, editStreamOperation } from './utils/operations.js';
+import {
+  createStreamOperation,
+  editStreamOperation,
+  addStreamOperation,
+} from './utils/operations.js';
 
 async function initiatePreviewer() {
   let html = '';
   switch (window.streamConfig.operation) {
     case 'create':
       html = await createStreamOperation();
+      break;
+    case 'edit-add':
+      html = await addStreamOperation();
       break;
     case 'edit':
       html = await editStreamOperation();
@@ -89,6 +96,7 @@ export default async function initPreviewer() {
     selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
     selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
   };
+  if (getQueryParam('editAction')) window.streamConfig.operation = `${window.streamConfig.operation}-${getQueryParam('editAction')}`;
   await initializeTokens(window.streamConfig.token);
   if (
     !window.streamConfig.source
