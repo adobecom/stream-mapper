@@ -92,6 +92,16 @@ function handleLogo(value, areaEl) {
   areaEl.querySelector('img').src = value || LOGOS.placeholder;
 }
 
+function handleSupplemental(blockContent, selector, value) {
+  const areaEl = blockContent?.querySelector(selector);
+  if (!areaEl) return;
+  if (value) {
+    areaEl.innerHTML = value;
+  } else {
+    areaEl.innerHTML = '';
+  }
+}
+
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
@@ -115,14 +125,25 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
         case 'media':
           handleMedia(blockContent, mappingConfig?.selector, value?.imageRef, areaEl);
           break;
-        case 'actions':
-          handleActionButtons(blockContent, properties, value, areaEl);
+        case 'actions': {
+          const actionEL = blockContent?.querySelector(mappingConfig?.selector);
+          actionEL.innerHTML = '';
+          handleActionButtons(
+            blockContent,
+            properties,
+            value,
+            actionEL,
+          );
           break;
+        }
         case 'checklistItems':
           handleCheckList(value, areaEl, properties, blockContent);
           break;
         case 'logoImage':
           handleLogo(value, areaEl);
+          break;
+        case 'supplemental':
+          handleSupplemental(blockContent, mappingConfig?.selector, value);
           break;
         default:
           break;
