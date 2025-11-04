@@ -98,7 +98,7 @@ async function processBlock(block, figmaUrl) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
-  let blockContent = getHtml(doc, block.miloId, block.variant, figContent);
+  let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
   blockContent = await mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
