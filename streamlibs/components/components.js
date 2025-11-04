@@ -48,7 +48,7 @@ export function handleButtonComponent({
   buttonType,
   buttonText,
 }) {
-  const btnType = buttonType ? buttonType.toLowerCase() : '';
+  const btnType = buttonType ? buttonType.toLowerCase() : 'm button / text';
 
   // Button type
   // eslint-disable-next-line no-restricted-syntax
@@ -104,7 +104,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
       el,
       actionArea: areaEl,
       buttonType: configData.action.variant,
-      buttonText: configData.action.text,
+      buttonText: configData.action.text ? configData.action.text : configData.action.value,
     });
   }
   if (configData.action1) {
@@ -112,7 +112,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
       el,
       actionArea: areaEl,
       buttonType: configData.action1.variant,
-      buttonText: configData.action1.text,
+      buttonText: configData.action1.text ? configData.action1.text : configData.action1.value,
     });
   }
   if (configData.action2) {
@@ -120,7 +120,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
       el,
       actionArea: areaEl,
       buttonType: configData.action2.variant,
-      buttonText: configData.action2.text,
+      buttonText: configData.action2.text ? configData.action2.text : configData.action2.value,
     });
   }
   if (configData.action3) {
@@ -128,7 +128,7 @@ export function handleActionButtons(el, configData, value, areaEl) {
       el,
       actionArea: areaEl,
       buttonType: configData.action3.variant,
-      buttonText: configData.action3.text,
+      buttonText: configData.action3.text ? configData.action3.text : configData.action3.value,
     });
   }
 }
