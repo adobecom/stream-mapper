@@ -26,3 +26,14 @@ export async function editStreamOperation() {
   });
   return daHtml.innerHTML;
 }
+
+export async function addStreamOperation() {
+  const daHtml = await fetchDAContent();
+  let { html } = await fetchFigmaContent();
+  const parser = new DOMParser();
+  html = parser.parseFromString(html, 'text/html');
+  html.querySelectorAll('body > div').forEach((div) => {
+    daHtml.appendChild(div);
+  });
+  return daHtml.innerHTML;
+}
