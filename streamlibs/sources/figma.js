@@ -20,25 +20,15 @@ async function fetchFigmaMapping(figmaUrl) {
 
 const SPECIAL_OVERRIDES = {
   'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
-  media: ({
-    doc, id, variant, figContent,
-  }) => {
-    const properties = figContent?.details?.properties;
-    if (properties) {
-      return doc.querySelectorAll(`.${id}`)[0];
-    }
-    return doc.querySelector(`.${id}`)[variant];
-  },
-
 };
 
-function getHtml(resp, miloId, variant, figContent) {
+function getHtml(resp, miloId, variant) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
   const overrideFunction = SPECIAL_OVERRIDES[miloId];
   if (overrideFunction) {
     return overrideFunction({
-      doc, miloId, variant, figContent,
+      doc, miloId, variant,
     });
   }
   return doc.querySelectorAll(`.${miloId}`)[variant];
