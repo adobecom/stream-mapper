@@ -113,7 +113,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
     blockContent.classList.add(`${size ?? 'm'}-lockup`);
   }
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.layout === 'center') blockContent.classList.add('center');
+  if (properties?.layout?.includes('center')) blockContent.classList.add('center');
   handleBlockSizes(blockContent, properties);
   handleAvatarSizes(blockContent, properties);
   handleSplitHalf(blockContent, properties);
@@ -124,7 +124,7 @@ function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
     divSwap(blockContent, ':scope > div:last-child > div:first-child:has(> h3,h2)', ':scope > div:last-child > div:last-child:has( > picture ) ');
   }
-  if (properties?.layout === 'center') {
+  if (properties?.layout?.includes('center')) {
     const imageDiv = blockContent.querySelector(':scope > div:last-child > div:last-child')?.remove();
     imageDiv?.classList.add('to-remove');
   }
