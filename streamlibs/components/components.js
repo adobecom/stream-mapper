@@ -45,12 +45,12 @@ function handleLogoContainerComponent({ el, value, selector }) {
 
 function addSVGInButton(icon) {
   if (!icon || !icon?.name) return null;
-  const { name = 'play' } = icon;
+  const { name } = icon;
   const span = document.createElement('span');
   span.classList.add('icon');
   Object.keys(ICON_CLASS)?.forEach((key) => {
     if (name?.toLowerCase().includes(key)) {
-      span.classList.add(`icon-${ICON_CLASS[key]}`);
+      span.classList.add(`icon-${ICON_CLASS[key] || 'play'}`);
     }
   });
   return span;
