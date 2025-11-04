@@ -17,16 +17,23 @@ export const GRID_SIZES = {
 };
 
 export const ACTION_BUTTONS_TYPES = {
-  accent: `<strong><a href="${DEFAULT_TMP_URL}">{buttonText}</a></strong> `,
-  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}">{buttonText}</a></strong> `,
-  outline: `<em><a href="${DEFAULT_TMP_URL}">{buttonText}</a></em> `,
-  text: `<a href="${DEFAULT_TMP_URL}">{buttonText}</a> `,
+  accent: `<strong><a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></strong> `,
+  primary: `<strong><a class="fill" href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></strong> `,
+  outline: `<em><a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a></em> `,
+  text: `<a href="${DEFAULT_TMP_URL}">{leadingIcon}{buttonText}{trailingIcon}</a> `,
 };
 
 export const ACTION_BUTTONS_SIZES = {
   ' xxl button': 'xxl-button',
   ' xl button': 'xl-button',
   ' l button': 'l-button',
+};
+
+export const ICON_CLASS = {
+  play: 'play',
+  share: 'share',
+  chevronright: 'chevron-right',
+  checkmark: 'checkmark',
 };
 
 export const LOGOS = {
