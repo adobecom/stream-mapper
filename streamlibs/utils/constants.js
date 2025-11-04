@@ -33,6 +33,7 @@ export const ICON_CLASS = {
   play: 'play',
   share: 'share',
   chevronright: 'chevron-right',
+  chevronleft: 'chevron-left',
   checkmark: 'checkmark',
 };
 
