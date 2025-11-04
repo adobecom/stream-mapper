@@ -57,8 +57,12 @@ async function paintHtmlOnPage() {
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.appendChild(mainEle);
+  const div = document.createElement('div');
+  div.classList.add('button-container');
   const pushToDABtn = createPushButton();
-  document.body.append(pushToDABtn);
+  const openInDABtn = createOpenButton();
+  div.append(...[pushToDABtn, openInDABtn]);
+  document.body.append(div);
   updateButtonState(pushToDABtn, 'not-sending');
   pushToDABtn.addEventListener('click', handlePushClick);
 }
@@ -68,6 +72,16 @@ function createPushButton() {
   button.href = '#';
   button.classList.add('cta-button');
   button.innerHTML = '<span class="da-push-icon loader"></span>Push to DA';
+  return button;
+}
+
+function createOpenButton() {
+  const button = document.createElement('a');
+  const targetUrl = `https://da.live/edit#${window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl : `/${window.streamConfig.targetUrl}`}`;
+  button.href = targetUrl;
+  button.target = '_blank';
+  button.classList.add('cta-button');
+  button.innerHTML = '<span class="da-open-icon"></span>Open in DA';
   return button;
 }
 

@@ -2,7 +2,8 @@
 /* stylelint-disable color-function-alias-notation */
 /* stylelint-disable media-feature-range-notation */
 /* stylelint-disable keyframes-name-pattern */
-.da-push-icon {
+.da-push-icon,
+.da-open-icon {
   position: relative;
   display: block;
   width: 22px;
@@ -15,7 +16,11 @@
 }
 
 .da-push-icon.not-sending {
-    background: url("https://da.live/blocks/edit/img/Smock_Send_18_N.svg") center center / 22px no-repeat;
+    background: url("https://main--stream-mapper--adobecom.aem.live/assets/push-to-da.svg") center center / 22px no-repeat;
+}
+
+.da-open-icon {
+    background: url("https://main--stream-mapper--adobecom.aem.live/assets/open-in-da.svg") center center / 19px no-repeat;
 }
 
 img.da-process-wait {
@@ -103,8 +108,18 @@ img.da-process-wait {
     100% { transform: rotate(360deg); }
   }
 
+  .button-container {
+    display: flex;
+    gap: 10px;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    right: 20px;
+    margin: 20px auto;
+  }
+
   .cta-button {
-    background-color: #7155fa;
+    background: linear-gradient(to top, #1e3c72 0%, #1e3c72 1%, #2a5298 100%);
     color: white;
     font-size: 18px;
     font-weight: bold;
@@ -117,11 +132,6 @@ img.da-process-wait {
     box-shadow: 0 4px 6px rgba(0, 123, 255, 20%);
     text-align: center;
     width: fit-content;
-    margin: 20px auto;
-    position: fixed;
-    z-index: 1000;
-    top: 0;
-    right: 20px;
     display: flex;
     align-items: center;
     gap: 10px;
