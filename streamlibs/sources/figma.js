@@ -20,16 +20,6 @@ async function fetchFigmaMapping(figmaUrl) {
 
 const SPECIAL_OVERRIDES = {
   'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
-  media: ({
-    doc, id, variant, figContent,
-  }) => {
-    const properties = figContent?.details?.properties;
-    if (properties) {
-      return doc.querySelectorAll(`.${id}`)[0];
-    }
-    return doc.querySelector(`.${id}`)[variant];
-  },
-
 };
 
 function getHtml(resp, miloId, variant, figContent) {
@@ -108,7 +98,7 @@ async function processBlock(block, figmaUrl) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl),
   ]);
-  let blockContent = getHtml(doc, block.miloId, block.variant);
+  let blockContent = getHtml(doc, block.miloId, block.variant, figContent);
   figContent.details.properties.miloTag = block.tag;
   blockContent = await mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
