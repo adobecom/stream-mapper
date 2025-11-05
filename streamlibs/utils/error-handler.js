@@ -44,7 +44,7 @@ export async function safeTemplateFetch(templateUrl, options = {}) {
   // If templateUrl is already a full URL, use it directly; otherwise construct from config
   const url = templateUrl.startsWith('http://') || templateUrl.startsWith('https://')
     ? templateUrl
-    : `${config.streamMapper.blockTemplatesUrl || config.streamMapper.blockMappingsUrl}/${templateUrl}`;
+    : `${config.streamMapper.blockTemplatesUrl || config.streamMapper.blockTemplatesUrl}/${templateUrl}`;
   const response = await safeFetch(url, options, { donotShowErrorPage: true });
   // eslint-disable-next-line no-return-await
   return await response.text();

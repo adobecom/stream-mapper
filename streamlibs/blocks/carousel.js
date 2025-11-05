@@ -84,7 +84,7 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
         } else if (properties.texts.length > 0) {
           // eslint-disable-next-line no-await-in-loop
           const templateElement = await fetchTemplateElement(
-            'https://main--stream-mapper--adobecom.aem.live/block-templates/text.plain.html',
+            'text.plain.html',
             '.text',
           );
           if (properties.textBlock?.name && !properties.textBlock.name.toLowerCase().includes('center')) {
@@ -111,7 +111,7 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
         } else if (properties.cards && properties.cards.length > 0) {
           // eslint-disable-next-line no-await-in-loop
           const templateElement = await fetchTemplateElement(
-            'https://main--stream-mapper--adobecom.aem.live/block-templates/editorial-card.plain.html',
+            'editorial-card.plain.html',
             '.card-editorial',
           );
           if (properties.card.name.toLowerCase().includes('open')) {
