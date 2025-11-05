@@ -219,7 +219,7 @@ export default async function mapBlockContent(
           handleImageComponent({
             el: blockContent,
             selector: mappingConfig.selector,
-            value: value,
+            value,
           });
           break;
         case 'productGrid':
