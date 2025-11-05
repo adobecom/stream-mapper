@@ -81,7 +81,9 @@ function createOpenButton() {
   button.href = targetUrl;
   button.target = '_blank';
   button.classList.add('cta-button');
+  button.id = 'open-in-da-button';
   button.innerHTML = '<span class="da-open-icon"></span>Open in DA';
+  if (window.streamConfig.operation === 'create') button.classList.add('disabled');
   return button;
 }
 
@@ -96,6 +98,7 @@ async function handlePushClick(event) {
   updateButtonState(button, 'loader');
   await persist();
   updateButtonState(button, 'not-sending');
+  document.querySelector('#open-in-da-button').classList.remove('disabled');
 }
 
 export default async function initPreviewer() {
