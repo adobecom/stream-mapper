@@ -6,6 +6,7 @@ import {
 import { safeTemplateFetch } from '../utils/error-handler.js';
 import mapTextBlockContent from './text.js';
 import mapCardEditorialContent from './card-editorial.js';
+import mapBlockContent from './masonry.js';
 
 const CAROUSEL_TEXT_PREFIX = 'carousel';
 let carouselCounter = 0;
@@ -65,7 +66,7 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
             carouselValueDiv.textContent = `${CAROUSEL_TEXT_PREFIX}-${carouselCounter}`;
           }
         }
-        if (properties.medias.length > 0 && properties.cards.length === 0) {
+        if (properties.medias.length > 0 && properties.cards.length === 0 && properties.bricks.length === 0) {
           properties.medias.forEach((media) => {
             const mediaDiv = div.cloneNode(true);
             handleImageComponent({
@@ -141,6 +142,33 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
             },
           );
           sections.push(...cardSections);
+        } else if (properties.bricks && properties.bricks.length > 0) {
+          // eslint-disable-next-line no-await-in-loop
+          const templateElement = await fetchTemplateElement(
+            'brick.plain.html',
+            '.brick',
+          );
+          // eslint-disable-next-line no-await-in-loop
+          const brickSections = await processItemsWithTemplate(
+            properties.bricks,
+            div,
+            templateElement,
+            figContent,
+            async (brickDiv, brickBlock, baseFigContent, brickItem) => {
+              const brickFigContent = {
+                ...baseFigContent,
+                details: {
+                  ...baseFigContent.details,
+                  properties: {
+                    ...properties,
+                    bricks: [brickItem],
+                  },
+                },
+              };
+              await mapBlockContent(brickDiv, brickBlock, brickFigContent);
+            },
+          );
+          sections.push(...brickSections);
         }
       }
     }
