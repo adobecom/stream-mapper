@@ -20,15 +20,16 @@ async function fetchFigmaMapping(figmaUrl) {
 
 const SPECIAL_OVERRIDES = {
   'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
+  carousel: ({ doc }) => doc.body.querySelectorAll(':scope > div'),
 };
 
-function getHtml(resp, miloId, variant) {
+function getHtml(resp, miloId, variant, figContent) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
   const overrideFunction = SPECIAL_OVERRIDES[miloId];
   if (overrideFunction) {
     return overrideFunction({
-      doc, miloId, variant,
+      doc, miloId, variant, figContent,
     });
   }
   return doc.querySelectorAll(`.${miloId}`)[variant];
@@ -79,7 +80,9 @@ async function mapFigmaContent(blockContent, block, figContent) {
   try {
     const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
     const sectionWrapper = document.createElement('div');
-    sectionWrapper.append(blockContent);
+    if (!(blockContent instanceof NodeList)) {
+      sectionWrapper.append(blockContent);
+    }
     const res = await mapBlockContent(sectionWrapper, blockContent, figContent);
     if (Array.isArray(res)) {
       return res;
