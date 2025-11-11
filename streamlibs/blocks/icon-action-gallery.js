@@ -30,6 +30,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
       await mapActionScrollerBlockContent(sectionWrapper, blockContent, galleryFigContent, null);
     }
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.log(error);
   }
 }

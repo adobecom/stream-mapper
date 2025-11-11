@@ -1,6 +1,5 @@
 /* eslint-disable max-len */
 import {
-  handleBackgroundWithSectionMetadata,
   handleComponents,
   handleSpacer,
   handleActionButtons,
