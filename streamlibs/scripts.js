@@ -28,8 +28,8 @@ const CONFIG = {
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
   streamMapper: {
-    figmaMappingUrl: 'https://adobe-wcms-stream-service-deploy-ethos501-prod-or2-317c9b.cloud.adobe.io/api/fig-comps',
-    figmaBlockContentUrl: 'https://adobe-wcms-stream-service-deploy-ethos501-prod-or2-317c9b.cloud.adobe.io/api/fig-comp-details',
+    figmaMappingUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comps',
+    figmaBlockContentUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comp-details',
     figmaAuthToken: '',
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
