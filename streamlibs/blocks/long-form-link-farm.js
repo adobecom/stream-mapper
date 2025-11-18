@@ -15,7 +15,7 @@ function handleColumns(hasCol, listProperty, areaEl) {
     headingEl.innerHTML = heading;
     areaEl.appendChild(headingEl);
   }
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 1; i <= 30; i+=1) {
     if (!listProperty[`link${i}`]) break;
     const aRow = document.createElement('p');
     const aTag = document.createElement('a');

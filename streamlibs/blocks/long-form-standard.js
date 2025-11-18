@@ -37,13 +37,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           }
           handleBackground(value, areaEl);
           break;
-        case 'hasList': {
+        case 'hasList': 
           if (!value) {
             areaEl.classList.add('to-remove');
             return;
           }
           handleList(properties.list, areaEl);
-        }
+          break;
         default:
           break;
       }
