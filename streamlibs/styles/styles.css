@@ -1,3 +1,4 @@
+/* stylelint-disable no-descending-specificity */
 /* stylelint-disable color-function-notation */
 /* stylelint-disable color-function-alias-notation */
 /* stylelint-disable media-feature-range-notation */
@@ -149,7 +150,7 @@ img.da-process-wait {
 
   .cta-button.disabled {
     background: #C9CCD3;
-    background-image: linear-gradient(-180deg, rgba(255,255,255,0.50) 0%, rgba(0,0,0,0.50) 100%);
+    background-image: linear-gradient(-180deg, rgba(255,255,255,50%) 0%, rgba(0,0,0,50%) 100%);
     background-blend-mode: lighten;
     color: #fff;
     cursor: not-allowed;
@@ -213,12 +214,11 @@ img.da-process-wait {
     font-size: 2.2rem;
     font-weight: 700;
     background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
-    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 200% 100%;
     animation: streambg 4s ease-in-out infinite;
-    margin: 0 0 12px 0;
+    margin: 0 0 12px;
   }
 
   @keyframes streambg {
@@ -244,14 +244,13 @@ img.da-process-wait {
   .deck {
     flex: 1;
     max-width: 40%;
-    max-width: 40%;
-    background: #ffffff;
+    background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
     padding: 24px;
     min-height: 500px;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 8%);
   }
 
   .deck-header {
@@ -272,7 +271,7 @@ img.da-process-wait {
 
   .deck-count {
     font-size: 10px;
-    color: #444444;
+    color: #444;
     background: #f3f4f6;
     padding: 10px;
     border-radius: 20px;
@@ -311,7 +310,6 @@ img.da-process-wait {
   .divider-arrow {
     font-size: 2rem;
     background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: pulse-arrow 2s ease-in-out infinite;
@@ -327,7 +325,9 @@ img.da-process-wait {
   }
 
   @keyframes pulse-arrow {
+    /* stylelint-disable-next-line declaration-block-single-line-max-declarations */
     0%, 100% { opacity: 0.5; transform: translateX(0); }
+    /* stylelint-disable-next-line declaration-block-single-line-max-declarations */
     50% { opacity: 1; transform: translateX(5px); }
   }
 
@@ -337,17 +337,17 @@ img.da-process-wait {
     align-items: center;
     gap: 14px;
     padding: 14px 16px;
-    background: #ffffff;
+    background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     cursor: grab;
     transition: all 0.25s ease;
     position: relative;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 4%);
   }
 
   .block-card:hover {
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 15%);
     border-color: #c7d2fe;
   }
 
@@ -359,7 +359,7 @@ img.da-process-wait {
     opacity: 0.6;
     transform: scale(0.98);
     border-color: #667eea;
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.25);
+    box-shadow: 0 8px 24px rgba(102, 126, 234, 25%);
   }
 
   .block-card.drag-over {
@@ -480,18 +480,18 @@ img.da-process-wait {
   .action-btn.primary {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 4%);
   }
 
   .action-btn.primary:hover {
-    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 6px 24px rgba(102, 126, 234, 5%);
   }
 
   .action-btn.secondary {
-    background: #ffffff;
+    background: #fff;
     color: #6b7280;
     border: 1px solid #e5e7eb;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 4%);
   }
 
   .action-btn.secondary:hover {
@@ -499,35 +499,4 @@ img.da-process-wait {
     color: #1f2937;
     border-color: #c7d2fe;
   }
-
-  /* Responsive */
-  /* @media screen and (max-width: 900px) {
-    .decks-container {
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .deck {
-      max-width: 100%;
-      width: 100%;
-    }
-
-    .deck-divider {
-      flex-direction: row;
-      writing-mode: initial;
-    }
-
-    .divider-arrow {
-      transform: rotate(90deg);
-    }
-
-    .divider-text {
-      writing-mode: initial;
-    }
-
-    @keyframes pulse-arrow {
-      0%, 100% { opacity: 0.5; transform: rotate(90deg) translateX(0); }
-      50% { opacity: 1; transform: rotate(90deg) translateX(5px); }
-    }
-  } */
   

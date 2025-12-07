@@ -28,8 +28,8 @@ async function initiatePreviewer() {
       html = await createStreamOperation();
       break;
     case 'edit':
-      const editUI = await editStreamOperation();
-      await startEditUIMode(editUI);
+      await editStreamOperation();
+      document.querySelector('#loader-container').remove();
       return;
     default:
       break;
@@ -47,20 +47,6 @@ async function startHTMLPainting() {
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
   await loadArea();
-}
-
-async function startEditUIMode(editUI) {
-  // Clear body and add edit UI
-  document.body.innerHTML = '';
-  document.body.appendChild(editUI);
-
-  // Load edit-specific styles
-  const editStyles = document.createElement('link');
-  editStyles.rel = 'stylesheet';
-  editStyles.href = '/streamlibs/styles/styles.css';
-  document.head.appendChild(editStyles);
-
-  document.querySelector('#loader-container')?.remove();
 }
 
 async function paintHtmlOnPage() {

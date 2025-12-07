@@ -85,6 +85,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch('long-form-inset.json');
     mappingData.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
+      // eslint-disable-next-line no-unused-vars
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'lists':

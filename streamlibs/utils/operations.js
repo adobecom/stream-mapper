@@ -1,9 +1,9 @@
+/* eslint-disable no-use-before-define */
 /* eslint-disable no-console */
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { getConfig } from './utils.js';
 import { handleError, safeFetch } from './error-handler.js';
-
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
@@ -13,20 +13,21 @@ const ADOBE_ICON = `
 `;
 
 export async function createStreamOperation() {
+  // eslint-disable-next-line prefer-const
   let { htmlDom: html, html: htmlArray } = await fetchFigmaContent();
   const hasEditUid = new URL(window.location.href).searchParams.get('streamEditUid');
   if (hasEditUid) {
-    html = ""
+    html = '';
     try {
       if (window.localStorage.getItem(`stream-edit-${hasEditUid}`)) {
-        window.sessionStorage.setItem(`stream-edit`, window.localStorage.getItem(`stream-edit-${hasEditUid}`));
+        window.sessionStorage.setItem('stream-edit', window.localStorage.getItem(`stream-edit-${hasEditUid}`));
         window.localStorage.removeItem(`stream-edit-${hasEditUid}`);
       }
     } catch (error) {
       handleError(error, ' parsing edit changes. Pleaser run the editor flow again.');
       throw error;
     }
-    const editChanges = JSON.parse(window.sessionStorage.getItem(`stream-edit`));
+    const editChanges = JSON.parse(window.sessionStorage.getItem('stream-edit'));
     try {
       const daPlainhtml = await fetchDAContent();
       const daConsonantBlocks = daPlainhtml.querySelectorAll('div[class]');
@@ -97,7 +98,9 @@ let draggedCard = null;
 let draggedFromDeck = null;
 
 function deepCloneBlocks(blocks, prefix) {
-  return blocks.map((b, index) => ({ ...b, dataId: b.dataId || `${prefix}-${index}`, source: b.source || prefix, removed: false }));
+  return blocks.map((b, index) => ({
+    ...b, dataId: b.dataId || `${prefix}-${index}`, source: b.source || prefix, removed: false,
+  }));
 }
 
 function resetToOriginal() {
@@ -126,7 +129,7 @@ function createBlockCard(block, deckType) {
   card.addEventListener('dragstart', handleDragStart);
   card.addEventListener('dragend', handleDragEnd);
   if (deckType === 'da') {
-    const dataId = block.dataId;
+    const { dataId } = block;
     card.querySelector('.card-remove-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleBlockRemoved(dataId);
@@ -272,7 +275,7 @@ function generateUniqueId() {
   // Return 5 random lowercase alphabets and numbers
   let result = '';
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 5; i += 1) {
     result += chars[Math.floor(Math.random() * chars.length)];
   }
   return result;
@@ -282,7 +285,7 @@ function handleApplyChanges() {
   const changes = [];
   daBlocks.forEach((b) => {
     const [source, idx] = b.dataId.split('-');
-    if (!b.removed) changes.push({source, idx});
+    if (!b.removed) changes.push({ source, idx });
   });
   const uid = generateUniqueId();
   window.localStorage.setItem(`stream-edit-${uid}`, JSON.stringify(changes));
