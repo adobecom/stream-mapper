@@ -138,6 +138,6 @@ export async function fetchFigmaContent() {
       htmlDom += h.outerHTML;
     }
   });
-  pageComponents.html = htmlDom;
-  return pageComponents;
+  pageComponents.htmlDom = htmlDom;
+  return { htmlDom: pageComponents.htmlDom, html: pageComponents.html };
 }

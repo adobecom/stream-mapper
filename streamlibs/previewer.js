@@ -18,21 +18,19 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
-  addStreamOperation,
 } from './utils/operations.js';
 
 async function initiatePreviewer() {
   let html = '';
   switch (window.streamConfig.operation) {
     case 'create':
+      document.querySelector('#edit-operation-container').remove();
       html = await createStreamOperation();
       break;
-    case 'edit-add':
-      html = await addStreamOperation();
-      break;
     case 'edit':
-      html = await editStreamOperation();
-      break;
+      const editUI = await editStreamOperation();
+      await startEditUIMode(editUI);
+      return;
     default:
       break;
   }
@@ -49,6 +47,20 @@ async function startHTMLPainting() {
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
   await loadArea();
+}
+
+async function startEditUIMode(editUI) {
+  // Clear body and add edit UI
+  document.body.innerHTML = '';
+  document.body.appendChild(editUI);
+
+  // Load edit-specific styles
+  const editStyles = document.createElement('link');
+  editStyles.rel = 'stylesheet';
+  editStyles.href = '/streamlibs/styles/styles.css';
+  document.head.appendChild(editStyles);
+
+  document.querySelector('#loader-container')?.remove();
 }
 
 async function paintHtmlOnPage() {
