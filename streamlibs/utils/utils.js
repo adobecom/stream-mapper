@@ -35,11 +35,15 @@ export async function initializeTokens(token) {
 }
 
 export function extractByPattern(tag, pattern) {
+  if (!tag || !pattern) {
+    return {};
+  }
   const parts = tag.split('-');
   const match = parts.find((p) => (pattern instanceof RegExp
     ? pattern.test(p) : p.includes(pattern)));
   if (!match) return null;
-  const numMatch = match.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
+  const cleaned = match.replace(/\s+/g, '');
+  const numMatch = cleaned.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
   if (numMatch) {
     const [, prefix, number, suffix] = numMatch;
     return {
@@ -67,6 +71,10 @@ export function divSwap(blockContent, divSelector, divSelector2) {
 export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
 
 export const getFirstType = (text) => {
+  if (!text) {
+    return 'neither';
+  }
+
   const cleaned = text
     .toLowerCase()
     .replace(/->|-/g, ' ')
