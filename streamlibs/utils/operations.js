@@ -71,16 +71,20 @@ export async function fetchFigmaBlocks() {
   }
 }
 
+function getBlockName(block) {
+  return "Block";
+}
+
 export async function fetchDABlocks() {
   try {
     const daContent = await fetchDAContent();
     if (!daContent) return [];
-    const blocks = [...daContent.querySelectorAll('div[class]')];
+    const blocks = [...daContent.querySelectorAll(':scope > div')];
     // Assign unique IDs to each block
     return blocks.map((block, index) => ({
       id: `da-block-${index}-${Date.now()}`,
-      name: block.classList[0],
-      type: block.classList[0],
+      name: getBlockName(block),
+      type: getBlockName(block),
       element: block,
       removed: false,
     }));
