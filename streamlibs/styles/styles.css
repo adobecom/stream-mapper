@@ -4,7 +4,8 @@
 /* stylelint-disable media-feature-range-notation */
 /* stylelint-disable keyframes-name-pattern */
 .da-push-icon,
-.da-open-icon {
+.da-open-icon,
+.da-edit-icon {
   position: relative;
   display: block;
   width: 18px;
@@ -22,6 +23,10 @@
 
 .da-open-icon {
     background: url("https://main--stream-mapper--adobecom.aem.live/assets/open-in-da.svg") center center / 18px no-repeat;
+}
+
+.da-edit-icon {
+    background: url("https://main--stream-mapper--adobecom.aem.live/assets/back-to-da.svg") center center / 18px no-repeat;
 }
 
 img.da-process-wait {
@@ -247,8 +252,7 @@ img.da-process-wait {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 16px;
-    padding: 24px;
-    min-height: 500px;
+    padding: 20px;
     transition: all 0.3s ease;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 8%);
   }
@@ -276,14 +280,20 @@ img.da-process-wait {
     padding: 10px;
     border-radius: 20px;
     line-height: 1.2;
+    min-width: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .deck-cards {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    height: 400px;
     min-height: 400px;
-    max-height: 60vh;
+    max-height: 400px;
+    overflow: scroll;
     overflow-y: auto;
   }
 
@@ -336,7 +346,7 @@ img.da-process-wait {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 14px 16px;
+    padding: 10px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -392,16 +402,26 @@ img.da-process-wait {
   }
 
   .card-thumbnail {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border-radius: 10px;
     object-fit: cover;
     flex-shrink: 0;
   }
 
+  .da-deck .card-thumbnail {
+    width: 25px;
+    height: 25px;
+  }
+
   .card-thumbnail svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .da-deck .card-thumbnail svg {
+    width: 25px;
+    height: 25px;
   }
 
   .card-content {
@@ -417,7 +437,6 @@ img.da-process-wait {
     font-size: 0.95rem;
     font-weight: 600;
     color: #1f2937;
-    margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -431,13 +450,13 @@ img.da-process-wait {
   }
 
   .card-remove-btn {
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 8px;
-    background: #fef2f2;
-    color: #ef4444;
-    font-size: 1.2rem;
+    width: 20px;
+    height: 20px;
+    border: 1px solid #f54b4b4f;
+    border-radius: 20px;
+    background: #f4d0d0ab;
+    color: #f54b4b;
+    font-size: 14px;
     cursor: pointer;
     transition: all 0.2s ease;
     display: flex;
@@ -446,17 +465,11 @@ img.da-process-wait {
     flex-shrink: 0;
   }
 
-  .card-remove-btn:hover {
-    background: #fee2e2;
-  }
-
   .card-remove-btn.restore {
-    background: #f0fdf4;
-    color: #22c55e;
-  }
-
-  .card-remove-btn.restore:hover {
-    background: #dcfce7;
+    font-size: 18px;
+    border: 1px solid #157e42;
+    background: #9eedb6a4;
+    color: #157e42;
   }
 
   /* Action Buttons */
@@ -499,4 +512,45 @@ img.da-process-wait {
     color: #1f2937;
     border-color: #c7d2fe;
   }
+
+  /* Circle Loader */
+  .circle-loader-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    min-height: 200px;
+  }
+
+  .circle-loader {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-right-color: #764ba2;
+    border-radius: 50%;
+    animation: circle-spin 1s linear infinite;
+  }
+
+  @keyframes circle-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
   
+  @media screen and (max-width: 700px) {
+    .decks-cards .card-thumbnail,
+    .decks-cards .card-thumbnail svg {
+        height: 18px;
+        width: 18px;
+    }
+
+    .deck-cards .block-card .card-title {
+      font-size: 12px;
+    }
+
+    .deck-cards .block-card .card-remove-btn {
+        width: 20px;
+        height: 20px;
+        font-size: 14px;
+    }
+  }

@@ -7,6 +7,8 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
+  resetTargetHtmlInStore,
+  resetPreviewHtmlInStore,
 } from './store/store.js';
 import {
   getLibs,
@@ -20,16 +22,22 @@ import {
   editStreamOperation,
 } from './utils/operations.js';
 
-async function initiatePreviewer() {
+const LOADER = document.querySelector('#loader-container');
+const EDIT_MAPPER = document.querySelector('#edit-operation-container');
+let BUTTON_CONTAINER = null;
+
+export async function initiatePreviewer(forceOperation = null) {
   let html = '';
-  switch (window.streamConfig.operation) {
+  switch (forceOperation || window.streamConfig.operation) {
     case 'create':
-      document.querySelector('#edit-operation-container').remove();
+      LOADER.style.display = 'flex';
+      EDIT_MAPPER.style.display = 'none';
       html = await createStreamOperation();
       break;
     case 'edit':
+      LOADER.style.display = 'none';
+      EDIT_MAPPER.style.display = 'block';
       await editStreamOperation();
-      document.querySelector('#loader-container').remove();
       return;
     default:
       break;
@@ -39,7 +47,7 @@ async function initiatePreviewer() {
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
   pushTargetHtmlToStore(html);
-  document.querySelector('#loader-container').remove();
+  document.querySelector('#loader-container').style.display = 'none';
 }
 
 async function startHTMLPainting() {
@@ -55,14 +63,24 @@ async function paintHtmlOnPage() {
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.appendChild(mainEle);
-  const div = document.createElement('div');
-  div.classList.add('button-container');
-  const pushToDABtn = createPushButton();
-  const openInDABtn = createOpenButton();
-  div.append(...[pushToDABtn, openInDABtn]);
-  document.body.append(div);
-  updateButtonState(pushToDABtn, 'not-sending');
-  pushToDABtn.addEventListener('click', handlePushClick);
+  if (!BUTTON_CONTAINER) {
+    const div = document.createElement('div');
+    div.classList.add('button-container');
+    const pushToDABtn = createPushButton();
+    const openInDABtn = createOpenButton();
+    const backToEditBtn = createBackToEditButton();
+    div.append(...[pushToDABtn, openInDABtn]);
+    document.body.append(div);
+    updateButtonState(pushToDABtn, 'not-sending');
+    pushToDABtn.addEventListener('click', handlePushClick);
+    if (backToEditBtn) {
+      div.prepend(backToEditBtn);
+      backToEditBtn.addEventListener('click', handleBackToEditClick);
+    }
+    BUTTON_CONTAINER = div;
+  } else {
+    BUTTON_CONTAINER.style.display = 'flex';
+  }
 }
 
 function createPushButton() {
@@ -85,6 +103,16 @@ function createOpenButton() {
   return button;
 }
 
+function createBackToEditButton() {
+  if (window.streamConfig.operation !== 'edit') return;
+  const button = document.createElement('a');
+  button.href = '#';
+  button.classList.add('cta-button');
+  button.id = 'back-to-edit-button';
+  button.innerHTML = '<span class="da-edit-icon"></span>Back to Editor';
+  return button;
+}
+
 function updateButtonState(button, state) {
   const icon = button.querySelector('span.da-push-icon');
   icon.classList.remove('loader', 'not-sending');
@@ -97,6 +125,15 @@ async function handlePushClick(event) {
   await persist();
   updateButtonState(button, 'not-sending');
   document.querySelector('#open-in-da-button').classList.remove('disabled');
+}
+
+async function handleBackToEditClick(event) {
+  BUTTON_CONTAINER.style.display = 'none';
+  resetTargetHtmlInStore();
+  resetPreviewHtmlInStore();
+  document.querySelector('#edit-operation-container').style.display = 'block';
+  document.querySelector('header').remove();
+  document.querySelector('main').remove();
 }
 
 export default async function initPreviewer() {
