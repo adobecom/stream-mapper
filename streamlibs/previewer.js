@@ -18,21 +18,19 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
-  addStreamOperation,
 } from './utils/operations.js';
 
 async function initiatePreviewer() {
   let html = '';
   switch (window.streamConfig.operation) {
     case 'create':
+      document.querySelector('#edit-operation-container').remove();
       html = await createStreamOperation();
       break;
-    case 'edit-add':
-      html = await addStreamOperation();
-      break;
     case 'edit':
-      html = await editStreamOperation();
-      break;
+      await editStreamOperation();
+      document.querySelector('#loader-container').remove();
+      return;
     default:
       break;
   }
