@@ -4,6 +4,7 @@ import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { getConfig } from './utils.js';
 import { handleError, safeFetch } from './error-handler.js';
+import { COMPONENTS_NAMES } from './constants.js';
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
@@ -71,19 +72,94 @@ export async function fetchFigmaBlocks() {
   }
 }
 
+function getSectionMetadataProps(sectionMetadata) {
+  if (!sectionMetadata) return {};
+  const divs = sectionMetadata.querySelectorAll(':scope > div');
+  const properties = Array.from(divs).reduce((acc, div) => {
+    const keyDiv = div.querySelector(':scope > div')?.textContent;
+    const valueDiv = div.querySelector(':scope > div:nth-child(2)')?.textContent;
+    acc[keyDiv] = valueDiv;
+    return acc;
+  }, {});
+  return properties;
+}
+
+const VARIANT_RESOLVERS = [
+  (config, ctx) => Object.keys(config).find((variantKey) => {
+    const variantConfig = config[variantKey];
+    return (
+      variantConfig?.hasBlockClass
+        && ctx.div.classList.contains(variantConfig.hasBlockClass)
+    );
+  }),
+
+  (config, ctx) => (ctx.sectionMetadata?.style?.includes('up') && config.up ? 'up' : null),
+
+  (config, ctx) => (ctx.isUniformType && config.multiple?.hasMultiple ? 'multiple' : null),
+];
+
+function resolveComponentConfig(div, blockDivs, sectionMetadata) {
+  const className = div.classList[0];
+  const config = COMPONENTS_NAMES[className];
+  if (!config) return null;
+
+  const context = {
+    div,
+    sectionMetadata,
+    isUniformType: blockDivs.every((d) => d.classList[0] === className),
+  };
+
+  const variantKey = VARIANT_RESOLVERS.reduce((acc, resolver) => {
+    if (acc) return acc;
+    return resolver(config, context);
+  }, null) || 'default';
+
+  return config[variantKey] || config.default;
+}
+
+export function getComponentName(block, sectionMetadataProperties) {
+  const blockDivs = Array.from(block?.children || [])
+    .filter((div) => !div.classList.contains('section-metadata'));
+
+  if (!blockDivs.length) return '';
+
+  const resolvedBlocks = blockDivs
+    .map((div) => ({
+      div,
+      config: resolveComponentConfig(div, blockDivs, sectionMetadataProperties),
+    }))
+    .filter((item) => item.config);
+
+  if (resolvedBlocks.length === 0) return '';
+
+  const compositeBlock = resolvedBlocks.find((item) => item.config.composite);
+  if (compositeBlock) return compositeBlock.config.name;
+
+  return resolvedBlocks[0].config.name || '';
+}
+
 export async function fetchDABlocks() {
   try {
     const daContent = await fetchDAContent();
     if (!daContent) return [];
-    const blocks = [...daContent.querySelectorAll('div[class]')];
+    const blocks = [...daContent.querySelectorAll(':scope > div')];
+
     // Assign unique IDs to each block
-    return blocks.map((block, index) => ({
-      id: `da-block-${index}-${Date.now()}`,
-      name: block.classList[0],
-      type: block.classList[0],
-      element: block,
-      removed: false,
-    }));
+    return blocks.map((block, index) => {
+      const sectionMetadata = block.querySelector(':scope > .section-metadata');
+      const sectionMetadataProperties = getSectionMetadataProps(sectionMetadata);
+      const textHeading = block.querySelector(':scope h1, h2, h3, h4')?.textContent ?? '';
+      const name = getComponentName(block, sectionMetadataProperties);
+
+      return {
+        id: `da-block-${index}-${Date.now()}`,
+        name,
+        type: block.classList[0],
+        element: block,
+        removed: false,
+        title: textHeading,
+      };
+    });
   } catch (error) {
     handleError(error, ' fetching da blocks');
     throw error;
@@ -117,12 +193,25 @@ function createBlockCard(block, deckType) {
   card.dataset.deck = deckType;
   card.draggable = true;
   const blockName = block.name || block.id || 'Block';
+  const blockTitle = (block.title ? `Block title: ${block.title}` : '');
   card.innerHTML = `
     <div class="card-content">
-      <div class="card-thumbnail">
-        ${block.source === 'figma' ? FIGMA_ICON : ADOBE_ICON}
+      <div class="card-body">
+      <div class="card-header">
+        <div class="card-thumbnail">
+         ${block.source === 'figma' ? FIGMA_ICON : ADOBE_ICON}
+        </div>
+        <div class="card-title">${blockName}</div>
       </div>
-      <div class="card-title">${blockName}</div>
+    <div class="card-description">  
+    <div class="card-subtitle">${
+  block.source === 'figma'
+    ? `Milo Tag: ${block.tag}`
+    : blockTitle
+}     
+</div>
+</div>
+</div>
     </div>
     ${deckType === 'da' ? `<button class="card-remove-btn ${block.removed ? 'restore' : 'remove'}">${block.removed ? '↩' : '×'}</button>` : ''}
   `;
