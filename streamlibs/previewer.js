@@ -21,22 +21,46 @@ import {
   createStreamOperation,
   editStreamOperation,
 } from './utils/operations.js';
-
+import { LOADER_MSG_LIST } from './utils/constants.js';
+const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
 const EDIT_MAPPER = document.querySelector('#edit-operation-container');
 let BUTTON_CONTAINER = null;
+
+function handleLoader(displayLoader = true) {
+  if (!displayLoader) return;
+  const loaderMessage = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
+  LOADER_MESSAGE_AREA.textContent = loaderMessage;
+  LOADER.style.display = 'flex';
+  LOADER.classList.add('is-visible');
+}
+
+function hideDOMElements(eles = []) {
+  if (!eles.length) return;
+  eles.forEach(ele => {
+    ele.style.display = 'none';
+    ele.classList.remove('is-visible');
+  });
+}
+
+function showDOMElements(eles = []) {
+  if (!eles.length) return;
+  eles.forEach(ele => {
+    ele.style.display = 'block';
+  });
+}
 
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
     case 'create':
-      LOADER.style.display = 'flex';
-      EDIT_MAPPER.style.display = 'none';
+      handleLoader();
+      hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
       break;
     case 'edit':
-      LOADER.style.display = 'none';
-      EDIT_MAPPER.style.display = 'block';
+      hideDOMElements([LOADER]);
+      showDOMElements([EDIT_MAPPER]);
       await editStreamOperation();
       return;
     default:
@@ -47,7 +71,7 @@ export async function initiatePreviewer(forceOperation = null) {
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
   pushTargetHtmlToStore(html);
-  document.querySelector('#loader-container').style.display = 'none';
+  hideDOMElements([LOADER]);
 }
 
 async function startHTMLPainting() {
@@ -87,7 +111,7 @@ function createPushButton() {
   const button = document.createElement('a');
   button.href = '#';
   button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-push-icon loader"></span>Push to DA';
+  button.innerHTML = '<span class="da-push-icon loader"></span><span class="text">Push to DA</span>';
   return button;
 }
 
@@ -98,7 +122,7 @@ function createOpenButton() {
   button.target = '_blank';
   button.classList.add('cta-button');
   button.id = 'open-in-da-button';
-  button.innerHTML = '<span class="da-open-icon"></span>Open in DA';
+  button.innerHTML = '<span class="da-open-icon"></span><span class="text">Open in DA</span>';
   if (window.streamConfig.operation === 'create') button.classList.add('disabled');
   return button;
 }
@@ -109,7 +133,7 @@ function createBackToEditButton() {
   button.href = '#';
   button.classList.add('cta-button');
   button.id = 'back-to-edit-button';
-  button.innerHTML = '<span class="da-edit-icon"></span>Back to Editor';
+  button.innerHTML = '<span class="da-edit-icon"></span><span class="text">Back to Editor</span>';
   return button;
 }
 

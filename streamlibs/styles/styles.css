@@ -73,7 +73,13 @@ img.da-process-wait {
 }
 
 #loader-content {
-  font-size: 2rem;
+  font-size: 1.5rem;
+  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #5a3fd6;
+  position: relative;
+  z-index: 2;
 }
 
 @media screen and (min-width: 600px) {
@@ -82,7 +88,7 @@ img.da-process-wait {
   }
 }
 
-.loader-container {
+.loader-container.is-visible {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,21 +98,44 @@ img.da-process-wait {
     gap: 24px;
     font-size: 20px;
     color: #7155fa;
+    background: 
+      linear-gradient(135deg, #faf5ff 0%, #f3e8ff 25%, #ede9fe 50%, #e0e7ff 75%, #f0f9ff 100%);
+    background-size: 400% 400%;
+    animation: gradientFlow 12s ease infinite;
+    position: relative;
+    overflow: hidden;
   }
 
-  .loader-container .loader-row-1 {
+  @keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .loader-container.is-visible .loader-row-1 {
     display: flex;
     flex-direction: row;
-    justify-content: flex-end;
+    justify-content: center;
     align-items: flex-end;
     gap: 10px;
+    padding: 20px 32px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(113, 85, 250, 0.15);
+    border-radius: 100px;
+    backdrop-filter: blur(20px);
+    box-shadow: 
+      0 4px 24px rgba(113, 85, 250, 0.12),
+      0 1px 2px rgba(0, 0, 0, 0.04),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    position: relative;
+    z-index: 1;
   }
 
-  .loader {
+  .loader-container.is-visible .loader {
     width: 20px;
     height: 20px;
-    border: 2px solid #fff;
-    border-bottom-color: #8e8d8d;
+    border: 2px solid rgba(113, 85, 250, 0.2);
+    border-bottom-color: #7155fa;
     border-radius: 50%;
     display: inline-block;
     box-sizing: border-box;
@@ -137,20 +166,37 @@ img.da-process-wait {
     border: none;
     border-radius: 24px;
     text-decoration: none;
-    transition: all 0.3s ease-in-out;
     cursor: pointer;
     box-shadow: 0 4px 6px rgba(0, 123, 255, 20%);
     text-align: center;
     width: fit-content;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0;
+    transition: gap 0.8s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .cta-button span.text {
+    display: inline-block;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-left: 0;
+    transition: max-width 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .cta-button:hover {
     color: #fff !important;
     box-shadow: 0 6px 10px rgba(102, 126, 234, 30%);
-    transform: scale(1.05);
+    gap: 8px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .cta-button:hover span.text {
+    max-width: 120px;
+    opacity: 1;
   }
 
   .cta-button.disabled {
@@ -171,33 +217,41 @@ img.da-process-wait {
   .dot-loader {
     display: flex;
     gap: 5px;
-    padding-bottom: 6px;
+    padding-bottom: 0;
   }
 
   .dot {
-    width: 6px;
-    height: 6px;
-    background-color: #7155fa;
+    width: 8px;
+    height: 8px;
+    background: #7155fa;
     border-radius: 50%;
-    opacity: 0;
-    animation: blink 1.5s infinite;
+    animation: dotBounce 2s ease-in-out infinite;
   }
 
   .dot:nth-child(1) {
     animation-delay: 0s;
+    background: #7155fa;
   }
 
   .dot:nth-child(2) {
-    animation-delay: 0.3s;
+    animation-delay: 0.16s;
+    background: #8b6ffc;
   }
 
   .dot:nth-child(3) {
-    animation-delay: 0.6s;
+    animation-delay: 0.32s;
+    background: #a78bfa;
   }
   
-  @keyframes blink {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 1; }
+  @keyframes dotBounce {
+    0%, 80%, 100% { 
+      transform: scale(0.7) translateY(0);
+      opacity: 0.4;
+    }
+    40% { 
+      transform: scale(1) translateY(-8px);
+      opacity: 1;
+    }
   }
 
   /* ============ EDIT OPERATION =========== */
@@ -454,6 +508,7 @@ img.da-process-wait {
     height: 20px;
     border: 1px solid #f54b4b4f;
     border-radius: 20px;
+    padding: 4px;
     background: #f4d0d0ab;
     color: #f54b4b;
     font-size: 14px;
@@ -466,7 +521,7 @@ img.da-process-wait {
   }
 
   .card-remove-btn.restore {
-    font-size: 18px;
+    font-size: 14px;
     border: 1px solid #157e42;
     background: #9eedb6a4;
     color: #157e42;
