@@ -99,3 +99,11 @@ export const LOGOS = {
 export const SVG_ICONS = {
   placeholder: 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
 };
+
+export const LOADER_MSG_LIST = [
+  "Fueling the creative engine ",
+  "Words are forming. Stand by for brilliance ",
+  "Not just loading - creating ",
+  "Crafting brilliance behind the scenes ",
+  "Constructing the masterpiece. Stay tuned ",
+];

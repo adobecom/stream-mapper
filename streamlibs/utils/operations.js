@@ -4,43 +4,43 @@ import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { getConfig } from './utils.js';
 import { handleError, safeFetch } from './error-handler.js';
+import {
+  pushEditChangesToStore,
+  resetEditChangesInStore,
+} from '../store/store.js';
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
 `;
 const ADOBE_ICON = `
-<svg xmlns="http://www.w3.org/2000/svg" id="Layer_1" data-name="Layer 1" viewBox="0 0 240 234"><defs><style>.cls-1{fill:#fff;}.cls-2{fill:#fa0f00;}</style></defs><title>advertising_cloud_appicon_noshadow_Artboard 1</title><rect class="cls-1" width="240" height="234" rx="42.5"/><path id="_256" data-name="256" class="cls-2" d="M186.617,175.95037H158.11058a6.24325,6.24325,0,0,1-5.84652-3.76911L121.31715,99.82211a1.36371,1.36371,0,0,0-2.61145-.034l-19.286,45.94252A1.63479,1.63479,0,0,0,100.92626,148h21.1992a3.26957,3.26957,0,0,1,3.01052,1.99409l9.2814,20.65452a3.81249,3.81249,0,0,1-3.5078,5.30176H53.734a3.51828,3.51828,0,0,1-3.2129-4.90437L99.61068,54.14376A6.639,6.639,0,0,1,105.843,50h28.31354a6.6281,6.6281,0,0,1,6.23289,4.14376L189.81885,171.046A3.51717,3.51717,0,0,1,186.617,175.95037Z"/></svg>
+<svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M44.2648 0H9.73519C4.35859 0 0 4.35859 0 9.73519V44.2648C0 49.6414 4.35859 54 9.73519 54H44.2648C49.6414 54 54 49.6414 54 44.2648V9.73519C54 4.35859 49.6414 0 44.2648 0Z" fill="white"/>
+<path d="M42.2022 40.9998H35.6803C35.3969 41.005 35.1184 40.9252 34.8803 40.7707C34.6421 40.6162 34.4549 40.3938 34.3427 40.1319L27.2624 23.4715C27.2439 23.4066 27.2051 23.3495 27.1519 23.3085C27.0986 23.2676 27.0336 23.245 26.9665 23.2441C26.8995 23.2432 26.834 23.2641 26.7796 23.3037C26.7253 23.3432 26.6851 23.3993 26.6649 23.4637L22.2525 34.0418C22.2286 34.099 22.2191 34.1613 22.2248 34.2231C22.2306 34.2849 22.2515 34.3443 22.2856 34.3961C22.3197 34.4478 22.366 34.4902 22.4204 34.5196C22.4748 34.5489 22.5355 34.5643 22.5972 34.5643H27.4473C27.5942 34.5643 27.7379 34.6078 27.8604 34.6895C27.9829 34.7711 28.0788 34.8873 28.1361 35.0234L30.2596 39.7791C30.3158 39.9125 30.3384 40.0579 30.3252 40.2022C30.312 40.3466 30.2635 40.4854 30.1841 40.6063C30.1046 40.7272 29.9966 40.8264 29.8697 40.8951C29.7429 40.9637 29.6011 40.9997 29.457 40.9998H11.8002C11.6674 40.999 11.5368 40.9651 11.4202 40.9012C11.3035 40.8374 11.2044 40.7454 11.1316 40.6336C11.0588 40.5218 11.0147 40.3936 11.0031 40.2605C10.9915 40.1274 11.0128 39.9934 11.0651 39.8706L22.2962 12.9542C22.411 12.6693 22.6085 12.4259 22.8628 12.2557C23.1172 12.0855 23.4167 11.9964 23.7221 12.0001H30.1999C30.5054 11.9961 30.8051 12.085 31.0595 12.2552C31.314 12.4255 31.5114 12.6691 31.6259 12.9542L42.9348 39.8706C42.9871 39.9932 43.0084 40.1269 42.997 40.2599C42.9855 40.3929 42.9416 40.5209 42.8691 40.6327C42.7966 40.7444 42.6978 40.8364 42.5815 40.9005C42.4651 40.9645 42.3348 40.9986 42.2022 40.9998Z" fill="#EB1000"/>
+</svg>
+
 `;
+let figmaBlocks = [];
+let daBlocks = [];
+let originalFigmaBlocks = [];
+let originalDABlocks = [];
+let draggedCard = null;
+let draggedFromDeck = null;
 
 export async function createStreamOperation() {
   // eslint-disable-next-line prefer-const
   let { htmlDom: html, html: htmlArray } = await fetchFigmaContent();
-  const hasEditUid = new URL(window.location.href).searchParams.get('streamEditUid');
-  if (hasEditUid) {
+  if (window.streamConfig.operation === 'edit') {
     html = '';
-    try {
-      if (window.localStorage.getItem(`stream-edit-${hasEditUid}`)) {
-        window.sessionStorage.setItem('stream-edit', window.localStorage.getItem(`stream-edit-${hasEditUid}`));
-        window.localStorage.removeItem(`stream-edit-${hasEditUid}`);
-      }
-    } catch (error) {
-      handleError(error, ' parsing edit changes. Pleaser run the editor flow again.');
-      throw error;
-    }
     const editChanges = JSON.parse(window.sessionStorage.getItem('stream-edit'));
     try {
       const daPlainhtml = await fetchDAContent();
-      const daConsonantBlocks = daPlainhtml.querySelectorAll('div[class]');
+      const daConsonantBlocks = daPlainhtml.querySelectorAll(':scope > div');
       editChanges.forEach((change) => {
         const { source, idx } = change;
         if (source === 'figma') {
-          const d = document.createElement('div');
-          d.innerHTML = htmlArray[idx].innerHTML;
-          html += d.outerHTML;
+          html += htmlArray[idx].outerHTML;
         } else if (source === 'da') {
-          const d = document.createElement('div');
-          d.innerHTML = daConsonantBlocks[idx].outerHTML;
-          html += d.outerHTML;
+          html += daConsonantBlocks[idx].outerHTML;
         }
       });
     } catch (error) {
@@ -71,16 +71,22 @@ export async function fetchFigmaBlocks() {
   }
 }
 
+function getBlockName(block) {
+  const el = block.querySelector(':scope > div[class]');
+  const name = el.classList[0].split('-').join(' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
 export async function fetchDABlocks() {
   try {
     const daContent = await fetchDAContent();
     if (!daContent) return [];
-    const blocks = [...daContent.querySelectorAll('div[class]')];
-    // Assign unique IDs to each block
+    const blocks = [...daContent.querySelectorAll(':scope > div')];
+    // Assign unique IDs to each section
     return blocks.map((block, index) => ({
       id: `da-block-${index}-${Date.now()}`,
-      name: block.classList[0],
-      type: block.classList[0],
+      name: getBlockName(block),
+      type: getBlockName(block),
       element: block,
       removed: false,
     }));
@@ -90,13 +96,6 @@ export async function fetchDABlocks() {
   }
 }
 
-let figmaBlocks = [];
-let daBlocks = [];
-let originalFigmaBlocks = [];
-let originalDABlocks = [];
-let draggedCard = null;
-let draggedFromDeck = null;
-
 function deepCloneBlocks(blocks, prefix) {
   return blocks.map((b, index) => ({
     ...b, dataId: b.dataId || `${prefix}-${index}`, source: b.source || prefix, removed: false,
@@ -104,6 +103,7 @@ function deepCloneBlocks(blocks, prefix) {
 }
 
 function resetToOriginal() {
+  resetEditChangesInStore();
   figmaBlocks = deepCloneBlocks(originalFigmaBlocks, 'figma');
   daBlocks = deepCloneBlocks(originalDABlocks, 'da');
   renderFigmaDeck();
@@ -271,28 +271,15 @@ export function getActiveDABlocks() {
   return daBlocks.filter((b) => !b.removed);
 }
 
-function generateUniqueId() {
-  // Return 5 random lowercase alphabets and numbers
-  let result = '';
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < 5; i += 1) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
-}
-
-function handleApplyChanges() {
+async function handleApplyChanges() {
   const changes = [];
   daBlocks.forEach((b) => {
     const [source, idx] = b.dataId.split('-');
     if (!b.removed) changes.push({ source, idx });
   });
-  const uid = generateUniqueId();
-  window.localStorage.setItem(`stream-edit-${uid}`, JSON.stringify(changes));
-  const url = new URL(window.location.href);
-  url.searchParams.delete('operation');
-  url.searchParams.set('streamEditUid', uid);
-  window.location.href = url.toString();
+  pushEditChangesToStore(JSON.stringify(changes));
+  const { initiatePreviewer } = await import('../previewer.js');
+  await initiatePreviewer('create');
 }
 
 export async function editStreamOperation() {
@@ -301,12 +288,11 @@ export async function editStreamOperation() {
   originalDABlocks = fetchedDA;
   figmaBlocks = deepCloneBlocks(originalFigmaBlocks, 'figma');
   daBlocks = deepCloneBlocks(originalDABlocks, 'da');
-
   const editUI = createEditUI();
   renderFigmaDeck();
   renderDADeck();
-  document.getElementById('apply-changes-btn')?.addEventListener('click', () => {
-    handleApplyChanges();
+  document.getElementById('apply-changes-btn')?.addEventListener('click', async () => {
+    await handleApplyChanges();
   });
   document.getElementById('reset-changes-btn')?.addEventListener('click', () => {
     resetToOriginal();
