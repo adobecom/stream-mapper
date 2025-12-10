@@ -7,6 +7,8 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
+  resetTargetHtmlInStore,
+  resetPreviewHtmlInStore,
 } from './store/store.js';
 import {
   getLibs,
@@ -19,17 +21,47 @@ import {
   createStreamOperation,
   editStreamOperation,
 } from './utils/operations.js';
+import { LOADER_MSG_LIST } from './utils/constants.js';
+const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
+const LOADER = document.querySelector('#loader-container');
+const EDIT_MAPPER = document.querySelector('#edit-operation-container');
+let BUTTON_CONTAINER = null;
 
-async function initiatePreviewer() {
+function handleLoader(displayLoader = true) {
+  if (!displayLoader) return;
+  const loaderMessage = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
+  LOADER_MESSAGE_AREA.textContent = loaderMessage;
+  LOADER.style.display = 'flex';
+  LOADER.classList.add('is-visible');
+}
+
+function hideDOMElements(eles = []) {
+  if (!eles.length) return;
+  eles.forEach(ele => {
+    ele.style.display = 'none';
+    ele.classList.remove('is-visible');
+  });
+}
+
+function showDOMElements(eles = []) {
+  if (!eles.length) return;
+  eles.forEach(ele => {
+    ele.style.display = 'block';
+  });
+}
+
+export async function initiatePreviewer(forceOperation = null) {
   let html = '';
-  switch (window.streamConfig.operation) {
+  switch (forceOperation || window.streamConfig.operation) {
     case 'create':
-      document.querySelector('#edit-operation-container').remove();
+      handleLoader();
+      hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
       break;
     case 'edit':
+      hideDOMElements([LOADER]);
+      showDOMElements([EDIT_MAPPER]);
       await editStreamOperation();
-      document.querySelector('#loader-container').remove();
       return;
     default:
       break;
@@ -39,7 +71,7 @@ async function initiatePreviewer() {
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
   pushTargetHtmlToStore(html);
-  document.querySelector('#loader-container').remove();
+  hideDOMElements([LOADER]);
 }
 
 async function startHTMLPainting() {
@@ -55,21 +87,31 @@ async function paintHtmlOnPage() {
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.appendChild(mainEle);
-  const div = document.createElement('div');
-  div.classList.add('button-container');
-  const pushToDABtn = createPushButton();
-  const openInDABtn = createOpenButton();
-  div.append(...[pushToDABtn, openInDABtn]);
-  document.body.append(div);
-  updateButtonState(pushToDABtn, 'not-sending');
-  pushToDABtn.addEventListener('click', handlePushClick);
+  if (!BUTTON_CONTAINER) {
+    const div = document.createElement('div');
+    div.classList.add('button-container');
+    const pushToDABtn = createPushButton();
+    const openInDABtn = createOpenButton();
+    const backToEditBtn = createBackToEditButton();
+    div.append(...[pushToDABtn, openInDABtn]);
+    document.body.append(div);
+    updateButtonState(pushToDABtn, 'not-sending');
+    pushToDABtn.addEventListener('click', handlePushClick);
+    if (backToEditBtn) {
+      div.prepend(backToEditBtn);
+      backToEditBtn.addEventListener('click', handleBackToEditClick);
+    }
+    BUTTON_CONTAINER = div;
+  } else {
+    BUTTON_CONTAINER.style.display = 'flex';
+  }
 }
 
 function createPushButton() {
   const button = document.createElement('a');
   button.href = '#';
   button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-push-icon loader"></span>Push to DA';
+  button.innerHTML = '<span class="da-push-icon loader"></span><span class="text">Push to DA</span>';
   return button;
 }
 
@@ -80,8 +122,18 @@ function createOpenButton() {
   button.target = '_blank';
   button.classList.add('cta-button');
   button.id = 'open-in-da-button';
-  button.innerHTML = '<span class="da-open-icon"></span>Open in DA';
+  button.innerHTML = '<span class="da-open-icon"></span><span class="text">Open in DA</span>';
   if (window.streamConfig.operation === 'create') button.classList.add('disabled');
+  return button;
+}
+
+function createBackToEditButton() {
+  if (window.streamConfig.operation !== 'edit') return;
+  const button = document.createElement('a');
+  button.href = '#';
+  button.classList.add('cta-button');
+  button.id = 'back-to-edit-button';
+  button.innerHTML = '<span class="da-edit-icon"></span><span class="text">Back to Editor</span>';
   return button;
 }
 
@@ -97,6 +149,15 @@ async function handlePushClick(event) {
   await persist();
   updateButtonState(button, 'not-sending');
   document.querySelector('#open-in-da-button').classList.remove('disabled');
+}
+
+async function handleBackToEditClick(event) {
+  BUTTON_CONTAINER.style.display = 'none';
+  resetTargetHtmlInStore();
+  resetPreviewHtmlInStore();
+  document.querySelector('#edit-operation-container').style.display = 'block';
+  document.querySelector('header').remove();
+  document.querySelector('main').remove();
 }
 
 export default async function initPreviewer() {

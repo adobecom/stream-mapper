@@ -182,3 +182,11 @@ export const COMPONENTS_NAMES = {
     default: { id: 'logo-gallery', name: 'Logo Gallery' },
   },
 };
+
+export const LOADER_MSG_LIST = [
+  'Fueling the creative engine ',
+  'Words are forming. Stand by for brilliance ',
+  'Not just loading - creating ',
+  'Crafting brilliance behind the scenes ',
+  'Constructing the masterpiece. Stay tuned ',
+];
