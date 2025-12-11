@@ -227,7 +227,7 @@ export function toggleBlockRemoved(id) {
 
 export function duplicateBlock(dataId) {
   const blockIndex = daBlocks.findIndex((b) => b.dataId === dataId);
-  if (blockIndex === -1) return false;  
+  if (blockIndex === -1) return false;
   const originalBlock = daBlocks[blockIndex];
   const duplicatedBlock = {
     ...originalBlock,
@@ -249,4 +249,3 @@ export function prepareChangesForStore() {
   });
   pushEditChangesToStore(JSON.stringify(changes));
 }
-
