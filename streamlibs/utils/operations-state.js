@@ -227,8 +227,7 @@ export function toggleBlockRemoved(id) {
 
 export function duplicateBlock(dataId) {
   const blockIndex = daBlocks.findIndex((b) => b.dataId === dataId);
-  if (blockIndex === -1) return false;
-  
+  if (blockIndex === -1) return false;  
   const originalBlock = daBlocks[blockIndex];
   const duplicatedBlock = {
     ...originalBlock,
@@ -237,7 +236,6 @@ export function duplicateBlock(dataId) {
     isDuplicate: true, // Mark as duplicate so it can be removed
     removed: false, // Reset removed state
   };
-  
   // Insert the duplicate right after the original block
   daBlocks.splice(blockIndex + 1, 0, duplicatedBlock);
   return true;

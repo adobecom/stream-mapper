@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 /* eslint-disable no-use-before-define */
 import {
   getFigmaBlocks,
@@ -32,15 +33,13 @@ function createBlockCard(block, deckType) {
   card.draggable = true;
   const blockName = block.name || block.id || 'Block';
   const blockTitle = (block.title ? `Block title: ${block.title}` : '');
-  
   let buttonHtml = '';
   if (deckType === 'da') {
-    buttonHtml = `<div class='button-wrapper'>`;
-    buttonHtml += `<button class="card-duplicate-btn" title="Duplicate block">+</button>`;
+    buttonHtml = '<div class="button-wrapper">';
+    buttonHtml += '<button class="card-duplicate-btn" title="Duplicate block">+</button>';
     buttonHtml += `<button class="card-remove-btn ${block.removed ? 'restore' : ''}" title="${block.removed ? 'Restore block' : 'Remove block'}">${block.removed ? '↩' : '×'}</button>`;
-    buttonHtml += `</div>`;
+    buttonHtml += '</div>';
   }
-  
   card.innerHTML = `
     <div class="card-content">
       <div class="card-body">
@@ -50,10 +49,10 @@ function createBlockCard(block, deckType) {
         <div class="card-description">  
           <div class="card-title">${blockName}</div>
           <div class="card-subtitle">${
-            block.source === 'figma'
-            ? `Milo Tag: ${block.tag}`
-            : blockTitle
-            }
+  block.source === 'figma'
+    ? `Milo Tag: ${block.tag}`
+    : blockTitle
+}
           </div>
         </div>
       </div>
@@ -212,4 +211,3 @@ export async function editStreamOperation(applyChangesCallback) {
   });
   return editUI;
 }
-
