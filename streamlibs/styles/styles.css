@@ -248,6 +248,7 @@ img.da-process-wait {
       transform: scale(0.7) translateY(0);
       opacity: 0.4;
     }
+
     40% { 
       transform: scale(1) translateY(-8px);
       opacity: 1;
@@ -400,7 +401,6 @@ img.da-process-wait {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 10px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
@@ -408,6 +408,7 @@ img.da-process-wait {
     transition: all 0.25s ease;
     position: relative;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 4%);
+    padding-right: 16px;
   }
 
   .block-card:hover {
@@ -456,45 +457,52 @@ img.da-process-wait {
   }
 
   .card-thumbnail {
-    width: 20px;
-    height: 20px;
-    border-radius: 10px;
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .da-deck .card-thumbnail {
-    width: 25px;
-    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background-color: #dddddd61;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
   }
 
   .card-thumbnail svg {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
   }
 
-  .da-deck .card-thumbnail svg {
-    width: 25px;
-    height: 25px;
+  .card-body {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
   }
 
   .card-content {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
     flex: 1;
-    flex-wrap: wrap;
   }
 
-  .card-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #1f2937;
-    white-space: nowrap;
+.card-description {
+    display: flex;
+    flex-direction: column;
+    margin-left: 5%;
+    justify-content: center;
+}
+
+.card-subtitle {
+    font-size: 0.8125rem; 
+    font-style: italic; 
+    color: #586069;
+}
+
+.card-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #2c3e50;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
+    white-space: nowrap;
+    flex-shrink: 1;
+}
 
   .card-type {
     font-size: 0.8rem;
@@ -525,6 +533,13 @@ img.da-process-wait {
     border: 1px solid #157e42;
     background: #9eedb6a4;
     color: #157e42;
+  }
+
+  .button-wrapper {
+    width: 20px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
   }
 
   /* Action Buttons */
