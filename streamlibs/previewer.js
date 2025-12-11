@@ -61,7 +61,9 @@ export async function initiatePreviewer(forceOperation = null) {
     case 'edit':
       hideDOMElements([LOADER]);
       showDOMElements([EDIT_MAPPER]);
-      await editStreamOperation();
+      await editStreamOperation(async () => {
+        await initiatePreviewer('create');
+      });
       return;
     default:
       break;
