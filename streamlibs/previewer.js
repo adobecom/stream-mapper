@@ -95,7 +95,6 @@ async function paintHtmlOnPage() {
     const backToEditBtn = createBackToEditButton();
     div.append(...[pushToDABtn, openInDABtn]);
     document.body.append(div);
-    updateButtonState(pushToDABtn, 'not-sending');
     pushToDABtn.addEventListener('click', handlePushClick);
     if (backToEditBtn) {
       div.prepend(backToEditBtn);
@@ -111,7 +110,7 @@ function createPushButton() {
   const button = document.createElement('a');
   button.href = '#';
   button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-push-icon loader"></span><span class="text">Push to DA</span>';
+  button.innerHTML = '<span class="da-push-icon"></span><span class="text">Push to DA</span>';
   return button;
 }
 
@@ -137,17 +136,16 @@ function createBackToEditButton() {
   return button;
 }
 
-function updateButtonState(button, state) {
-  const icon = button.querySelector('span.da-push-icon');
-  icon.classList.remove('loader', 'not-sending');
-  icon.classList.add(state);
-}
-
 async function handlePushClick(event) {
   const button = event.target.closest('.cta-button');
-  updateButtonState(button, 'loader');
-  await persist();
-  updateButtonState(button, 'not-sending');
+  const buttonIcon = button.querySelector('span.da-push-icon');
+  buttonIcon.classList.add('sending');
+  try {
+    await persist();
+  } catch (error) {
+    console.log('Error persisting content', error);
+  }
+  buttonIcon.classList.remove('sending');
   document.querySelector('#open-in-da-button').classList.remove('disabled');
 }
 
