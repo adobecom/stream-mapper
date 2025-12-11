@@ -122,8 +122,7 @@ img.da-process-wait {
     gap: 24px;
     font-size: 20px;
     color: #7155fa;
-    background: 
-      linear-gradient(135deg, #faf5ff 0%, #f3e8ff 25%, #ede9fe 50%, #e0e7ff 75%, #f0f9ff 100%);
+    background: #fff;
     background-size: 400% 400%;
     animation: gradientFlow 12s ease infinite;
     position: relative;
