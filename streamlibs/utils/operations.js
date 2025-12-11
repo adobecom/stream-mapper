@@ -183,6 +183,16 @@ function createBlockCard(block, deckType) {
   card.draggable = true;
   const blockName = block.name || block.id || 'Block';
   const blockTitle = (block.title ? `Block title: ${block.title}` : '');
+  
+  // Build button HTML for DA deck
+  let buttonHtml = '';
+  if (deckType === 'da') {
+    buttonHtml = `<div class='button-wrapper'>`;
+    buttonHtml += `<button class="card-duplicate-btn" title="Duplicate block">+</button>`;
+    buttonHtml += `<button class="card-remove-btn ${block.removed ? 'restore' : ''}" title="${block.removed ? 'Restore block' : 'Remove block'}">${block.removed ? '↩' : '×'}</button>`;
+    buttonHtml += `</div>`;
+  }
+  
   card.innerHTML = `
     <div class="card-content">
       <div class="card-body">
@@ -203,15 +213,19 @@ function createBlockCard(block, deckType) {
       </div>
     
     </div>
-    ${deckType === 'da' ? `<div class='button-wrapper'><button class="card-remove-btn ${block.removed ? 'restore' : 'remove'}">${block.removed ? '↩' : '×'}</button><div>` : ''}
+    ${buttonHtml}
   `;
   card.addEventListener('dragstart', handleDragStart);
   card.addEventListener('dragend', handleDragEnd);
   if (deckType === 'da') {
-    const { dataId } = block;
+    const { dataId, id } = block;
     card.querySelector('.card-remove-btn').addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleBlockRemoved(dataId);
+      toggleBlockRemoved(id);
+    });
+    card.querySelector('.card-duplicate-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      duplicateBlock(dataId);
     });
   }
   return card;
@@ -295,12 +309,30 @@ function handleDropOnCard(e) {
   targetCard.classList.remove('drag-over');
 }
 
-function toggleBlockRemoved(dataId) {
-  const block = daBlocks.find((b) => b.dataId === dataId);
+function toggleBlockRemoved(id) {
+  const block = daBlocks.find((b) => b.id === id);
   if (block) {
     block.removed = !block.removed;
     renderDADeck();
   }
+}
+
+function duplicateBlock(dataId) {
+  const blockIndex = daBlocks.findIndex((b) => b.dataId === dataId);
+  if (blockIndex === -1) return;
+  
+  const originalBlock = daBlocks[blockIndex];
+  const duplicatedBlock = {
+    ...originalBlock,
+    dataId: originalBlock.dataId, // Keep the same DA ID
+    id: `${originalBlock.id}-duplicate-${Date.now()}`, // Unique ID for this instance
+    isDuplicate: true, // Mark as duplicate so it can be removed
+    removed: false, // Reset removed state
+  };
+  
+  // Insert the duplicate right after the original block
+  daBlocks.splice(blockIndex + 1, 0, duplicatedBlock);
+  renderDADeck();
 }
 
 function renderFigmaDeck() {
