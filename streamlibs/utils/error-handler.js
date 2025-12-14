@@ -37,3 +37,15 @@ export async function safeJsonFetch(componentJSONUrl, options = {}) {
   // eslint-disable-next-line no-return-await
   return await response.json();
 }
+
+export async function safeTemplateFetch(templateUrl, options = {}) {
+  const { getConfig } = await import('./utils.js');
+  const config = await getConfig();
+  // If templateUrl is already a full URL, use it directly; otherwise construct from config
+  const url = templateUrl.startsWith('http://') || templateUrl.startsWith('https://')
+    ? templateUrl
+    : `${config.streamMapper.blockTemplatesUrl || config.streamMapper.blockTemplatesUrl}/${templateUrl}`;
+  const response = await safeFetch(url, options, { donotShowErrorPage: true });
+  // eslint-disable-next-line no-return-await
+  return await response.text();
+}

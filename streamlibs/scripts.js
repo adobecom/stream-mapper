@@ -33,6 +33,7 @@ const CONFIG = {
     figmaAuthToken: '',
     daToken: '',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
+    blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.page/block-templates',
   },
 };
 
