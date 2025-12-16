@@ -149,7 +149,7 @@ function createPreflightButton() {
   const button = document.createElement('a');
   button.href = '#';
   button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-preflight-icon"></span><span class="text">Run Preflight</span>';
+  button.innerHTML = '<span class="da-preflight-icon"></span><span class="text">Preview and Preflight</span>';
   return button;
 }
 
