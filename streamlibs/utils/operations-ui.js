@@ -13,6 +13,7 @@ import {
   fetchDABlocks,
   prepareChangesForStore,
 } from './operations-state.js';
+import { getLibs } from './utils.js';
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
@@ -210,4 +211,29 @@ export async function editStreamOperation(applyChangesCallback) {
     resetToOriginal();
   });
   return editUI;
+}
+
+export async function preflightOperation() {
+  if (document.querySelector('main')) document.querySelector('main').style.display = 'none';
+  if (document.querySelector('header')) document.querySelector('header').style.display = 'none';
+  if (document.querySelector('footer')) document.querySelector('footer').style.display = 'none';
+  const iframe = document.createElement('iframe');
+  iframe.classList.add('preflight-iframe');
+  iframe.src = 'http://localhost:3000/stream';
+  document.body.appendChild(iframe);
+  
+  // Inject script when iframe loads
+  iframe.onload = () => {
+    try {
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      const script = iframeDoc.createElement('script');
+      script.textContent = `
+      console.log('⚠️ mathuria: Injected JS running inside iframe');
+      
+      `;
+      iframeDoc.head.appendChild(script);
+    } catch (error) {
+      console.error('Error injecting script into iframe:', error);
+    }
+  };
 }

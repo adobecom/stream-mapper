@@ -11,4 +11,7 @@ export {
 } from './operations-state.js';
 
 // Re-export UI functions
-export { editStreamOperation } from './operations-ui.js';
+export {
+  editStreamOperation,
+  preflightOperation
+} from './operations-ui.js';

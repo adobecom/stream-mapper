@@ -10,6 +10,7 @@ import {
   pushPreviewHtmlToStore,
   resetTargetHtmlInStore,
   resetPreviewHtmlInStore,
+  fetchTargetHtmlFromStore,
 } from './store/store.js';
 import {
   getLibs,
@@ -21,6 +22,7 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
+  preflightOperation,
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
 
@@ -87,23 +89,25 @@ async function startHTMLPainting() {
 
 async function paintHtmlOnPage() {
   const headerEle = document.createElement('header');
-  document.body.appendChild(headerEle);
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
-  document.body.appendChild(mainEle);
+  document.body.prepend(mainEle);
+  document.body.prepend(headerEle);
   if (!BUTTON_CONTAINER) {
     const div = document.createElement('div');
     div.classList.add('button-container');
     const pushToDABtn = createPushButton();
     const openInDABtn = createOpenButton();
     const backToEditBtn = createBackToEditButton();
-    div.append(...[pushToDABtn, openInDABtn]);
+    const preflightBtn = createPreflightButton();
+    div.append(...[pushToDABtn, openInDABtn, preflightBtn]);
     document.body.append(div);
     pushToDABtn.addEventListener('click', handlePushClick);
     if (backToEditBtn) {
       div.prepend(backToEditBtn);
       backToEditBtn.addEventListener('click', handleBackToEditClick);
     }
+    preflightBtn.addEventListener('click', handlePreflightClick);
     BUTTON_CONTAINER = div;
   } else {
     BUTTON_CONTAINER.style.display = 'flex';
@@ -141,6 +145,14 @@ function createBackToEditButton() {
   return button;
 }
 
+function createPreflightButton() {
+  const button = document.createElement('a');
+  button.href = '#';
+  button.classList.add('cta-button');
+  button.innerHTML = '<span class="da-preflight-icon"></span><span class="text">Run Preflight</span>';
+  return button;
+}
+
 async function handlePushClick(event) {
   const button = event.target.closest('.cta-button');
   const buttonIcon = button.querySelector('span.da-push-icon');
@@ -162,6 +174,10 @@ async function handleBackToEditClick(event) {
   document.querySelector('#edit-operation-container').style.display = 'block';
   document.querySelector('header').remove();
   document.querySelector('main').remove();
+}
+
+async function handlePreflightClick(event) {
+  await preflightOperation();
 }
 
 export default async function initPreviewer() {
@@ -199,3 +215,13 @@ export async function persist() {
     throw error;
   }
 }
+
+window.addEventListener('beforeunload', function (event) {
+  event.preventDefault();
+  const targetExists = fetchTargetHtmlFromStore();
+  if (targetExists) {
+    
+  } else {
+    event.returnValue = '';
+  }
+});

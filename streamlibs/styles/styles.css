@@ -5,7 +5,8 @@
 /* stylelint-disable keyframes-name-pattern */
 .da-push-icon,
 .da-open-icon,
-.da-edit-icon {
+.da-edit-icon,
+.da-preflight-icon {
   position: relative;
   display: block;
   width: 18px;
@@ -51,6 +52,10 @@
 
 .da-edit-icon {
     background: url("https://main--stream-mapper--adobecom.aem.live/assets/back-to-da.svg") center center / 18px no-repeat;
+}
+
+.da-preflight-icon {
+    background: url("https://main--stream-mapper--adobecom.aem.live/assets/run-preflight.svg") center center / 18px no-repeat;
 }
 
 img.da-process-wait {
@@ -702,4 +707,10 @@ img.da-process-wait {
     .deck-cards .block-card .card-title {
       font-size: 12px;
     }
+  }
+
+  .preflight-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
   }
