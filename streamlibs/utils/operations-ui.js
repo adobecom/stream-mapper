@@ -219,7 +219,7 @@ export async function preflightOperation() {
   if (document.querySelector('footer')) document.querySelector('footer').style.display = 'none';
   const iframe = document.createElement('iframe');
   iframe.classList.add('preflight-iframe');
-  iframe.src = 'http://localhost:3000/stream';
+  iframe.src = `${origin}/stream`;
   document.body.appendChild(iframe);
   
   // Inject script when iframe loads
@@ -229,7 +229,7 @@ export async function preflightOperation() {
       const script = iframeDoc.createElement('script');
       script.textContent = `
       console.log('⚠️ mathuria: Injected JS running inside iframe');
-      
+
       `;
       iframeDoc.head.appendChild(script);
     } catch (error) {
