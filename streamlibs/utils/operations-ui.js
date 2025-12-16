@@ -219,7 +219,7 @@ export async function preflightOperation() {
   if (document.querySelector('footer')) document.querySelector('footer').style.display = 'none';
   const iframe = document.createElement('iframe');
   iframe.classList.add('preflight-iframe');
-  iframe.src = `${origin}/stream`;
+  iframe.src = `${window.location.origin}/stream`;
   document.body.appendChild(iframe);
   
   // Inject script when iframe loads
