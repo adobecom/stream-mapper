@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable no-use-before-define */
 import {
   persistOnTarget,
@@ -20,9 +21,9 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
-  handleApplyChangesEvent,
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
+import { handleApplyChanges } from './utils/operations-ui.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
@@ -63,7 +64,9 @@ export async function initiatePreviewer(forceOperation = null) {
     case 'edit':
       hideDOMElements([LOADER]);
       showDOMElements([EDIT_MAPPER]);
-      await editStreamOperation();
+      await editStreamOperation(async () => {
+        await initiatePreviewer('create');
+      });
       return;
     default:
       break;
@@ -136,6 +139,7 @@ function createBackToEditButton() {
   button.classList.add('cta-button');
   button.id = 'back-to-edit-button';
   button.innerHTML = '<span class="da-edit-icon"></span><span class="text">Back to Editor</span>';
+  // eslint-disable-next-line consistent-return
   return button;
 }
 
@@ -152,6 +156,7 @@ async function handlePushClick(event) {
   document.querySelector('#open-in-da-button').classList.remove('disabled');
 }
 
+// eslint-disable-next-line no-unused-vars
 async function handleBackToEditClick(event) {
   BUTTON_CONTAINER.style.display = 'none';
   resetTargetHtmlInStore();
@@ -190,7 +195,7 @@ export default async function initPreviewer() {
       await persist();
     }
     if (event.data.type === 'EDIT_APPLY_CHANGES') {
-      await handleApplyChangesEvent();
+      await handleApplyChanges();
     }
     if (event.data.type === 'BACK_TO_EDIT') {
       await handleBackToEditClick();
