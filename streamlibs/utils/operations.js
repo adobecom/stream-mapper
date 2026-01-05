@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
-import { getConfig } from './utils.js';
+import { getConfig, getQueryParam } from './utils.js';
 import { handleError, safeFetch } from './error-handler.js';
 import { COMPONENTS_NAMES } from './constants.js';
 import {
@@ -183,16 +183,16 @@ function createBlockCard(block, deckType) {
   card.draggable = true;
   const blockName = block.name || block.id || 'Block';
   const blockTitle = (block.title ? `Block title: ${block.title}` : '');
-  
+
   // Build button HTML for DA deck
   let buttonHtml = '';
   if (deckType === 'da') {
-    buttonHtml = `<div class='button-wrapper'>`;
-    buttonHtml += `<button class="card-duplicate-btn" title="Duplicate block">+</button>`;
+    buttonHtml = '<div class=\'button-wrapper\'>';
+    buttonHtml += '<button class="card-duplicate-btn" title="Duplicate block">+</button>';
     buttonHtml += `<button class="card-remove-btn ${block.removed ? 'restore' : ''}" title="${block.removed ? 'Restore block' : 'Remove block'}">${block.removed ? '↩' : '×'}</button>`;
-    buttonHtml += `</div>`;
+    buttonHtml += '</div>';
   }
-  
+
   card.innerHTML = `
     <div class="card-content">
       <div class="card-body">
@@ -320,7 +320,7 @@ function toggleBlockRemoved(id) {
 function duplicateBlock(dataId) {
   const blockIndex = daBlocks.findIndex((b) => b.dataId === dataId);
   if (blockIndex === -1) return;
-  
+
   const originalBlock = daBlocks[blockIndex];
   const duplicatedBlock = {
     ...originalBlock,
@@ -329,7 +329,7 @@ function duplicateBlock(dataId) {
     isDuplicate: true, // Mark as duplicate so it can be removed
     removed: false, // Reset removed state
   };
-  
+
   // Insert the duplicate right after the original block
   daBlocks.splice(blockIndex + 1, 0, duplicatedBlock);
   renderDADeck();
@@ -391,6 +391,10 @@ async function handleApplyChanges() {
   pushEditChangesToStore(JSON.stringify(changes));
   const { initiatePreviewer } = await import('../previewer.js');
   await initiatePreviewer('create');
+}
+
+export async function handleApplyChangesEvent() {
+  await handleApplyChanges();
 }
 
 export async function editStreamOperation() {
