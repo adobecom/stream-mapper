@@ -171,7 +171,7 @@ img.da-process-wait {
   }
 
   .button-container {
-    display: flex;
+    display: none;
     gap: 10px;
     position: fixed;
     z-index: 1000;
@@ -614,10 +614,10 @@ img.da-process-wait {
 
   /* Action Buttons */
   .edit-actions {
-    display: flex;
     justify-content: center;
     gap: 16px;
     margin-top: 40px;
+    display: none;
   }
 
   .action-btn {
@@ -702,4 +702,9 @@ img.da-process-wait {
     .deck-cards .block-card .card-title {
       font-size: 12px;
     }
+  }
+  
+  .show-controls .button-container,
+  .show-controls .edit-actions {
+    display: flex;
   }

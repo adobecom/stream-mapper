@@ -23,6 +23,7 @@ import {
   editStreamOperation,
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
+import { handleApplyChanges } from './utils/operations-ui.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
@@ -91,6 +92,7 @@ async function paintHtmlOnPage() {
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.appendChild(mainEle);
+
   if (!BUTTON_CONTAINER) {
     const div = document.createElement('div');
     div.classList.add('button-container');
@@ -105,7 +107,7 @@ async function paintHtmlOnPage() {
       backToEditBtn.addEventListener('click', handleBackToEditClick);
     }
     BUTTON_CONTAINER = div;
-  } else {
+  } else if (getQueryParam('surface') !== 'stream-client') {
     BUTTON_CONTAINER.style.display = 'flex';
   }
 }
@@ -177,6 +179,31 @@ export default async function initPreviewer() {
     selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
   };
   if (getQueryParam('editAction')) window.streamConfig.operation = `${window.streamConfig.operation}-${getQueryParam('editAction')}`;
+  if (getQueryParam('surface') !== 'stream-client') document.body.classList.add('show-controls');
+  window.addEventListener('message', async (event) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://440859-stream-*.adobeio-static.net',
+    ];
+    const isOriginAllowed = allowedOrigins.some((pattern) => {
+      const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
+      return regex.test(event.origin);
+    });
+    if (!isOriginAllowed) return;
+
+    if (event.data.type === 'PUSH_TO_DA') {
+      await persist();
+    }
+    if (event.data.type === 'EDIT_APPLY_CHANGES') {
+      await handleApplyChanges();
+    }
+    if (event.data.type === 'BACK_TO_EDIT') {
+      await handleBackToEditClick();
+    }
+    if (event.data.type === 'RESET') {
+      window.location.reload();
+    }
+  });
   await initializeTokens(window.streamConfig.token);
   if (
     !window.streamConfig.source
