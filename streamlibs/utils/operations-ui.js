@@ -191,12 +191,13 @@ function createEditUI() {
   return container;
 }
 
-async function handleApplyChanges() {
+export async function handleApplyChanges() {
   prepareChangesForStore();
   if (onApplyChangesCallback) {
     await onApplyChangesCallback();
   }
 }
+
 
 export async function editStreamOperation(applyChangesCallback) {
   onApplyChangesCallback = applyChangesCallback;
