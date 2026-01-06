@@ -16,6 +16,7 @@ import {
 import { getLibs } from './utils.js';
 import { previewDAPage } from '../sources/da.js';
 import { handleError } from './error-handler.js';
+import { fetchDAContent } from '../sources/da.js';
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
@@ -215,33 +216,168 @@ export async function editStreamOperation(applyChangesCallback) {
   return editUI;
 }
 
+// Fetch HTML from Artemis proxy and return parsed document
+async function fetchArtemisHTML(previewUrl) {
+  try {
+    const artemisUrl = `https://14257-artemis-stage.adobeioruntime.net/api/v1/web/services/page-proxy?url=${previewUrl}`;
+    const response = await fetch(artemisUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Artemis HTML: ${response.statusText}`);
+    }
+    const html = await response.text();
+    const parser = new DOMParser();
+    return parser.parseFromString(html, 'text/html');
+  } catch (error) {
+    handleError(error, 'fetching Artemis HTML');
+    throw error;
+  }
+}
+
+// Fetch head.html from host and return parsed document
+async function fetchHeadHTML(hostUrl) {
+  try {
+    const headUrl = `${hostUrl}/head.html`;
+    const response = await fetch(headUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch head.html: ${response.statusText}`);
+    }
+    const html = await response.text();
+    const parser = new DOMParser();
+    return parser.parseFromString(html, 'text/html');
+  } catch (error) {
+    handleError(error, 'fetching head.html');
+    throw error;
+  }
+}
+
+// Fetch DA HTML and return parsed document
+async function fetchDAHTMLDoc() {
+  try {
+    const mainElement = await fetchDAContent();
+    return mainElement;
+  } catch (error) {
+    handleError(error, 'fetching DA HTML content');
+    throw error;
+  }
+}
+
 export async function preflightOperation() {
+  [...document.head.children].forEach((child) => child.remove());
+  [...document.body.children].forEach((child) => child.remove());
+  const headerEl = document.createElement('header');
+  const mainEl = document.createElement('main');
+  const footerEl = document.createElement('footer');
+  document.body.append(headerEl, mainEl, footerEl);
+  
   let previewUrl = null;
   try {
-    const response= await previewDAPage(window.streamConfig.targetUrl);
+    const response = await previewDAPage(window.streamConfig.targetUrl);
     previewUrl = response.preview.url;
   } catch (error) {
     handleError(error, 'previewing DA page');
     throw error;
   }
-  if (document.querySelector('main')) document.querySelector('main').style.display = 'none';
-  if (document.querySelector('header')) document.querySelector('header').style.display = 'none';
-  if (document.querySelector('footer')) document.querySelector('footer').style.display = 'none';
-  const iframe = document.createElement('iframe');
-  iframe.classList.add('preflight-iframe');
-  iframe.src = previewUrl;
-  document.body.appendChild(iframe);
-  iframe.onload = () => {
-    try {
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      const script = iframeDoc.createElement('script');
-      script.textContent = `
-      console.log('⚠️ mathuria: Injected JS running inside iframe');
 
-      `;
-      iframeDoc.head.appendChild(script);
-    } catch (error) {
-      console.error('Error injecting script into iframe:', error);
+  let hostUrl = previewUrl.replace('.aem.page', '.aem.live');
+  if (hostUrl.endsWith('/')) hostUrl = hostUrl.slice(0, -1);
+  const hostOrigin = new URL(hostUrl).origin;
+
+  // Fetch three HTML documents
+  let headDoc = null;
+  let artemisDoc = null;
+  let docHtml = null;
+  
+  [artemisDoc, headDoc, docHtml] = await Promise.all([
+    fetchArtemisHTML(previewUrl),
+    fetchHeadHTML(hostOrigin),
+    fetchDAHTMLDoc(),
+  ]);
+  
+  console.log('All HTML sources fetched successfully');
+
+  const url = new URL(window.location.href);
+  const newUrl = `${url.origin}${url.pathname}`;
+  window.history.replaceState({}, '', newUrl);
+
+  [...docHtml.children].forEach((child) => {
+    mainEl.appendChild(child.cloneNode(true));
+  });
+
+  const targetNavHTML = artemisDoc.querySelector('nav.feds-topnav')?.innerHTML;
+  if (!targetNavHTML) return;
+  const observer = new MutationObserver((mutations, obs) => {
+    const nav = document.querySelector('nav.feds-topnav');
+    if (nav) {
+      nav.innerHTML = targetNavHTML;
+      obs.disconnect();
     }
-  };
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  const existingNav = document.querySelector('nav.feds-topnav');
+  if (existingNav) {
+    existingNav.innerHTML = targetNavHTML;
+    observer.disconnect();
+  }
+  
+  [...artemisDoc.querySelector('footer')?.children].forEach((child) => {
+    footerEl.appendChild(child.cloneNode(true));
+  });
+
+  [...artemisDoc.head.querySelectorAll('meta, link[href*="/libs/blocks/global-"], link[href*="/gnav"], link[href*="/footer"]')].forEach((child) => {
+    const clonedNode = child.cloneNode(true);
+    if (child.nodeName === 'LINK') {
+      const clonedChild = child.cloneNode(true);
+      if (clonedChild.href.startsWith('http')) {
+        clonedChild.href = `${hostOrigin}${new URL(clonedChild.href).pathname}`;
+      } else if (clonedChild.href.startsWith('/')) {
+        clonedChild.href = `${hostOrigin}${clonedChild.href}`;
+      }
+    }
+    document.head.appendChild(clonedNode);
+  });
+
+  [...headDoc.head.children].forEach((child) => {
+    if (child.nodeName === 'SCRIPT') {
+      const newScript = document.createElement('script');
+      [...child.attributes].forEach((attr) => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      
+      if (child.src) {
+        if (child.src.startsWith('http')) {
+          newScript.src = `${hostOrigin}${new URL(child.src).pathname}`;
+        } else if (child.src.startsWith('/')) {
+          newScript.src = `${hostOrigin}${child.src}`;
+        } else {
+          newScript.src = child.src;
+        }
+      }
+      if (child.textContent) {
+        newScript.textContent = child.textContent;
+      }
+      document.head.appendChild(newScript);
+    } else if (child.nodeName === 'LINK') {
+      const clonedChild = document.createElement('link');
+      if (child.href.startsWith('http')) {
+        clonedChild.href = `${hostOrigin}${new URL(child.href).pathname}`;
+      } else if (child.href.startsWith('/')) {
+        clonedChild.href = `${hostOrigin}${child.href}`;
+      } else {
+        clonedChild.href = child.href;
+      }
+      document.head.appendChild(clonedChild);
+    } else {
+      document.head.appendChild(child.cloneNode(true));
+    }
+  });
+
+  setTimeout(async () => {
+    await window.milo?.deferredPromise;
+    const { loadBlock } = await import('https://main--milo--adobecom.aem.live/libs/utils/utils.js');
+    const preflight = document.createElement('div');
+    preflight.classList.add('preflight');
+    const content = await loadBlock(preflight);
+    const { getModal } = await import('https://main--milo--adobecom.aem.live/libs/blocks/modal/modal.js');
+    getModal(null, { id: 'preflight', content, closeEvent: 'closeModal' });
+  }, 6000);
 }

@@ -54,6 +54,15 @@ function showDOMElements(eles = []) {
   });
 }
 
+async function postOperationProcessing(html) {
+  html = fixRelativeLinks(html);
+  pushPreviewHtmlToStore(html);
+  await startHTMLPainting();
+  html = targetCompatibleHtml(html);
+  pushTargetHtmlToStore(html);
+  hideDOMElements([LOADER]);
+}
+
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
@@ -61,6 +70,7 @@ export async function initiatePreviewer(forceOperation = null) {
       handleLoader();
       hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
+      await postOperationProcessing(html);
       break;
     case 'edit':
       hideDOMElements([LOADER]);
@@ -68,16 +78,15 @@ export async function initiatePreviewer(forceOperation = null) {
       await editStreamOperation(async () => {
         await initiatePreviewer('create');
       });
+      await postOperationProcessing(html);
       return;
-    default:
+    case 'preflight':
+      handleLoader();
+      await preflightOperation();
       break;
+    default:
+      break
   }
-  html = fixRelativeLinks(html);
-  pushPreviewHtmlToStore(html);
-  await startHTMLPainting();
-  html = targetCompatibleHtml(html);
-  pushTargetHtmlToStore(html);
-  hideDOMElements([LOADER]);
 }
 
 async function startHTMLPainting() {
