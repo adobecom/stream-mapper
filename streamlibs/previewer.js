@@ -10,7 +10,6 @@ import {
   pushPreviewHtmlToStore,
   resetTargetHtmlInStore,
   resetPreviewHtmlInStore,
-  fetchTargetHtmlFromStore,
 } from './store/store.js';
 import {
   getLibs,
@@ -54,8 +53,8 @@ function showDOMElements(eles = []) {
   });
 }
 
-async function postOperationProcessing(html) {
-  html = fixRelativeLinks(html);
+async function postOperationProcessing(rawhtml) {
+  let html = fixRelativeLinks(rawhtml);
   pushPreviewHtmlToStore(html);
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
@@ -85,7 +84,7 @@ export async function initiatePreviewer(forceOperation = null) {
       await preflightOperation();
       break;
     default:
-      break
+      break;
   }
 }
 
@@ -185,7 +184,7 @@ async function handleBackToEditClick(event) {
   document.querySelector('main').remove();
 }
 
-async function handlePreflightClick(event) {
+async function handlePreflightClick() {
   await preflightOperation();
 }
 
@@ -224,13 +223,3 @@ export async function persist() {
     throw error;
   }
 }
-
-window.addEventListener('beforeunload', function (event) {
-  event.preventDefault();
-  const targetExists = fetchTargetHtmlFromStore();
-  if (targetExists) {
-    
-  } else {
-    event.returnValue = '';
-  }
-});

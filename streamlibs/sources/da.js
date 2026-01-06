@@ -41,8 +41,8 @@ export async function previewDAPage(url) {
     method: 'POST',
     headers: {
       'Content-Type': 'text/html',
-      'Authorization': `Bearer ${window.streamConfig.token}`,
-      'accept': '*/*'
+      Authorization: `Bearer ${window.streamConfig.token}`,
+      accept: '*/*',
     },
   };
   try {
