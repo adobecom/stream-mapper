@@ -176,7 +176,7 @@ img.da-process-wait {
   }
 
   .button-container {
-    display: flex;
+    display: none;
     gap: 10px;
     position: fixed;
     z-index: 1000;
@@ -619,10 +619,10 @@ img.da-process-wait {
 
   /* Action Buttons */
   .edit-actions {
-    display: flex;
     justify-content: center;
     gap: 16px;
     margin-top: 40px;
+    display: none;
   }
 
   .action-btn {
@@ -713,4 +713,8 @@ img.da-process-wait {
     width: 100%;
     height: 100%;
     border: none;
+  
+  .show-controls .button-container,
+  .show-controls .edit-actions {
+    display: flex;
   }
