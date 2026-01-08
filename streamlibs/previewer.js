@@ -219,6 +219,11 @@ export default async function initPreviewer() {
     if (event.data.type === 'PUSH_TO_DA') {
       await persist();
     }
+    if (event.data.type === 'RUN_PREFLIGHT') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('operation', 'preflight');
+      window.location.href = url.toString();
+    }
     if (event.data.type === 'EDIT_APPLY_CHANGES') {
       await handleApplyChanges();
     }
