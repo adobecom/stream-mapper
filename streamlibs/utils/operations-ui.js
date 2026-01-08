@@ -219,7 +219,7 @@ async function isSidekickLoginRequired(url) {
   if (new URL(url).host.includes('aem.live')) return false;
   try {
     const response = await fetch(url, { mode: 'no-cors' });
-    return response.status === 401;
+    return response.status !==200;
   } catch (error) {
     return true;
   }
@@ -243,11 +243,13 @@ async function loadPreflightController(origin, previewUrl) {
 async function startSidekickLogin(origin, previewUrl) {
   const config = await getConfig();
   window.open(`${origin}${config.streamMapper.sidekickLoginUrl}&redirectRef=${encodeURIComponent(window.location.origin)}`, "_blank");
-  window.addEventListener("message", async (event) => {
-    if (event.origin !== origin || !(event.data.source === 'stream-preflight')) return;
-    console.log("Data from child:", event.data);
-    await loadPreflightController(origin, previewUrl);
-  });
+  const handler = async (event) => {
+    if ((event.origin === origin) && (event.data.source === 'stream-preflight')) {
+      window.removeEventListener("message", handler);
+      await loadPreflightController(origin, previewUrl);
+    }
+  };
+  window.addEventListener("message", handler);
 }
 
 export async function preflightOperation() {
