@@ -218,7 +218,7 @@ export async function editStreamOperation(applyChangesCallback) {
 async function isSidekickLoginRequired(url) {
   if (new URL(url).host.includes('aem.live')) return false;
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { mode: 'no-cors' });
     return response.status === 401;
   } catch (error) {
     return true;
