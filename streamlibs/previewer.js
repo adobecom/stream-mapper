@@ -83,6 +83,7 @@ export async function initiatePreviewer(forceOperation = null) {
     case 'preflight':
       handleLoader();
       await preflightOperation();
+      hideDOMElements([LOADER]);
       break;
     default:
       break;

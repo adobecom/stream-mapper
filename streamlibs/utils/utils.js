@@ -107,3 +107,12 @@ export function getIconSize(value) {
   if (sizeValue.includes('xxl')) size = 'xxl';
   return size;
 }
+
+export function ackCodeGeneration() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let ackCode = '';
+  for (let i = 0; i < 8; i++) {
+    ackCode += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return ackCode;
+}
