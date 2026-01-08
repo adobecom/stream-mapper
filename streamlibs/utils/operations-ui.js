@@ -235,26 +235,28 @@ async function getPreviewUrl() {
   }
 }
 
-async function startSidekickLogin(origin) {
+async function loadPreflightController(origin, previewUrl) {
+  const config = await getConfig();
+  window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
+}
+
+async function startSidekickLogin(origin, previewUrl) {
+  const config = await getConfig();
   window.open(`${origin}${config.streamMapper.sidekickLoginUrl}&redirectRef=${encodeURIComponent(window.location.origin)}`, "_blank");
-  window.addEventListener("message", (event) => {
+  window.addEventListener("message", async (event) => {
     if (event.origin !== origin || !(event.data.source === 'stream-preflight')) return;
     console.log("Data from child:", event.data);
-    window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
+    await loadPreflightController(origin, previewUrl);
   });
 }
 
 export async function preflightOperation() {
   let previewUrl = window.streamConfig.operation === 'preflight' && window.streamConfig.preflightUrl ? window.streamConfig.preflightUrl : null;
   if (!previewUrl) previewUrl = await getPreviewUrl();
-  const config = await getConfig();
   const { origin } = new URL(previewUrl);
   if (origin.includes('aem.page')) {
     const isLoginRequired = await isSidekickLoginRequired(origin);
-    if (isLoginRequired) {
-        startSidekickLogin(origin);
-    }
-  } else {
-    window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
+    if (isLoginRequired) return await startSidekickLogin(origin, previewUrl);
   }
+  await loadPreflightController(origin, previewUrl);
 }
