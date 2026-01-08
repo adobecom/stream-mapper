@@ -197,7 +197,8 @@ export default async function initPreviewer() {
     target: getQueryParam('target'),
     targetUrl: getQueryParam('targetUrl'),
     token: getQueryParam('token'),
-    operation: getQueryParam('operation') ? getQueryParam('operation') : 'create',
+    operation: getQueryParam('operation') ? getQueryParam('operation') : null,
+    preflightUrl: getQueryParam('preflightUrl') ? decodeURIComponent(getQueryParam('preflightUrl')) : null,
     selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
     selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
   };
@@ -206,7 +207,7 @@ export default async function initPreviewer() {
   window.addEventListener('message', async (event) => {
     const allowedOrigins = [
       'http://localhost:5173',
-      'https://440859-stream-*.adobeio-static.net',
+      'https://440859-stream*.adobeio-static.net',
     ];
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
@@ -228,12 +229,12 @@ export default async function initPreviewer() {
     }
   });
   await initializeTokens(window.streamConfig.token);
-  if (
+  if (window.streamConfig.operation !== 'preflight' && (
     !window.streamConfig.source
     || !window.streamConfig.contentUrl
     || !window.streamConfig.target
     || !window.streamConfig.targetUrl
-  ) {
+  )) {
     throw new Error(
       'Source, content Url, target url or target cannot be empty! Stoppping all processing!',
     );
