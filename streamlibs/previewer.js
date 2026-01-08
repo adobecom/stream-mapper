@@ -198,7 +198,7 @@ export default async function initPreviewer() {
     target: getQueryParam('target'),
     targetUrl: getQueryParam('targetUrl'),
     token: getQueryParam('token'),
-    operation: getQueryParam('operation') ? getQueryParam('operation') : null,
+    operation: getQueryParam('operation') ? getQueryParam('operation') : 'create',
     preflightUrl: getQueryParam('preflightUrl') ? decodeURIComponent(getQueryParam('preflightUrl')) : null,
     selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
     selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
