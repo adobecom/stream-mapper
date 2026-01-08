@@ -219,10 +219,9 @@ async function isSidekickLoginRequired(url) {
   if (new URL(url).host.includes('aem.live')) return false;
   try {
     const response = await fetch(url);
-    debugger
     return response.status === 401;
   } catch (error) {
-    return false;
+    return true;
   }
 }
 
@@ -237,7 +236,7 @@ async function getPreviewUrl() {
 }
 
 async function startSidekickLogin(origin) {
-  window.open(`${origin}/drafts/stream/sidekick-controller?redirectRef=${encodeURIComponent(window.location.origin)}`, "_blank");
+  window.open(`${origin}${config.streamMapper.sidekickLoginUrl}&redirectRef=${encodeURIComponent(window.location.origin)}`, "_blank");
   window.addEventListener("message", (event) => {
     if (event.origin !== origin || !(event.data.source === 'stream-preflight')) return;
     console.log("Data from child:", event.data);
@@ -255,6 +254,7 @@ export async function preflightOperation() {
     if (isLoginRequired) {
         startSidekickLogin(origin);
     }
+  } else {
+    window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
   }
-  // window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
 }
