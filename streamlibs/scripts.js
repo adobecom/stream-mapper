@@ -43,7 +43,7 @@ const CONFIG = {
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-prod',
-      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-prod'
+      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-prod',
     },
   },
   stage: {
@@ -55,7 +55,7 @@ const CONFIG = {
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-stage',
-      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-stage'
+      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-stage',
     },
   },
   local: {
@@ -67,9 +67,9 @@ const CONFIG = {
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
-      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev'
+      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
     },
-  }
+  },
 };
 
 decorateArea();

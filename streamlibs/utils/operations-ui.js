@@ -219,7 +219,7 @@ async function isSidekickLoginRequired(url) {
   if (new URL(url).host.includes('aem.live')) return false;
   try {
     const response = await fetch(url, { mode: 'no-cors' });
-    return response.status !==200;
+    return response.status !== 200;
   } catch (error) {
     return true;
   }
@@ -242,23 +242,27 @@ async function loadPreflightController(origin, previewUrl) {
 
 async function startSidekickLogin(origin, previewUrl) {
   const config = await getConfig();
-  window.open(`${origin}${config.streamMapper.sidekickLoginUrl}&redirectRef=${encodeURIComponent(window.location.origin)}`, "_blank");
+  window.open(`${origin}${config.streamMapper.sidekickLoginUrl}&redirectRef=${encodeURIComponent(window.location.origin)}`, '_blank');
   const handler = async (event) => {
     if ((event.origin === origin) && (event.data.source === 'stream-preflight')) {
-      window.removeEventListener("message", handler);
+      window.removeEventListener('message', handler);
       await loadPreflightController(origin, previewUrl);
     }
   };
-  window.addEventListener("message", handler);
+  window.addEventListener('message', handler);
 }
 
+// eslint-disable-next-line consistent-return
 export async function preflightOperation() {
   let previewUrl = window.streamConfig.operation === 'preflight' && window.streamConfig.preflightUrl ? window.streamConfig.preflightUrl : null;
   if (!previewUrl) previewUrl = await getPreviewUrl();
   const { origin } = new URL(previewUrl);
   if (origin.includes('aem.page')) {
     const isLoginRequired = await isSidekickLoginRequired(origin);
-    if (isLoginRequired) return await startSidekickLogin(origin, previewUrl);
+    if (isLoginRequired) {
+      await startSidekickLogin(origin, previewUrl);
+      return;
+    }
   }
   await loadPreflightController(origin, previewUrl);
 }
