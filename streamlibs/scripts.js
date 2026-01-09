@@ -22,9 +22,10 @@ const LIBS = '/libs';
 
 function getMapperEnv() {
   const { origin } = window.location;
+  if (origin.includes('dev--')) return 'dev';
   if (origin.includes('stage--')) return 'stage';
-  if (origin.includes('prod--')) return 'prod';
-  return 'local';
+  if (origin.includes('main--')) return 'prod';
+  return 'dev';
 }
 
 const CONFIG = {
@@ -39,7 +40,6 @@ const CONFIG = {
       figmaMappingUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comps',
       figmaBlockContentUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comp-details',
       blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
-      artemisProxyUrl: 'https://14257-artemis.adobeioruntime.net/api/v1/web/services/page-proxy',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-prod',
@@ -50,16 +50,22 @@ const CONFIG = {
     streamMapper: {
       figmaMappingUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comps',
       figmaBlockContentUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comp-details',
-      blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
-      artemisProxyUrl: 'https://14257-artemis-stage.adobeioruntime.net/api/v1/web/services/page-proxy',
+      blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-stage',
       sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-stage',
     },
   },
-  local: {
+  dev: {
     streamMapper: {
+      figmaMappingUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comps',
+      figmaBlockContentUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comp-details',
+      blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
+      figmaAuthToken: '',
+      daToken: '',
+      preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
+      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
     },
   },
 };
