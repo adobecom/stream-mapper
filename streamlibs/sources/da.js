@@ -29,3 +29,27 @@ export async function fetchDAContent() {
   const html = parser.parseFromString(doc, 'text/html');
   return html.querySelector('main');
 }
+
+export async function previewDAPage(url) {
+  let previewUrl = url;
+  if (previewUrl.startsWith('/')) previewUrl = previewUrl.slice(1);
+  previewUrl = previewUrl.split('/');
+  previewUrl.splice(2, 0, 'main');
+  previewUrl = previewUrl.join('/');
+  previewUrl = `https://admin.hlx.page/preview/${previewUrl}`;
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/html',
+      Authorization: `Bearer ${window.streamConfig.token}`,
+      accept: '*/*',
+    },
+  };
+  try {
+    const response = await safeFetch(previewUrl, options);
+    return await response.json();
+  } catch (error) {
+    handleError(error, ' previewing DA page');
+    throw error;
+  }
+}

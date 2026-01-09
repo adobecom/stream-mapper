@@ -13,6 +13,9 @@ import {
   fetchDABlocks,
   prepareChangesForStore,
 } from './operations-state.js';
+import { getConfig, ackCodeGeneration } from './utils.js';
+import { handleError } from './error-handler.js';
+import { previewDAPage } from '../sources/da.js';
 
 const FIGMA_ICON = `
 <svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
@@ -196,7 +199,6 @@ export async function handleApplyChanges() {
   }
 }
 
-
 export async function editStreamOperation(applyChangesCallback) {
   onApplyChangesCallback = applyChangesCallback;
   const [fetchedFigma, fetchedDA] = await Promise.all([fetchFigmaBlocks(), fetchDABlocks()]);
@@ -211,4 +213,72 @@ export async function editStreamOperation(applyChangesCallback) {
     resetToOriginal();
   });
   return editUI;
+}
+
+async function isSidekickLoginRequired(url) {
+  if (new URL(url).host.includes('aem.live')) return false;
+  try {
+    const response = await fetch(url, { mode: 'no-cors' });
+    return response.status !== 200;
+  } catch (error) {
+    return true;
+  }
+}
+
+async function getPreviewUrl() {
+  try {
+    const response = await previewDAPage(window.streamConfig.targetUrl);
+    return response.preview.url;
+  } catch (error) {
+    handleError(error, ' executing preview operation');
+    throw error;
+  }
+}
+
+async function loadPreflightController(origin, previewUrl) {
+  const config = await getConfig();
+  window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
+}
+
+async function startSidekickLogin(origin, previewUrl) {
+  const config = await getConfig();
+  const redirectRef = encodeURIComponent(window.location.origin);
+  const ackCode = ackCodeGeneration();
+  const loginUrl = config.streamMapper.sidekickLoginUrl;
+  // Try to open and attach opener
+  document.querySelector('#retry-preflight-check-btn').addEventListener('click', () => {
+    window.location.reload();
+  });
+  document.querySelector('#login-with-sidekick-btn').addEventListener('click', () => {
+    window.open(`${origin}${loginUrl}&redirectRef=${redirectRef}&ackCode=${ackCode}`, '_blank');
+  });
+  window.open(`${origin}${loginUrl}&redirectRef=${redirectRef}&ackCode=${ackCode}`, '_blank');
+  const handler = async (event) => {
+    if (
+      (event.origin === origin)
+      && (event.data.source === 'stream-preflight')
+      && (event.data.code === ackCode)) {
+      window.removeEventListener('message', handler);
+      await loadPreflightController(origin, previewUrl);
+    }
+  };
+  window.addEventListener('message', handler);
+}
+
+// eslint-disable-next-line consistent-return
+export async function preflightOperation() {
+  let previewUrl = window.streamConfig.operation === 'preflight' && window.streamConfig.preflightUrl ? window.streamConfig.preflightUrl : null;
+  if (!previewUrl) previewUrl = await getPreviewUrl();
+  const { origin } = new URL(previewUrl);
+  if (origin.includes('aem.page')) {
+    const isLoginRequired = await isSidekickLoginRequired(origin);
+    if (isLoginRequired) {
+      document.querySelector('#preflight-operation-container').style.display = 'flex';
+      setTimeout(async () => {
+        await startSidekickLogin(origin, previewUrl);
+      }, 2000);
+      return;
+    }
+  }
+  await loadPreflightController(origin, previewUrl);
 }

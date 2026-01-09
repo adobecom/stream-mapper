@@ -21,6 +21,7 @@ import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
+  preflightOperation,
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
 import { handleApplyChanges } from './utils/operations-ui.js';
@@ -53,6 +54,15 @@ function showDOMElements(eles = []) {
   });
 }
 
+async function postOperationProcessing(rawhtml) {
+  let html = fixRelativeLinks(rawhtml);
+  pushPreviewHtmlToStore(html);
+  await startHTMLPainting();
+  html = targetCompatibleHtml(html);
+  pushTargetHtmlToStore(html);
+  hideDOMElements([LOADER]);
+}
+
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
@@ -60,6 +70,7 @@ export async function initiatePreviewer(forceOperation = null) {
       handleLoader();
       hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
+      await postOperationProcessing(html);
       break;
     case 'edit':
       hideDOMElements([LOADER]);
@@ -67,16 +78,16 @@ export async function initiatePreviewer(forceOperation = null) {
       await editStreamOperation(async () => {
         await initiatePreviewer('create');
       });
+      await postOperationProcessing(html);
       return;
+    case 'preflight':
+      handleLoader();
+      await preflightOperation();
+      hideDOMElements([LOADER]);
+      break;
     default:
       break;
   }
-  html = fixRelativeLinks(html);
-  pushPreviewHtmlToStore(html);
-  await startHTMLPainting();
-  html = targetCompatibleHtml(html);
-  pushTargetHtmlToStore(html);
-  hideDOMElements([LOADER]);
 }
 
 async function startHTMLPainting() {
@@ -88,24 +99,25 @@ async function startHTMLPainting() {
 
 async function paintHtmlOnPage() {
   const headerEle = document.createElement('header');
-  document.body.appendChild(headerEle);
   const mainEle = document.createElement('main');
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
-  document.body.appendChild(mainEle);
-
+  document.body.prepend(mainEle);
+  document.body.prepend(headerEle);
   if (!BUTTON_CONTAINER) {
     const div = document.createElement('div');
     div.classList.add('button-container');
     const pushToDABtn = createPushButton();
     const openInDABtn = createOpenButton();
     const backToEditBtn = createBackToEditButton();
-    div.append(...[pushToDABtn, openInDABtn]);
+    const preflightBtn = createPreflightButton();
+    div.append(...[pushToDABtn, openInDABtn, preflightBtn]);
     document.body.append(div);
     pushToDABtn.addEventListener('click', handlePushClick);
     if (backToEditBtn) {
       div.prepend(backToEditBtn);
       backToEditBtn.addEventListener('click', handleBackToEditClick);
     }
+    preflightBtn.addEventListener('click', handlePreflightClick);
     BUTTON_CONTAINER = div;
   } else if (getQueryParam('surface') !== 'stream-client') {
     BUTTON_CONTAINER.style.display = 'flex';
@@ -143,6 +155,14 @@ function createBackToEditButton() {
   return button;
 }
 
+function createPreflightButton() {
+  const button = document.createElement('a');
+  button.href = '#';
+  button.classList.add('cta-button');
+  button.innerHTML = '<span class="da-preflight-icon"></span><span class="text">Preview and Preflight</span>';
+  return button;
+}
+
 async function handlePushClick(event) {
   const button = event.target.closest('.cta-button');
   const buttonIcon = button.querySelector('span.da-push-icon');
@@ -166,6 +186,10 @@ async function handleBackToEditClick(event) {
   document.querySelector('main').remove();
 }
 
+async function handlePreflightClick() {
+  await preflightOperation();
+}
+
 export default async function initPreviewer() {
   window.sessionStorage.clear();
   window.streamConfig = {
@@ -175,6 +199,7 @@ export default async function initPreviewer() {
     targetUrl: getQueryParam('targetUrl'),
     token: getQueryParam('token'),
     operation: getQueryParam('operation') ? getQueryParam('operation') : 'create',
+    preflightUrl: getQueryParam('preflightUrl') ? decodeURIComponent(getQueryParam('preflightUrl')) : null,
     selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
     selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
   };
@@ -182,8 +207,7 @@ export default async function initPreviewer() {
   if (getQueryParam('surface') !== 'stream-client') document.body.classList.add('show-controls');
   window.addEventListener('message', async (event) => {
     const allowedOrigins = [
-      'http://localhost:5173',
-      'https://440859-stream-*.adobeio-static.net',
+      'https://440859-stream*.adobeio-static.net',
     ];
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
@@ -193,6 +217,11 @@ export default async function initPreviewer() {
 
     if (event.data.type === 'PUSH_TO_DA') {
       await persist();
+    }
+    if (event.data.type === 'RUN_PREFLIGHT') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('operation', 'preflight');
+      window.location.href = url.toString();
     }
     if (event.data.type === 'EDIT_APPLY_CHANGES') {
       await handleApplyChanges();
@@ -205,12 +234,12 @@ export default async function initPreviewer() {
     }
   });
   await initializeTokens(window.streamConfig.token);
-  if (
+  if (window.streamConfig.operation !== 'preflight' && (
     !window.streamConfig.source
     || !window.streamConfig.contentUrl
     || !window.streamConfig.target
     || !window.streamConfig.targetUrl
-  ) {
+  )) {
     throw new Error(
       'Source, content Url, target url or target cannot be empty! Stoppping all processing!',
     );
