@@ -111,7 +111,7 @@ export function getIconSize(value) {
 export function ackCodeGeneration() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let ackCode = '';
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 8; i+=1) {
     ackCode += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return ackCode;

@@ -254,7 +254,6 @@ async function startSidekickLogin(origin, previewUrl) {
   });
   window.open(`${origin}${loginUrl}&redirectRef=${redirectRef}&ackCode=${ackCode}`, '_blank');
   const handler = async (event) => {
-    console.log(event.data)
     if (
       (event.origin === origin)
       && (event.data.source === 'stream-preflight')
