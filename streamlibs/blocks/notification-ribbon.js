@@ -1,45 +1,43 @@
 /* eslint-disable max-len */
 import {
   handleComponents,
-  handleSpacer,
   handleActionButtons,
   handleBackground,
-  handleAccentBar,
-  handleGridLayout,
+  handleProductLockup,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
-function handleMediaCaption(caption, areaEl) {
-  if (!caption) return;
-  const captionTxt = `<em>${caption}</em>`;
-  areaEl.closest('p').innerHTML += captionTxt;
+function handleProductLockupArea(blockContent, properties) {
+  if (!properties?.productLockup) return;
+  const pTag = document.createElement('p');
+  if (properties.hasProductLockup1) handleProductLockup(properties.productLockups[0], pTag);
+  if (properties.hasProductLockup2) handleProductLockup(properties.productLockups[1], pTag);
+  if (properties.hasProductLockup3) handleProductLockup(properties.productLockups[2], pTag);
+  blockContent.querySelector(':scope > div:last-child > div').prepend(pTag);
 }
 
 function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
-  if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
-  if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
-  if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  if (properties?.justify.startsWith('center')) blockContent.classList.add('center');
+  if (properties?.justify.startsWith('space between')) blockContent.classList.add('space-between');
+  if (!properties?.closeBtn) blockContent.classList.add('no-closure');
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return;
   try {
-    const mappingData = await safeJsonFetch('text.json');
+    const mappingData = await safeJsonFetch('notification-ribbon.json');
     mappingData.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'background':
-          if (value) handleBackground(value, areaEl);
+          handleBackground(value, areaEl);
           break;
-        case 'media': {
-          const caption = properties.caption ? properties.caption : null;
-          if (value) handleMediaCaption(caption, areaEl);
+        case 'productLockup':
+          handleProductLockupArea(blockContent, properties);
           break;
-        }
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);
           break;

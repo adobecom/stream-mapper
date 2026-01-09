@@ -1,53 +1,62 @@
-export function mapNotificationContent(blockContent, figContent) {
-    blockContent.classList.remove('space-between');
-    const x = figContent?.details?.properties;
-    if (!x) return;
+/* eslint-disable max-len */
+import {
+  handleComponents,
+  handleActionButtons,
+  handleBackground,
+  handleAccentBar,
+  handleGridLayout,
+} from '../components/components.js';
+import { safeJsonFetch } from '../utils/error-handler.js';
 
-    const ks = Object.keys(x);
-    ks.forEach((k) => {
-        switch(k) {
-            case "background":
-                if (!x.background.startsWith('http')) {
-                    const p = blockContent.querySelector(':scope div div');
-                    if (p) {
-                      p.innerHTML = x.background;
-                    }
-                } else {
-                    blockContent.querySelector('div picture img').src = x.background;
-                }
-                break;
-            case "action":
-                if (x.action && x.action.label){
-                    if (blockContent.querySelector('em a, a em')) {
-                        blockContent.querySelector('em a, a em').innerHTML = x.action.label;
-                    }
-                } else {
-                    blockContent.querySelector('em a, a em').remove();
-                }
-                break;
-            case "action2":
-                if (x.action2 && x.action2.label){
-                    if (blockContent.querySelector('a strong, strong a')) {
-                        blockContent.querySelector('a strong, strong a').innerHTML = x.action2.label;
-                    }
-                } else {
-                    blockContent.querySelector('a strong, strong a').remove();
-                }
-                break;
-            case "justify":
-                if (x.justify) {
-                    if (x.justify.startsWith('space between')) {
-                        blockContent.classList.add('space-between');
-                    }
-                }
-                break;
-            case "heading":
-                blockContent.querySelector('h3').innerHTML = x.heading;
-                break;
-            case "body":
-                blockContent.querySelector('h3 + p').innerHTML = x.body;
-                break;
-        }
-    })
+function handleSwap(blockContent) {
+  const foregroundDiv = blockContent.querySelector(':scope > div:last-child');
+  const copyDiv = blockContent.querySelector(':scope > div:last-child > div:first-child');
+  foregroundDiv.append(copyDiv);
+}
 
+export function handleForegroundImage(el, value, selector) {
+  const picParentEl = el.querySelector(selector);
+  if (!value) return picParentEl.classList.add('to-remove');
+  const picEl = picParentEl.querySelector('picture');
+  picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
+  picEl.querySelector('img').src = value;
+  return picEl;
+}
+
+function handleVariants(sectionWrapper, blockContent, properties) {
+  if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
+  if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
+  if (properties?.accentBar?.name) handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
+  if (properties?.layout === 'center') blockContent.classList.add('center');
+  if (properties?.layout.startsWith('image')) handleSwap(blockContent, properties);
+}
+
+export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
+  const properties = figContent?.details?.properties;
+  if (!properties) return;
+  try {
+    const mappingData = await safeJsonFetch('notification.json');
+    mappingData.data.forEach((mappingConfig) => {
+      const value = properties[mappingConfig.key];
+      const areaEl = handleComponents(blockContent, value, mappingConfig);
+      switch (mappingConfig.key) {
+        case 'background':
+          handleBackground(value, areaEl);
+          break;
+        case 'photo':
+          handleForegroundImage(blockContent, value, mappingConfig.selector);
+          break;
+        case 'actions':
+          handleActionButtons(blockContent, properties, value, areaEl);
+          break;
+        default:
+          break;
+      }
+    });
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
+    handleVariants(sectionWrapper, blockContent, properties);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(error);
+  }
 }

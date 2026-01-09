@@ -15,49 +15,104 @@ export const [setLibs, getLibs] = (() => {
 })();
 
 export function getQueryParam(param) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(param);
 }
 
 export function fixRelativeLinks(html) {
-    return html.replaceAll("./media", "https://main--milo--adobecom.aem.page/media");
-}
-
-export function wrapDivs(htmlString) {
-    const container = document.createElement('div');
-    container.innerHTML = htmlString;
-    const children = Array.from(container.children);
-    const result = document.createElement('div');
-    let wrapper = null;
-    children.forEach(child => {
-        const needsWrapper = child.tagName === 'DIV' && child.classList.length > 0;
-        if (needsWrapper) {
-            wrapper = wrapper || document.createElement('div');
-            wrapper.appendChild(child);
-        } else {
-            if (wrapper) {
-                result.appendChild(wrapper);
-                wrapper = null;
-            }
-            result.appendChild(child);
-        }
-    });
-    if (wrapper) result.appendChild(wrapper);
-    return result.innerHTML;
+  return html.replaceAll('./media', 'https://main--milo--adobecom.aem.page/media');
 }
 
 export async function getConfig() {
-    const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
-    return miloGetConfig();
-}
-
-export async function getIdNameMap() {
-    const config = await getConfig();
-    return config.streamMapper.idNameMap || {};
+  const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
+  return miloGetConfig();
 }
 
 export async function initializeTokens(token) {
-    const config = await getConfig();
-    config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
-    config.streamMapper.daToken = token.startsWith('Bearer ') ? token : 'Bearer ' + token;
+  const config = await getConfig();
+  config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  config.streamMapper.daToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+}
+
+export function extractByPattern(tag, pattern) {
+  if (!tag || !pattern) {
+    return {};
+  }
+  const parts = tag.split('-');
+  const match = parts.find((p) => (pattern instanceof RegExp
+    ? pattern.test(p) : p.includes(pattern)));
+  if (!match) return null;
+  const cleaned = match.replace(/\s+/g, '');
+  const numMatch = cleaned.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
+  if (numMatch) {
+    const [, prefix, number, suffix] = numMatch;
+    return {
+      raw: match,
+      prefix: prefix || null,
+      number: number ? parseInt(number, 10) : null,
+      suffix: suffix || null,
+    };
+  }
+  return { raw: match };
+}
+
+export function divSwap(blockContent, divSelector, divSelector2) {
+  const div1 = blockContent.querySelector(divSelector);
+  const div2 = blockContent.querySelector(divSelector2);
+
+  if (!div1 || !div2) return;
+
+  const placeholder = document.createElement('div');
+  div1.replaceWith(placeholder);
+  div2.replaceWith(div1);
+  placeholder.replaceWith(div2);
+}
+
+export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
+
+export const getFirstType = (text) => {
+  if (!text) {
+    return 'neither';
+  }
+
+  const cleaned = text
+    .toLowerCase()
+    .replace(/->|-/g, ' ')
+    .replace(/_/g, ' ')
+    .trim();
+
+  const words = cleaned.split(/\s+/);
+
+  const copyIndex = words.indexOf('copy');
+  const imageIndex = words.indexOf('image');
+
+  if (copyIndex === -1 && imageIndex === -1) {
+    return 'neither';
+  } if (copyIndex === -1) {
+    return 'image';
+  } if (imageIndex === -1) {
+    return 'copy';
+  }
+
+  return copyIndex < imageIndex ? 'copy' : 'image';
+};
+
+export function getIconSize(value) {
+  const sizeValue = value?.toLowerCase();
+  let size = 'm';
+  if (sizeValue.includes('s')) size = 's';
+  if (sizeValue.includes('m')) size = 'm';
+  if (sizeValue.includes('l')) size = 'l';
+  if (sizeValue.includes('xl')) size = 'xl';
+  if (sizeValue.includes('xxl')) size = 'xxl';
+  return size;
+}
+
+export function ackCodeGeneration() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let ackCode = '';
+  for (let i = 0; i < 8; i += 1) {
+    ackCode += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return ackCode;
 }

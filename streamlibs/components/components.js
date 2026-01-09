@@ -1,37 +1,343 @@
-export function handleComponents(el, value, mappingConfig) {
-  switch (mappingConfig.type) {
-    case 'text':
-      handleTextComponent({ el, selector: mappingConfig.selector, value });
-      break;
-    case 'image':
-      handleImageComponent({ el, selector: mappingConfig.selector, value });
-      break;
-    case 'container':
-      handleContainerComponent({ el, selector: mappingConfig.selector, value });
-      break;
-    case 'append-after':
-      break;
-    default:
-      console.warn(`Unknown mapping type: ${componentType}`);
-      return false;
-  }
-  return true;
-}
+import {
+  ACCENT_BARS,
+  GRID_SIZES,
+  ACTION_BUTTONS_TYPES,
+  ACTION_BUTTONS_SIZES,
+  LOGOS,
+  ICON_CLASS,
+} from '../utils/constants.js';
 
-function handleTextComponent({ el, value, selector }) {
+export function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
-  textEl.innerHTML = value;
+  textEl.innerHTML = '';
+  const lines = value.split('\n');
+  if (lines.length === 1) {
+    textEl.innerHTML += value;
+    return textEl;
+  }
+  lines.forEach((line) => {
+    textEl.innerHTML += `<p>${line}</p>`;
+  });
+  return textEl;
 }
 
-function handleImageComponent({ el, value, selector }) {
+export function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
   if (!value) return picEl.classList.add('to-remove');
+  picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
   picEl.querySelector('img').src = value;
+  return picEl;
 }
 
 function handleContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
-  if (!value) return containerEl.classList.add('to-remove');
+  if (!value || (Array.isArray(value) && value.length < 1)) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
+  return containerEl;
+}
+
+function handleLogoContainerComponent({ el, value, selector }) {
+  const containerEl = el.querySelector(selector);
+  if (!value) return containerEl.classList.add('to-remove');
+  return containerEl;
+}
+
+function addSVGInButton(icon) {
+  if (!icon || !icon?.name) return null;
+  const { name } = icon;
+  const span = document.createElement('span');
+  span.classList.add('icon');
+  Object.keys(ICON_CLASS)?.forEach((key) => {
+    if (name?.toLowerCase().includes(key)) {
+      span.classList.add(`icon-${ICON_CLASS[key] || 'play'}`);
+    }
+  });
+  return span;
+}
+
+export function handleButtonComponent({
+  el,
+  actionArea,
+  buttonType,
+  buttonText,
+  leadingIcon,
+  trailingIcon,
+  hasLeadingIcon,
+  hasTrailingIcon,
+}) {
+  const btnType = buttonType ? buttonType.toLowerCase() : 'm button / text';
+  // Button type
+  // eslint-disable-next-line no-restricted-syntax
+  for (const type in ACTION_BUTTONS_TYPES) {
+    if (btnType.includes(type)) {
+      const leadingI = hasLeadingIcon ? addSVGInButton(leadingIcon) : null;
+      const trailingI = hasTrailingIcon ? addSVGInButton(trailingIcon) : null;
+      actionArea.innerHTML += ACTION_BUTTONS_TYPES[type].replace('{buttonText}', buttonText).replace('{leadingIcon}', leadingI ? `${leadingI.outerHTML} ` : '').replace('{trailingIcon}', trailingI ? ` ${trailingI.outerHTML}` : '');
+    }
+  }
+
+  // Button size
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in ACTION_BUTTONS_SIZES) {
+    if (btnType.includes(size)) {
+      el.classList.add(ACTION_BUTTONS_SIZES[size]);
+    }
+  }
+}
+
+export function handleComponents(el, value, mappingConfig) {
+  switch (mappingConfig.type) {
+    case 'text':
+      return handleTextComponent({ el, selector: mappingConfig.selector, value });
+    case 'image':
+      return handleImageComponent({ el, selector: mappingConfig.selector, value });
+    case 'container':
+      return handleContainerComponent({ el, selector: mappingConfig.selector, value });
+    case 'logoContainer':
+      return handleLogoContainerComponent({ el, selector: mappingConfig.selector, value });
+    default:
+      return null;
+  }
+}
+
+export function handleSpacer(el, spacer, position) {
+  if (!spacer) return;
+  const spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m ')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return;
+  el.classList.add(`${spacerClass}-spacing-${position}`);
+}
+
+export function handleActionButtons(el, configData, value, areaEl) {
+  if (!value) return;
+  if (configData.action) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action.variant,
+      buttonText: configData.action.text ? configData.action.text : configData.action.value,
+      leadingIcon: configData.action.leadingIcon,
+      trailingIcon: configData.action.trailingIcon,
+      hasLeadingIcon: configData.action.hasLeadingIcon,
+      hasTrailingIcon: configData.action.hasTrailingIcon,
+    });
+  }
+  if (configData.action1) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action1.variant,
+      buttonText: configData.action1.text ? configData.action1.text : configData.action1.value,
+      leadingIcon: configData.action1.leadingIcon,
+      trailingIcon: configData.action1.trailingIcon,
+      hasLeadingIcon: configData.action1.hasLeadingIcon,
+      hasTrailingIcon: configData.action1.hasTrailingIcon,
+    });
+  }
+  if (configData.action2) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action2.variant,
+      buttonText: configData.action2.text ? configData.action2.text : configData.action2.value,
+      leadingIcon: configData.action2.leadingIcon,
+      trailingIcon: configData.action2.trailingIcon,
+      hasLeadingIcon: configData.action2.hasLeadingIcon,
+      hasTrailingIcon: configData.action2.hasTrailingIcon,
+    });
+  }
+  if (configData.action3) {
+    handleButtonComponent({
+      el,
+      actionArea: areaEl,
+      buttonType: configData.action3.variant,
+      buttonText: configData.action3.text ? configData.action3.text : configData.action3.value,
+      leadingIcon: configData.action3.leadingIcon,
+      trailingIcon: configData.action3.trailingIcon,
+      hasLeadingIcon: configData.action3.hasLeadingIcon,
+      hasTrailingIcon: configData.action3a.hasTrailingIcon,
+    });
+  }
+}
+
+export function handleBackground(value, areaEl) {
+  if (!value) return;
+  if (value.startsWith('http')) {
+    const img = document.createElement('img');
+    img.src = value;
+    const pic = document.createElement('picture');
+    const source = document.createElement('source');
+    source.srcset = value;
+    source.type = 'image/webp';
+    pic.append(...[source, img]);
+    areaEl.append(pic);
+  } else {
+    areaEl.innerHTML = value;
+  }
+}
+
+export function handleAccentBar(secEl, blockEl, accentType) {
+  if (!ACCENT_BARS[accentType]) return;
+  const accentBar = document.createElement('div');
+  accentBar.classList.add(...['text', 'accent-bar']);
+  accentBar.innerHTML += `<div>${ACCENT_BARS[accentType]}</div>`;
+  secEl.insertBefore(accentBar, blockEl.nextSibling);
+}
+
+export function handleGridLayout(gridSize, blockEl, device) {
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in GRID_SIZES) {
+    if (gridSize.includes(size)) {
+      blockEl.classList.add(`${GRID_SIZES[size]}-${device}`);
+      return;
+    }
+  }
+}
+
+export function addOrUpdateSectionMetadata(secEl, blockEl, property) {
+  // Check if section-metadata already exists
+  let sectionMetadata = secEl.querySelector(':scope > .section-metadata');
+  // If not, create and insert it
+  if (!sectionMetadata) {
+    sectionMetadata = document.createElement('div');
+    sectionMetadata.classList.add('section-metadata');
+    secEl.insertBefore(sectionMetadata, blockEl.nextSibling);
+  }
+  // Check if property row already exists
+  const rows = sectionMetadata.querySelectorAll(':scope > div');
+  let propertyRow = null;
+  rows.forEach((row) => {
+    const propertyName = row.querySelector(':scope > div:first-child');
+    if (propertyName && propertyName.textContent.trim() === property) {
+      propertyRow = row;
+    }
+  });
+  // If property row doesn't exist, create it
+  if (!propertyRow) {
+    propertyRow = document.createElement('div');
+    propertyRow.innerHTML = `<div>${property}</div><div></div>`;
+    sectionMetadata.appendChild(propertyRow);
+  }
+  return propertyRow.querySelector(':scope > div:nth-child(2)');
+}
+
+export function handleColorThemeWithSectionMetadata(secEl, blockEl, value) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
+  styleLoc.innerHTML += value;
+}
+
+export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
+  if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
+  if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
+  if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
+  if (/5\s*up/i.test(value)) styleLoc.innerHTML += 'five-up';
+  if (/6\s*up/i.test(value)) styleLoc.innerHTML += 'six-up';
+}
+
+export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
+  if (!spacer) return;
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  const spacerName = spacer.toLowerCase().trim();
+  let spacerClass = '';
+  if (spacerName.includes(' m')) spacerClass = 'm';
+  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
+  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
+  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
+  else if (spacerName.includes(' l ')) spacerClass = 'l';
+  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
+  else if (spacerName.includes(' s ')) spacerClass = 's';
+  if (!spacerClass) return;
+  if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
+  styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
+}
+
+export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
+  if (!value || value.startsWith('#fff')) return;
+  const backgroundValue = addOrUpdateSectionMetadata(secEl, blockEl, 'background');
+  if (value.startsWith('http')) {
+    const img = document.createElement('img');
+    img.src = value;
+    const pic = document.createElement('picture');
+    const source = document.createElement('source');
+    source.srcset = value;
+    source.type = 'image/png';
+    pic.append(...[source, img]);
+    backgroundValue.append(pic);
+  } else {
+    backgroundValue.innerHTML = value;
+  }
+}
+
+export function handleGridLayoutWithSectionMetadata(secEl, blockEl, gridSize, device) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  // eslint-disable-next-line no-restricted-syntax
+  for (const size in GRID_SIZES) {
+    if (gridSize.includes(size)) {
+      if (device) styleLoc.innerHTML += `, ${GRID_SIZES[size]}-${device}`;
+      else styleLoc.innerHTML += `, ${GRID_SIZES[size]}`;
+      return;
+    }
+  }
+}
+
+export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  styleLoc.innerHTML += `, ${variant}`;
+}
+
+export function replaceImage(pic, src) {
+  if (!pic || !src) return;
+  pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
+  pic.querySelector('img').src = src;
+}
+
+export function handleProductLockup(value, areaEl) {
+  if (!areaEl) return;
+  // eslint-disable-next-line consistent-return
+  if (!value) return areaEl.classList.add('to-remove');
+  // eslint-disable-next-line prefer-destructuring, no-param-reassign
+  if (Array.isArray(value)) value = value[0];
+  const tileName = value?.productTile?.name || 'placeholder';
+  const a = document.createElement('a');
+  a.href = LOGOS[tileName] || LOGOS.placeholder;
+  a.innerText = a.href;
+  areaEl.append(a);
+  const { productName } = value;
+  if (productName) areaEl.innerHTML += productName;
+}
+
+export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
+  let sum = 0;
+  let masonryStyle = '';
+  // eslint-disable-next-line no-restricted-syntax
+  for (const arrangement of masonryArrangement) {
+    const a = arrangement.toLowerCase();
+    const intPart = parseInt(arrangement.split(' ')[1].trim(), 10);
+    sum += intPart;
+    if (sum < 12) {
+      masonryStyle += `${a}, `;
+    } else if (sum > 12) {
+      masonryStyle += `\n${a}`;
+      sum = 0;
+    } else if (sum === 12 && intPart === 12) {
+      masonryStyle += 'full-width\n';
+      sum = 0;
+    } else if (sum === 12) {
+      masonryStyle += `${a}\n`;
+      sum = 0;
+    }
+  }
+  styleLoc.innerHTML = masonryStyle;
 }
