@@ -60,14 +60,6 @@ const CONFIG = {
   },
   local: {
     streamMapper: {
-      figmaMappingUrl: 'http://localhost:8080/api/fig-comps',
-      figmaBlockContentUrl: 'http://localhost:8080/api/fig-comp-details',
-      blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.page/block-mappings',
-      artemisProxyUrl: 'https://14257-artemis-dev.adobeioruntime.net/api/v1/web/services/page-proxy',
-      figmaAuthToken: '',
-      daToken: '',
-      preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
-      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
     },
   },
 };
