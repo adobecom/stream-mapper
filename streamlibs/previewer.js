@@ -31,9 +31,10 @@ const LOADER = document.querySelector('#loader-container');
 const EDIT_MAPPER = document.querySelector('#edit-operation-container');
 let BUTTON_CONTAINER = null;
 
-function handleLoader(displayLoader = true) {
+function handleLoader(displayLoader = true, message = null) {
   if (!displayLoader) return;
-  const loaderMessage = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
+  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)]
+  const loaderMessage = message || loadermsg;
   LOADER_MESSAGE_AREA.textContent = loaderMessage;
   LOADER.style.display = 'flex';
   LOADER.classList.add('is-visible');
@@ -249,8 +250,14 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
+    handleLoader(true, 'Pushing content to DA');
+    hideDOMElements([document.querySelector('main')]);
     await persistOnTarget();
+    hideDOMElements([LOADER]);
+    showDOMElements([document.querySelector('main')]);
   } catch (error) {
+    hideDOMElements([LOADER]);
+    showDOMElements([document.querySelector('main')]);
     handleError(error, 'persisting content');
     throw error;
   }

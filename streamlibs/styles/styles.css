@@ -122,16 +122,19 @@ img.da-process-wait {
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    height: 100%;
-    width: 100%;
     gap: 24px;
     font-size: 20px;
     color: #7155fa;
     background: #fff;
     background-size: 400% 400%;
     animation: gradientFlow 12s ease infinite;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
     overflow: hidden;
+    z-index: 2000;
   }
 
   @keyframes gradientFlow {
