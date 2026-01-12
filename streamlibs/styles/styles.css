@@ -130,6 +130,7 @@ img.da-process-wait {
     background: #fff;
     background-size: 400% 400%;
     animation: gradientFlow 12s ease infinite;
+    position: relative;
     overflow: hidden;
   }
 
