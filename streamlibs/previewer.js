@@ -33,7 +33,7 @@ let BUTTON_CONTAINER = null;
 
 function handleLoader(displayLoader = true, message = null) {
   if (!displayLoader) return;
-  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)]
+  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
   const loaderMessage = message || loadermsg;
   LOADER_MESSAGE_AREA.textContent = loaderMessage;
   LOADER.style.display = 'flex';
