@@ -16,6 +16,7 @@ import {
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
+  getConfig,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import {
@@ -25,7 +26,6 @@ import {
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
 import { handleApplyChanges } from './utils/operations-ui.js';
-import { getConfig } from './utils/utils.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
