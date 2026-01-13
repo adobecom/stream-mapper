@@ -27,7 +27,6 @@ const ADOBE_ICON = `
 let draggedCard = null;
 let draggedFromDeck = null;
 let onApplyChangesCallback = null;
-let dropHandled = false;
 
 function createBlockCard(block, deckType) {
   const card = document.createElement('div');
@@ -95,9 +94,9 @@ function handleDragStart(e) {
 function handleDragEnd(e) {
   e.target.classList.remove('dragging');
 
-  // Fallback: in some iframe setups, drop events never fire.
-  // In that case, we infer the drop target from the final pointer position.
-  if (!dropHandled && draggedCard) {
+  // In some iframe setups, drop events never fire.
+  // Infer the drop target from the final pointer position.
+  if (draggedCard) {
     const { clientX, clientY } = e;
     if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
       const dropTarget = document.elementFromPoint(clientX, clientY);
@@ -131,99 +130,6 @@ function handleDragEnd(e) {
 
   draggedCard = null;
   draggedFromDeck = null;
-  dropHandled = false;
-  document.querySelectorAll('.block-card.drag-over').forEach((c) => c.classList.remove('drag-over'));
-}
-
-function handleDragOver(e) {
-  e.preventDefault();
-}
-
-function handleDragEnter(e) {
-  e.preventDefault();
-  const card = e.target.closest('.block-card');
-  if (card && card !== draggedCard) card.classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-  const card = e.target.closest('.block-card');
-  if (card) card.classList.remove('drag-over');
-}
-
-// Fallback handlers to improve reliability when the app is running in nested iframes
-function handleGlobalDragOver(e) {
-  // Ensure the browser treats this as a valid drop target
-  e.preventDefault();
-}
-
-function handleGlobalDrop(e) {
-  // In some nested iframe setups, drop events may only fire on the document/body.
-  // This handler routes the drop to the appropriate deck/card logic.
-  e.preventDefault();
-
-  if (!draggedCard) return;
-
-  const targetCard = e.target.closest('.block-card');
-  const daDeck = e.target.closest('.da-deck');
-
-  if (targetCard && targetCard.dataset.deck === 'da') {
-    // Delegate to the same logic as handleDropOnCard
-    const targetDataId = targetCard.dataset.id;
-    const draggedDataId = draggedCard.dataset.id;
-
-    if (draggedFromDeck === 'figma') {
-      moveFigmaBlockToDA(draggedDataId, targetDataId);
-      renderFigmaDeck();
-      renderDADeck();
-    } else if (draggedFromDeck === 'da' && draggedCard !== targetCard) {
-      if (reorderDABlocks(draggedDataId, targetDataId)) {
-        renderDADeck();
-      }
-    }
-    targetCard.classList.remove('drag-over');
-    dropHandled = true;
-    return;
-  }
-
-  // Drop directly onto DA deck (e.g. empty area)
-  if (daDeck && draggedFromDeck === 'figma') {
-    moveFigmaBlockToDA(draggedCard.dataset.id);
-    renderFigmaDeck();
-    renderDADeck();
-    dropHandled = true;
-  }
-}
-
-function handleDropOnDeck(e) {
-  e.preventDefault();
-  if (draggedFromDeck === 'figma') {
-    moveFigmaBlockToDA(e.dataTransfer.getData('text/plain'));
-    renderFigmaDeck();
-    renderDADeck();
-    dropHandled = true;
-  }
-}
-
-function handleDropOnCard(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const targetCard = e.target.closest('.block-card');
-  if (!targetCard || targetCard === draggedCard || targetCard.dataset.deck !== 'da') return;
-
-  const targetDataId = targetCard.dataset.id;
-  const draggedDataId = draggedCard.dataset.id;
-
-  if (draggedFromDeck === 'figma') {
-    moveFigmaBlockToDA(draggedDataId, targetDataId);
-    renderFigmaDeck();
-    renderDADeck();
-  } else if (draggedFromDeck === 'da') {
-    if (reorderDABlocks(draggedDataId, targetDataId)) {
-      renderDADeck();
-    }
-  }
-  targetCard.classList.remove('drag-over');
-  dropHandled = true;
 }
 
 function renderFigmaDeck() {
@@ -243,10 +149,6 @@ function renderDADeck() {
     ? '' : '<div class="deck-empty">No DA blocks. Drag blocks from Figma deck.</div>';
   daBlocks.forEach((block) => {
     const card = createBlockCard(block, 'da');
-    card.addEventListener('dragover', handleDragOver);
-    card.addEventListener('dragenter', handleDragEnter);
-    card.addEventListener('dragleave', handleDragLeave);
-    card.addEventListener('drop', handleDropOnCard);
     container.appendChild(card);
   });
   updateDeckCounts();
@@ -270,11 +172,6 @@ function resetToOriginal() {
 function createEditUI() {
   const container = document.querySelector('.edit-operation-container');
   container.style.display = 'block';
-  container.querySelector('.da-deck').addEventListener('dragover', handleDragOver);
-  container.querySelector('.da-deck').addEventListener('drop', handleDropOnDeck);
-  // Global listeners improve drop reliability when running in nested iframes
-  document.addEventListener('dragover', handleGlobalDragOver);
-  document.addEventListener('drop', handleGlobalDrop);
   return container;
 }
 
