@@ -25,6 +25,7 @@ import {
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
 import { handleApplyChanges } from './utils/operations-ui.js';
+import { getConfig } from './utils/utils.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
@@ -207,7 +208,8 @@ export default async function initPreviewer() {
   if (getQueryParam('editAction')) window.streamConfig.operation = `${window.streamConfig.operation}-${getQueryParam('editAction')}`;
   if (getQueryParam('surface') !== 'stream-client') document.body.classList.add('show-controls');
   window.addEventListener('message', async (event) => {
-    const allowedOrigins = window.streamConfig.allowMessagesFromDomains;
+    const config = await getConfig();
+    const allowedOrigins = config.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
       return regex.test(event.origin);
