@@ -18,6 +18,8 @@ let originalDABlocks = [];
 
 export async function createStreamOperation() {
   // eslint-disable-next-line prefer-const
+  const headerMeta = document.head.querySelector('meta[name="header"]');
+  if (headerMeta) headerMeta.remove();
   let { htmlDom: html, html: htmlArray } = await fetchFigmaContent();
   if (window.streamConfig.operation === 'edit') {
     html = '';
