@@ -121,8 +121,6 @@ async function paintHtmlOnPage() {
     }
     preflightBtn.addEventListener('click', handlePreflightClick);
     BUTTON_CONTAINER = div;
-  } else if (getQueryParam('surface') !== 'stream-client') {
-    BUTTON_CONTAINER.style.display = 'flex';
   }
 }
 
