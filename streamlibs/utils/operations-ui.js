@@ -93,54 +93,43 @@ function handleDragStart(e) {
 
 function handleDragEnd(e) {
   e.target.classList.remove('dragging');
-  draggedCard = null;
-  draggedFromDeck = null;
-  document.querySelectorAll('.block-card.drag-over').forEach((c) => c.classList.remove('drag-over'));
-}
 
-function handleDragOver(e) {
-  e.preventDefault();
-}
+  // In some iframe setups, drop events never fire.
+  // Infer the drop target from the final pointer position.
+  if (draggedCard) {
+    const { clientX, clientY } = e;
+    if (Number.isFinite(clientX) && Number.isFinite(clientY)) {
+      const dropTarget = document.elementFromPoint(clientX, clientY);
+      if (dropTarget) {
+        const targetCard = dropTarget.closest('.block-card');
+        const daDeck = dropTarget.closest('.da-deck');
 
-function handleDragEnter(e) {
-  e.preventDefault();
-  const card = e.target.closest('.block-card');
-  if (card && card !== draggedCard) card.classList.add('drag-over');
-}
+        if (targetCard && targetCard.dataset.deck === 'da' && targetCard !== draggedCard) {
+          const targetDataId = targetCard.dataset.id;
+          const draggedDataId = draggedCard.dataset.id;
 
-function handleDragLeave(e) {
-  const card = e.target.closest('.block-card');
-  if (card) card.classList.remove('drag-over');
-}
-
-function handleDropOnDeck(e) {
-  e.preventDefault();
-  if (draggedFromDeck === 'figma') {
-    moveFigmaBlockToDA(e.dataTransfer.getData('text/plain'));
-    renderFigmaDeck();
-    renderDADeck();
-  }
-}
-
-function handleDropOnCard(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  const targetCard = e.target.closest('.block-card');
-  if (!targetCard || targetCard === draggedCard || targetCard.dataset.deck !== 'da') return;
-
-  const targetDataId = targetCard.dataset.id;
-  const draggedDataId = draggedCard.dataset.id;
-
-  if (draggedFromDeck === 'figma') {
-    moveFigmaBlockToDA(draggedDataId, targetDataId);
-    renderFigmaDeck();
-    renderDADeck();
-  } else if (draggedFromDeck === 'da') {
-    if (reorderDABlocks(draggedDataId, targetDataId)) {
-      renderDADeck();
+          if (draggedFromDeck === 'figma') {
+            moveFigmaBlockToDA(draggedDataId, targetDataId);
+            renderFigmaDeck();
+            renderDADeck();
+          } else if (draggedFromDeck === 'da') {
+            if (reorderDABlocks(draggedDataId, targetDataId)) {
+              renderDADeck();
+            }
+          }
+          targetCard.classList.remove('drag-over');
+        } else if (daDeck && draggedFromDeck === 'figma') {
+          // Dropped into empty area of DA deck
+          moveFigmaBlockToDA(draggedCard.dataset.id);
+          renderFigmaDeck();
+          renderDADeck();
+        }
+      }
     }
   }
-  targetCard.classList.remove('drag-over');
+
+  draggedCard = null;
+  draggedFromDeck = null;
 }
 
 function renderFigmaDeck() {
@@ -160,10 +149,6 @@ function renderDADeck() {
     ? '' : '<div class="deck-empty">No DA blocks. Drag blocks from Figma deck.</div>';
   daBlocks.forEach((block) => {
     const card = createBlockCard(block, 'da');
-    card.addEventListener('dragover', handleDragOver);
-    card.addEventListener('dragenter', handleDragEnter);
-    card.addEventListener('dragleave', handleDragLeave);
-    card.addEventListener('drop', handleDropOnCard);
     container.appendChild(card);
   });
   updateDeckCounts();
@@ -187,8 +172,6 @@ function resetToOriginal() {
 function createEditUI() {
   const container = document.querySelector('.edit-operation-container');
   container.style.display = 'block';
-  container.querySelector('.da-deck').addEventListener('dragover', handleDragOver);
-  container.querySelector('.da-deck').addEventListener('drop', handleDropOnDeck);
   return container;
 }
 
