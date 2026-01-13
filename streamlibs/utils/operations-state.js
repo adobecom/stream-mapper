@@ -44,7 +44,7 @@ export async function createStreamOperation() {
 export async function fetchFigmaBlocks() {
   try {
     const config = await getConfig();
-    const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
+    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

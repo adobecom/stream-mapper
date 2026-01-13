@@ -208,6 +208,7 @@ export default async function initPreviewer() {
   if (getQueryParam('surface') !== 'stream-client') document.body.classList.add('show-controls');
   window.addEventListener('message', async (event) => {
     const allowedOrigins = [
+      'http://localhost:5173',
       'https://440859-stream*.adobeio-static.net',
     ];
     const isOriginAllowed = allowedOrigins.some((pattern) => {
@@ -250,6 +251,7 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
+    throw 'error';
     handleLoader(true, 'Pushing content to DA');
     hideDOMElements([document.querySelector('main')]);
     await persistOnTarget();
