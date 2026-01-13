@@ -132,7 +132,6 @@ function buildHeaderRow(header, headerRowTemplate) {
   const columnTemplate = headerRow.querySelector(':scope > div:last-child');
   const emptyFirstCell = headerRow.querySelector(':scope > div:first-child');
 
-  // Clear existing columns except the first empty cell
   headerRow.innerHTML = '';
   headerRow.appendChild(emptyFirstCell.cloneNode(true));
 
