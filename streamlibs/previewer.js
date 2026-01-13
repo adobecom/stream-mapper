@@ -248,7 +248,6 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
-    throw 'error';
     handleLoader(true, 'Pushing content to DA');
     hideDOMElements([document.querySelector('main')]);
     await persistOnTarget();
