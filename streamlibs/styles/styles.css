@@ -298,7 +298,7 @@ img.da-process-wait {
     font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
     min-height: 100vh;
     background: #f8f9fa;
-    padding: 40px;
+    padding: 40px 20px;
     box-sizing: border-box;
   }
 
@@ -682,7 +682,6 @@ img.da-process-wait {
   @media screen and (max-width: 700px) {
     .deck {
         min-width: 80px;
-        padding:10px
     }
 
     .deck-header h2 {
