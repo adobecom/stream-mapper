@@ -45,7 +45,7 @@ const CONFIG = {
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-prod',
       sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-prod',
-      allowMessagesFromDomains: ['https://440859-stream.adobeio-static.net']
+      allowMessagesFromDomains: ['https://440859-stream.adobeio-static.net'],
     },
   },
   stage: {
@@ -58,7 +58,7 @@ const CONFIG = {
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-stage',
       sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-stage',
-      allowMessagesFromDomains: ['https://440859-stream*.adobeio-static.net']
+      allowMessagesFromDomains: ['https://440859-stream*.adobeio-static.net'],
     },
   },
   dev: {
@@ -71,7 +71,7 @@ const CONFIG = {
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
       sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
-      allowMessagesFromDomains: ['https://440859-stream*.adobeio-static.net']
+      allowMessagesFromDomains: ['https://440859-stream*.adobeio-static.net'],
     },
   },
 };
