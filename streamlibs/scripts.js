@@ -38,8 +38,9 @@ const CONFIG = {
   prod: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
-      figmaMappingUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comps',
-      figmaBlockContentUrl: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api/fig-comp-details',
+      figmaMappingUrl: '/api/fig-comps',
+      figmaBlockContentUrl: '/api/fig-comp-details',
+      pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
       figmaAuthToken: '',
       daToken: '',
@@ -53,6 +54,7 @@ const CONFIG = {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',
       daToken: '',
@@ -66,6 +68,7 @@ const CONFIG = {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',
       daToken: '',
