@@ -44,6 +44,7 @@ function handleLoader(displayLoader = true, message = null) {
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
   eles.forEach((ele) => {
+    if (!ele) return;
     ele.style.display = 'none';
     ele.classList.remove('is-visible');
   });
@@ -52,6 +53,7 @@ function hideDOMElements(eles = []) {
 function showDOMElements(eles = []) {
   if (!eles.length) return;
   eles.forEach((ele) => {
+    if (!ele) return;
     ele.style.display = 'block';
   });
 }
