@@ -3,13 +3,17 @@ import { handleError, safeFetch } from '../utils/error-handler.js';
 async function fetchFigmaMapping(figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
+    const pagePath = window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl.slice(1) : window.streamConfig.targetUrl;
     const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: config.streamMapper.figmaAuthToken,
       },
-      body: JSON.stringify({ figmaUrl }),
+      body: JSON.stringify({ 
+        figmaUrl,
+        pagePath
+       }),
     });
     return await response.json();
   } catch (error) {
