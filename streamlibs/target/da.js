@@ -59,8 +59,8 @@ export async function postData(url, html) {
       },
       body: new URLSearchParams({
         htmlContent: wrappedHtml,
-        url
-      })
+        url,
+      }),
     });
     await response.json();
   } catch (error) {
