@@ -15,8 +15,8 @@ export const [setLibs, getLibs] = (() => {
 })();
 
 export function getQueryParam(param) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(param);
+  const url = new URL(window.location);
+  return url.searchParams.get(param);
 }
 
 export function fixRelativeLinks(html) {

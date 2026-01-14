@@ -16,6 +16,7 @@ import {
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
+  getConfig,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import {
@@ -31,9 +32,10 @@ const LOADER = document.querySelector('#loader-container');
 const EDIT_MAPPER = document.querySelector('#edit-operation-container');
 let BUTTON_CONTAINER = null;
 
-function handleLoader(displayLoader = true) {
+function handleLoader(displayLoader = true, message = null) {
   if (!displayLoader) return;
-  const loaderMessage = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
+  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
+  const loaderMessage = message || loadermsg;
   LOADER_MESSAGE_AREA.textContent = loaderMessage;
   LOADER.style.display = 'flex';
   LOADER.classList.add('is-visible');
@@ -42,6 +44,7 @@ function handleLoader(displayLoader = true) {
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
   eles.forEach((ele) => {
+    if (!ele) return;
     ele.style.display = 'none';
     ele.classList.remove('is-visible');
   });
@@ -50,6 +53,7 @@ function hideDOMElements(eles = []) {
 function showDOMElements(eles = []) {
   if (!eles.length) return;
   eles.forEach((ele) => {
+    if (!ele) return;
     ele.style.display = 'block';
   });
 }
@@ -119,8 +123,6 @@ async function paintHtmlOnPage() {
     }
     preflightBtn.addEventListener('click', handlePreflightClick);
     BUTTON_CONTAINER = div;
-  } else if (getQueryParam('surface') !== 'stream-client') {
-    BUTTON_CONTAINER.style.display = 'flex';
   }
 }
 
@@ -190,25 +192,56 @@ async function handlePreflightClick() {
   await preflightOperation();
 }
 
-export default async function initPreviewer() {
-  window.sessionStorage.clear();
-  window.streamConfig = {
-    source: getQueryParam('source'),
-    contentUrl: getQueryParam('contentUrl'),
-    target: getQueryParam('target'),
-    targetUrl: getQueryParam('targetUrl'),
-    token: getQueryParam('token'),
-    operation: getQueryParam('operation') ? getQueryParam('operation') : 'create',
-    preflightUrl: getQueryParam('preflightUrl') ? decodeURIComponent(getQueryParam('preflightUrl')) : null,
-    selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
-    selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
-  };
-  if (getQueryParam('editAction')) window.streamConfig.operation = `${window.streamConfig.operation}-${getQueryParam('editAction')}`;
-  if (getQueryParam('surface') !== 'stream-client') document.body.classList.add('show-controls');
+async function requestStreamConfigFromParent() {
+  const storeId = getQueryParam('storeId');
+
+  // If there is no parent window or no storeId, fall back to query params (legacy behavior)
+  if (!window.parent || window.parent === window || !storeId) {
+    return {
+      source: getQueryParam('source'),
+      contentUrl: getQueryParam('contentUrl'),
+      target: getQueryParam('target'),
+      targetUrl: getQueryParam('targetUrl'),
+      token: getQueryParam('token'),
+      operation: getQueryParam('operation') || 'create',
+      preflightUrl: getQueryParam('preflightUrl'),
+      selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
+      selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
+    };
+  }
+
+  const config = await getConfig();
+  const allowedOrigins = config.streamMapper.allowMessagesFromDomains || [];
+
+  // Ask parent for preview parameters using storeId
+  return new Promise((resolve) => {
+    const handler = (event) => {
+      const isOriginAllowed = allowedOrigins.some((pattern) => {
+        const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
+        return regex.test(event.origin);
+      });
+      if (!isOriginAllowed) return;
+
+      const data = event.data || {};
+      if (data.type !== 'STREAM_PREVIEW_PARAMS') return;
+      if (data.storeId && data.storeId !== storeId) return;
+      window.removeEventListener('message', handler);
+      resolve(data.params);
+    };
+
+    window.addEventListener('message', handler);
+
+    window.parent.postMessage({
+      type: 'STREAM_PREVIEW_PARAMS',
+      storeId,
+    }, '*');
+  });
+}
+
+async function setupMessageListener() {
   window.addEventListener('message', async (event) => {
-    const allowedOrigins = [
-      'https://440859-stream*.adobeio-static.net',
-    ];
+    const config = await getConfig();
+    const allowedOrigins = config.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
       return regex.test(event.origin);
@@ -233,24 +266,37 @@ export default async function initPreviewer() {
       window.location.reload();
     }
   });
+}
+
+export default async function initPreviewer() {
+  window.sessionStorage.clear();
+  const previewParams = await requestStreamConfigFromParent();
+  window.streamConfig = {
+    source: previewParams.source,
+    contentUrl: previewParams.contentUrl,
+    target: previewParams.target,
+    targetUrl: previewParams.targetUrl,
+    token: previewParams.token,
+    operation: previewParams.operation || 'create',
+    preflightUrl: previewParams.preflightUrl,
+    selectedPageBlocks: previewParams.selectedPageBlocks || [],
+    selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+  };
   await initializeTokens(window.streamConfig.token);
-  if (window.streamConfig.operation !== 'preflight' && (
-    !window.streamConfig.source
-    || !window.streamConfig.contentUrl
-    || !window.streamConfig.target
-    || !window.streamConfig.targetUrl
-  )) {
-    throw new Error(
-      'Source, content Url, target url or target cannot be empty! Stoppping all processing!',
-    );
-  }
   await initiatePreviewer();
+  await setupMessageListener();
 }
 
 export async function persist() {
   try {
+    handleLoader(true, 'Pushing content to DA');
+    hideDOMElements([document.querySelector('main')]);
     await persistOnTarget();
+    hideDOMElements([LOADER]);
+    showDOMElements([document.querySelector('main')]);
   } catch (error) {
+    hideDOMElements([LOADER]);
+    showDOMElements([document.querySelector('main')]);
     handleError(error, 'persisting content');
     throw error;
   }

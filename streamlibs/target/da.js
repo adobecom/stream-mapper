@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { fetchTargetHtmlFromStore } from '../store/store.js';
+import { getConfig } from '../utils/utils.js';
 
 function replacePictureWithImg(html) {
   const parser = new DOMParser();
@@ -47,15 +48,19 @@ function wrapHTMLForDA(html) {
 }
 
 export async function postData(url, html) {
+  const config = await getConfig();
   const wrappedHtml = wrapHTMLForDA(html);
   try {
-    const response = await safeFetch(`https://admin.da.live/source/${url}.html`, {
+    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.pushToDaUrl}`, {
       method: 'POST',
       headers: {
-        Authorization: window.streamConfig.token,
+        Authorization: config.streamMapper.daToken,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({ data: wrappedHtml }),
+      body: new URLSearchParams({
+        htmlContent: wrappedHtml,
+        url,
+      }),
     });
     await response.json();
   } catch (error) {
