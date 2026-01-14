@@ -3,7 +3,7 @@ import { handleError, safeFetch } from '../utils/error-handler.js';
 async function fetchFigmaMapping(figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
-    const response = await safeFetch(config.streamMapper.figmaMappingUrl, {
+    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,7 +60,7 @@ async function fetchContent(contentUrl) {
 async function fetchBlockContent(figId, id, figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
-    const response = await safeFetch(config.streamMapper.figmaBlockContentUrl, {
+    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
