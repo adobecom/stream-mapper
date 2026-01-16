@@ -1,7 +1,7 @@
 export function showErrorPage(context = '') {
   document.body.innerHTML = `
       <div class="enigma-error-page">
-          <img src="https://enigma--cc--aishwaryamathuria.aem.live/enigma/assets/errorgif.webp">
+          <img src="${window.location.origin}/streamlibs/assets/error-image-purple.webp">
           <div>
               <h1>Oops!! Something broke while ${context}</h1>
               <h1>Give it another go?</h1>

@@ -99,3 +99,94 @@ export const LOGOS = {
 export const SVG_ICONS = {
   placeholder: 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
 };
+
+export const COMPONENTS_NAMES = {
+  'hero-marquee': {
+    default: { id: 'hero-marquee', name: 'Hero Marquee' },
+  },
+  marquee: {
+    default: { id: 'marquee', name: 'Marquee' },
+  },
+  'marquee-anchors': {
+    default: { id: 'marquee-anchors', name: 'Anchor Marquee' },
+  },
+  columns: {
+    default: { id: 'columns', name: 'Columns' },
+    table: { id: 'columns-table', name: 'Columns Table' },
+  },
+  media: {
+    default: { id: 'media', name: 'Media' },
+  },
+  'card-horizontal': {
+    default: { id: 'card-horizontal', name: 'Card Horizontal' },
+  },
+  'editorial-card': {
+    default: { id: 'card-editorial', name: 'Editorial Card Gallery' },
+    media: { id: 'card-editorial-media', name: 'Editorial Media Card Gallery' },
+  },
+  accordion: {
+    default: { id: 'accordion', name: 'Accordion', composite: true },
+  },
+  text: {
+    default: { id: 'text', name: 'Text' },
+    longFormStandard: { id: 'long-form-standard', name: 'Long Form Standard', hasBlockClass: 'long-form' },
+    longFormLinkFarm: { id: 'long-form-link-farm', name: 'Long Form Link Farm', hasBlockClass: 'link-farm' },
+    longFormInset: {
+      id: 'long-form-inset', name: 'Long Form Inset', hasBlockClass: 'inset', composite: true,
+
+    },
+    longFormLegal: { id: 'long-form-legal', name: 'Long Form Legal', hasBlockClass: 'legal' },
+    up: { id: 'text-cards', name: 'Text Cards', hasStyleClass: 'up' },
+  },
+  aside: {
+    default: { id: 'aside', name: 'Aside' },
+  },
+  breadcrumbs: {
+    default: { id: 'breadcrumbs', name: 'Breadcrumbs' },
+  },
+  'icon-action-gallery': {
+    default: { id: 'icon-action-gallery', name: 'Icon Action Gallery' },
+  },
+  carousel: {
+    default: { id: 'carousel', name: 'Carousel' },
+  },
+  quote: {
+    default: { id: 'quote', name: 'Quote' },
+  },
+  'icon-block': {
+    default: { id: 'icon-block', name: 'Icon-Block' },
+    up: { id: 'icon-block-cards', name: 'Icon Block cards', hasStyleClass: 'up' },
+  },
+  'text-cards': {
+    default: { id: 'text-cards', name: 'Text Cards' },
+  },
+  figure: {
+    default: { id: 'figure', name: 'Figure' },
+    multiple: { id: 'figure-list', name: 'Figure List', hasMultiple: true },
+  },
+  notification: {
+    pill: { id: 'notification-pill', name: 'Pill Notification', hasBlockClass: 'pill' },
+    ribbon: { id: 'notification-ribbon', name: 'Ribbon Notification', hasBlockClass: 'ribbon' },
+    default: { id: 'notification', name: 'Notification' },
+  },
+  brick: {
+    default: { id: 'masonry', name: 'Masonry' },
+  },
+  tabs: {
+    default: { id: 'tabs', name: 'Quiet, Radio and Strong Tabs' },
+  },
+  'how-to': {
+    default: { id: 'how-to', name: 'How to block' },
+  },
+  'action-item': {
+    default: { id: 'logo-gallery', name: 'Logo Gallery' },
+  },
+};
+
+export const LOADER_MSG_LIST = [
+  'Fueling the creative engine ',
+  'Words are forming. Stand by for brilliance ',
+  'Not just loading - creating ',
+  'Crafting brilliance behind the scenes ',
+  'Constructing the masterpiece. Stay tuned ',
+];

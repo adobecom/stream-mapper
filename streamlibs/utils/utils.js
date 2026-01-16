@@ -15,8 +15,8 @@ export const [setLibs, getLibs] = (() => {
 })();
 
 export function getQueryParam(param) {
-  const urlParams = new URLSearchParams(window.location.search);
-  return urlParams.get(param);
+  const url = new URL(window.location);
+  return url.searchParams.get(param);
 }
 
 export function fixRelativeLinks(html) {
@@ -35,11 +35,15 @@ export async function initializeTokens(token) {
 }
 
 export function extractByPattern(tag, pattern) {
+  if (!tag || !pattern) {
+    return {};
+  }
   const parts = tag.split('-');
   const match = parts.find((p) => (pattern instanceof RegExp
     ? pattern.test(p) : p.includes(pattern)));
   if (!match) return null;
-  const numMatch = match.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
+  const cleaned = match.replace(/\s+/g, '');
+  const numMatch = cleaned.match(/^([a-zA-Z]+)?(\d+)?([a-zA-Z]+)?$/);
   if (numMatch) {
     const [, prefix, number, suffix] = numMatch;
     return {
@@ -67,6 +71,10 @@ export function divSwap(blockContent, divSelector, divSelector2) {
 export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
 
 export const getFirstType = (text) => {
+  if (!text) {
+    return 'neither';
+  }
+
   const cleaned = text
     .toLowerCase()
     .replace(/->|-/g, ' ')
@@ -98,4 +106,13 @@ export function getIconSize(value) {
   if (sizeValue.includes('xl')) size = 'xl';
   if (sizeValue.includes('xxl')) size = 'xxl';
   return size;
+}
+
+export function ackCodeGeneration() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let ackCode = '';
+  for (let i = 0; i < 8; i += 1) {
+    ackCode += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return ackCode;
 }

@@ -11,6 +11,7 @@ export default async function mapActionScrollerBlockContent(sectionWrapper, bloc
     sectionWrapper.appendChild(actionScrollerEL);
     const Items = actionScroller ? actionScroller[0].Items : properties.Items;
     if (actionItem) {
+      // eslint-disable-next-line no-restricted-syntax
       for (const item of Items) {
         const clonedActionItem = actionItem.cloneNode(true);
         const actionItemFigContent = {
@@ -20,6 +21,7 @@ export default async function mapActionScrollerBlockContent(sectionWrapper, bloc
             properties: item,
           },
         };
+        // eslint-disable-next-line no-await-in-loop
         await mapActionItemContent(sectionWrapper, clonedActionItem, actionItemFigContent);
         sectionWrapper.appendChild(clonedActionItem);
       }
@@ -28,6 +30,7 @@ export default async function mapActionScrollerBlockContent(sectionWrapper, bloc
     if (actionScroller[0]?.leftNav || actionScroller[0]?.rightNav) actionScrollerEL.classList.add('navigation');
     if (actionScroller[0]?.align) actionScrollerEL.classList.add(actionScroller[0]?.align);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.log(error);
   }
 }
