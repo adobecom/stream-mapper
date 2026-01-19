@@ -225,6 +225,7 @@ async function requestStreamConfigFromParent() {
       const data = event.data || {};
       if (data.type !== 'STREAM_PREVIEW_PARAMS') return;
       if (data.storeId && data.storeId !== storeId) return;
+
       window.removeEventListener('message', handler);
       resolve(data.params);
     };
@@ -253,7 +254,7 @@ async function setupMessageListener() {
     }
     if (event.data.type === 'RUN_PREFLIGHT') {
       const url = new URL(window.location.href);
-      url.searchParams.set('operation', 'preflight');
+      url.searchParams.set('forceOperation', 'preflight');
       window.location.href = url.toString();
     }
     if (event.data.type === 'EDIT_APPLY_CHANGES') {
@@ -271,6 +272,7 @@ async function setupMessageListener() {
 export default async function initPreviewer() {
   window.sessionStorage.clear();
   const previewParams = await requestStreamConfigFromParent();
+  if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
     source: previewParams.source,
     contentUrl: previewParams.contentUrl,
