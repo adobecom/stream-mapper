@@ -711,6 +711,131 @@ img.da-process-wait {
     }
   }
 
+  body.editor-mode {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body.editor-mode .da-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 200%;
+    max-height: 200%;
+    overflow: auto;
+    scale: 0.5;
+    transform-origin: top right;
+  }
+
+  body.editor-mode .figma-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 200%;
+    max-height: 200%;
+    overflow: auto;
+    scale: 0.5;
+    transform-origin: top left;
+    z-index: 10000;
+    background: #cbcbcb;
+    border-right: 10px solid #cbcbcb;
+  }
+
+  div[data-source="figma"] {
+    cursor: grab;
+  }
+
+  .section[data-source="figma"],
+  .section[data-source="da"] {
+    border-top: 1px dashed #8a8a8a;
+    border-bottom: 1px dashed #8a8a8a;
+  }
+
+  .figma-panel-block.is-dragging {
+    opacity: 0.6;
+    outline-color: #fffb;
+  }
+
+  .da-panel.da-drop-active {
+    outline: 3px dashed #667eea;
+    outline-offset: 4px;
+  }
+
+  .da-panel > [data-source="figma"],
+  .da-panel > [data-source="da"] {
+    position: relative;
+  }
+
+  .da-panel > [data-source="figma"]::before {
+    content: '';
+    position: absolute;
+    display: flex;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(16, 185, 129, 0.2);
+    pointer-events: none;
+    cursor: grabbing;
+    z-index: 5000;
+  }
+
+  .da-panel > [data-source="figma"]::after,
+  .da-panel > [data-source="da"]::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    pointer-events: none;
+    transition: background 0.2s ease;
+  }
+
+  .da-panel > [data-source].da-section-removed::before {
+    background: none;
+  }
+
+  .da-panel > [data-source].da-section-removed::after {
+    background: rgba(239, 68, 68, 0.16);
+  }
+
+  .da-drop-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    background-color: rgba(16, 185, 129, 0.05);
+    background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/add.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 36px 36px;
+  }
+
+  .da-section-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 50px;
+    height: 50px;
+    border-radius: 999px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.9);
+    background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/delete.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 30px 30px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    z-index: 6000;
+  }
+
+  .da-section-delete.is-removed {
+    background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/undo.svg");
+  }
+
+  /* ============ PREFLIGHT OPERATION =========== */
   .preflight-iframe {
     width: 100%;
     height: 100%;
@@ -767,4 +892,8 @@ img.da-process-wait {
     text-decoration: none;
     color: #667eea; 
   }
-  
+
+  div.da-panel.hidden,
+  div.figma-panel.hidden {
+    display: none;
+  }
