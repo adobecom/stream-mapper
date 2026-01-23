@@ -738,7 +738,6 @@ img.da-process-wait {
     overflow: auto;
     scale: 0.5;
     transform-origin: top left;
-    z-index: 10000;
     background: #cbcbcb;
     border-right: 10px solid #cbcbcb;
   }

@@ -76,11 +76,12 @@ export async function initiatePreviewer(forceOperation = null) {
       await postOperationProcessing(html);
       break;
     case 'edit':
-      showDOMElements([LOADER]);
+      handleLoader();
       await editStreamOperation();
+      hideDOMElements([LOADER]);
       return;
     case 'preflight':
-      handleLoader();
+      handleLoader(true, 'Preparing the editor. Please wait');
       await preflightOperation();
       hideDOMElements([LOADER]);
       break;
