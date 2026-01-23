@@ -743,6 +743,44 @@ img.da-process-wait {
     border-right: 10px solid #cbcbcb;
   }
 
+  body.editor-mode .figma-panel::before {
+    content: 'Surface 1';
+    position: sticky;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: 100%;
+    padding: 20px;
+    font-size: 40px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #374151;
+    background: rgba(229, 231, 235, 0.95);
+    border-bottom: 1px solid #d1d5db;
+    z-index: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.editor-mode .da-panel::before {
+    content: 'Surface 2';
+    position: sticky;
+    top: 0;
+    left: 0;
+    display: flex;
+    width: 100%;
+    padding: 20px;
+    font-size: 40px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #374151;
+    background: rgba(229, 231, 235, 0.95);
+    border-bottom: 1px solid #d1d5db;
+    z-index: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
   div[data-source="figma"] {
     cursor: grab;
   }

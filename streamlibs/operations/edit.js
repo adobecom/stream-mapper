@@ -17,7 +17,7 @@ const ADOBE_ICON = `
 let draggedPanelBlock = null;
 let draggedMainBlock = null;
 let dropPlaceholder = null;
-let dragPreviewEl = null;
+let currentDropContainer = null;
 let originalFigmaBlocks = [];
 let originalDABlocks = [];
 
@@ -91,174 +91,121 @@ export async function applyEditChanges() {
   await miloLoadArea();
 }
 
-function enablePanelDragAndDrop(sourcePanel, targetPanel) {
-  // Make Figma blocks in the source panel draggable
-  sourcePanel.querySelectorAll('div[data-source="figma"]').forEach((block) => {
-    block.classList.add('figma-panel-block');
-    block.draggable = true;
-    block.addEventListener('dragstart', (e) => {
-      draggedPanelBlock = block;
-      block.classList.add('is-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', block.dataset.sectionIndex || '');
+function handlePointerMove(e) {
+  if (!draggedPanelBlock && !draggedMainBlock) return;
+  const container = currentDropContainer;
+  if (!container) return;
 
-      // Use a small custom drag image so the ghost preview isn't huge
-      if (!dragPreviewEl) {
-        dragPreviewEl = document.createElement('div');
-        dragPreviewEl.style.width = '80px';
-        dragPreviewEl.style.height = '32px';
-        dragPreviewEl.style.background = 'rgba(107, 114, 128, 0.4)';
-        dragPreviewEl.style.border = '1px solid rgba(31, 41, 55, 0.5)';
-        dragPreviewEl.style.borderRadius = '4px';
-        dragPreviewEl.style.position = 'absolute';
-        dragPreviewEl.style.top = '-9999px';
-        dragPreviewEl.style.left = '-9999px';
-        dragPreviewEl.style.boxSizing = 'border-box';
-        document.body.appendChild(dragPreviewEl);
-      }
-      try {
-        e.dataTransfer.setDragImage(dragPreviewEl, 40, 16);
-      } catch (err) {
-        // Ignore if the browser doesn't support custom drag images
-      }
-    });
+  e.preventDefault();
+  container.classList.add('da-drop-active');
 
-    block.addEventListener('dragend', () => {
-      if (draggedPanelBlock) {
-        draggedPanelBlock.classList.remove('is-dragging');
-      }
-      draggedPanelBlock = null;
-      targetPanel.classList.remove('da-drop-active');
-    });
-  });
+  if (!dropPlaceholder) {
+    dropPlaceholder = document.createElement('div');
+    dropPlaceholder.classList.add('da-drop-placeholder');
+  }
 
-  // Allow dropping into the DA panel
-  targetPanel.addEventListener('dragover', (e) => {
-    if (!draggedPanelBlock && !draggedMainBlock) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    targetPanel.classList.add('da-drop-active');
+  const pointEl = document.elementFromPoint(e.clientX, e.clientY);
+  let targetBlock = pointEl && pointEl.closest('[data-source="da"], [data-source="figma"]');
+  while (targetBlock && targetBlock.parentNode !== container) {
+    targetBlock = targetBlock.parentNode;
+  }
 
-    // Create a green drop placeholder if it doesn't exist
-    if (!dropPlaceholder) {
-      dropPlaceholder = document.createElement('div');
-      dropPlaceholder.classList.add('da-drop-placeholder');
+  if (!targetBlock || !container.contains(targetBlock)) {
+    if (dropPlaceholder.parentNode !== container) {
+      container.appendChild(dropPlaceholder);
     }
-
-    const rawTarget = e.target.closest('[data-source="da"], [data-source="figma"]');
-    // Find the closest ancestor that is a direct child of the target panel
-    let targetBlock = rawTarget;
-    while (targetBlock && targetBlock.parentNode !== targetPanel) {
-      targetBlock = targetBlock.parentNode;
-    }
-
-    if (!targetBlock || !targetPanel.contains(targetBlock)) {
-      // No specific target – show placeholder at the end
-      if (dropPlaceholder.parentNode !== targetPanel) {
-        targetPanel.appendChild(dropPlaceholder);
+  } else {
+    const rect = targetBlock.getBoundingClientRect();
+    const before = e.clientY < rect.top + rect.height / 2;
+    if (before) {
+      if (targetBlock.previousSibling !== dropPlaceholder) {
+        container.insertBefore(dropPlaceholder, targetBlock);
       }
-    } else {
-      const rect = targetBlock.getBoundingClientRect();
-      const before = e.clientY < rect.top + rect.height / 2;
-      if (before) {
-        if (targetBlock.previousSibling !== dropPlaceholder) {
-          targetPanel.insertBefore(dropPlaceholder, targetBlock);
-        }
-      } else if (targetBlock.nextSibling !== dropPlaceholder) {
-        targetPanel.insertBefore(dropPlaceholder, targetBlock.nextSibling);
-      }
+    } else if (targetBlock.nextSibling !== dropPlaceholder) {
+      container.insertBefore(dropPlaceholder, targetBlock.nextSibling);
     }
-  });
+  }
+}
 
-  targetPanel.addEventListener('drop', (e) => {
-    if (!draggedPanelBlock && !draggedMainBlock) return;
-    e.preventDefault();
+function handlePointerUp() {
+  if (!draggedPanelBlock && !draggedMainBlock) {
+    currentDropContainer?.classList.remove('da-drop-active');
+    window.removeEventListener('pointermove', handlePointerMove);
+    return;
+  }
 
-    let blockToInsert = null;
+  const container = currentDropContainer;
+  let blockToInsert = null;
 
-    if (draggedPanelBlock) {
-      // Clone the Figma block so the original stays in the panel
-      const clonedBlock = draggedPanelBlock.cloneNode(true);
-      clonedBlock.classList.remove('figma-panel-block', 'is-dragging');
-      clonedBlock.removeAttribute('draggable');
-      blockToInsert = clonedBlock;
-    } else if (draggedMainBlock) {
-      blockToInsert = draggedMainBlock;
-    }
+  if (draggedPanelBlock) {
+    const clonedBlock = draggedPanelBlock.cloneNode(true);
+    clonedBlock.classList.remove('figma-panel-block', 'is-dragging');
+    blockToInsert = clonedBlock;
+  } else if (draggedMainBlock) {
+    blockToInsert = draggedMainBlock;
+  }
 
-    if (!blockToInsert) return;
-
-    if (dropPlaceholder && dropPlaceholder.parentNode === targetPanel) {
-      targetPanel.insertBefore(blockToInsert, dropPlaceholder);
-      targetPanel.removeChild(dropPlaceholder);
+  if (blockToInsert && container) {
+    if (dropPlaceholder && dropPlaceholder.parentNode === container) {
+      container.insertBefore(blockToInsert, dropPlaceholder);
+      container.removeChild(dropPlaceholder);
       dropPlaceholder = null;
     } else {
-      // Fallback – append at the end of DA panel
-      targetPanel.appendChild(blockToInsert);
+      container.appendChild(blockToInsert);
     }
+  }
 
-    if (draggedPanelBlock) {
-      draggedPanelBlock.classList.remove('is-dragging');
-    }
-    if (draggedMainBlock) {
-      draggedMainBlock.classList.remove('is-dragging');
-    }
-    draggedPanelBlock = null;
-    draggedMainBlock = null;
-    targetPanel.classList.remove('da-drop-active');
+  if (draggedPanelBlock) draggedPanelBlock.classList.remove('is-dragging');
+  if (draggedMainBlock) draggedMainBlock.classList.remove('is-dragging');
 
-    // Ensure any newly inserted Figma blocks in DA panel are reorderable and have delete controls
-    enableMainReorder(targetPanel);
-    attachSectionDeleteControls(targetPanel);
+  draggedPanelBlock = null;
+  draggedMainBlock = null;
+  container?.classList.remove('da-drop-active');
+
+  // Make sure newly inserted blocks are draggable/removable too
+  if (container) {
+    enableMainReorder(container);
+    attachSectionDeleteControls(container);
+  }
+
+  window.removeEventListener('pointermove', handlePointerMove);
+  window.removeEventListener('pointerup', handlePointerUp);
+}
+
+function enablePanelDragAndDrop(sourcePanel, targetPanel) {
+  sourcePanel.querySelectorAll('div[data-source="figma"]').forEach((block) => {
+    block.classList.add('figma-panel-block');
+    block.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      draggedPanelBlock = block;
+      draggedMainBlock = null;
+      currentDropContainer = targetPanel;
+      block.classList.add('is-dragging');
+
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
+    });
   });
 }
 
 function enableMainReorder(container) {
   const figmaInMain = Array.from(container.querySelectorAll(':scope > [data-source="figma"]'));
   figmaInMain.forEach((block) => {
-    // Enable drag only once
     if (block.dataset.reorderEnabled === 'true') return;
-    // eslint-disable-next-line no-param-reassign
-    block.draggable = true;
     block.dataset.reorderEnabled = 'true';
 
-    block.addEventListener('dragstart', (e) => {
+    block.addEventListener('pointerdown', (e) => {
+      // Ignore clicks on the delete/undo button so delete works properly
+      if (e.button !== 0 || e.target.closest('.da-section-delete')) return;
+      e.preventDefault();
       draggedMainBlock = block;
+      draggedPanelBlock = null;
+      currentDropContainer = container;
       block.classList.add('is-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', block.dataset.sectionIndex || '');
 
-      // Use same small drag preview as panel blocks
-      if (!dragPreviewEl) {
-        dragPreviewEl = document.createElement('div');
-        dragPreviewEl.style.width = '80px';
-        dragPreviewEl.style.height = '32px';
-        dragPreviewEl.style.background = 'rgba(107, 114, 128, 0.4)';
-        dragPreviewEl.style.border = '1px solid rgba(31, 41, 55, 0.5)';
-        dragPreviewEl.style.borderRadius = '4px';
-        dragPreviewEl.style.position = 'absolute';
-        dragPreviewEl.style.top = '-9999px';
-        dragPreviewEl.style.left = '-9999px';
-        dragPreviewEl.style.boxSizing = 'border-box';
-        document.body.appendChild(dragPreviewEl);
-      }
-      try {
-        e.dataTransfer.setDragImage(dragPreviewEl, 40, 16);
-      } catch (err) {
-        // Ignore if the browser doesn't support custom drag images
-      }
-    });
-
-    block.addEventListener('dragend', () => {
-      if (draggedMainBlock === block) {
-        block.classList.remove('is-dragging');
-        draggedMainBlock = null;
-      }
-      if (dropPlaceholder && dropPlaceholder.parentNode === container) {
-        container.removeChild(dropPlaceholder);
-        dropPlaceholder = null;
-      }
-      container.classList.remove('da-drop-active');
+      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointerup', handlePointerUp);
     });
   });
 }
