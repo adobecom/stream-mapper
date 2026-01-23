@@ -744,7 +744,7 @@ img.da-process-wait {
   }
 
   body.editor-mode .figma-panel::before {
-    content: 'Surface 1';
+    content: 'FIGMA';
     position: sticky;
     top: 0;
     left: 0;
@@ -754,8 +754,8 @@ img.da-process-wait {
     font-size: 40px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #374151;
-    background: rgba(229, 231, 235, 0.95);
+    color: white;
+    background: #764da4;
     border-bottom: 1px solid #d1d5db;
     z-index: 1;
     align-items: center;
@@ -763,7 +763,7 @@ img.da-process-wait {
   }
 
   body.editor-mode .da-panel::before {
-    content: 'Surface 2';
+    content: 'DA';
     position: sticky;
     top: 0;
     left: 0;
@@ -773,8 +773,8 @@ img.da-process-wait {
     font-size: 40px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #374151;
-    background: rgba(229, 231, 235, 0.95);
+    color: white;
+    background: #764da4;
     border-bottom: 1px solid #d1d5db;
     z-index: 1;
     align-items: center;

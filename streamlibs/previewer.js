@@ -30,7 +30,6 @@ import { LOADER_MSG_LIST } from './utils/constants.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
-const EDIT_MAPPER = document.querySelector('#edit-operation-container');
 let BUTTON_CONTAINER = null;
 
 function handleLoader(displayLoader = true, message = null) {
@@ -73,13 +72,11 @@ export async function initiatePreviewer(forceOperation = null) {
   switch (forceOperation || window.streamConfig.operation) {
     case 'create':
       handleLoader();
-      hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
       await postOperationProcessing(html);
       break;
     case 'edit':
-      hideDOMElements([LOADER]);
-      showDOMElements([EDIT_MAPPER]);
+      showDOMElements([LOADER]);
       await editStreamOperation();
       return;
     case 'preflight':
