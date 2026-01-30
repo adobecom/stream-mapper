@@ -7,13 +7,6 @@ import { pushPreviewHtmlToStore, pushTargetHtmlToStore } from '../store/store.js
 import { targetCompatibleHtml } from '../target/da.js';
 import { handleError } from '../utils/error-handler.js';
 
-const FIGMA_ICON = `
-<svg class="svg" width="38" height="57" viewBox="0 0 38 57"><path d="M19 28.5c0-5.247 4.253-9.5 9.5-9.5 5.247 0 9.5 4.253 9.5 9.5 0 5.247-4.253 9.5-9.5 9.5-5.247 0-9.5-4.253-9.5-9.5z" fill-rule="nonzero" fill-opacity="1" fill="#1abcfe" stroke="none"></path><path d="M0 47.5C0 42.253 4.253 38 9.5 38H19v9.5c0 5.247-4.253 9.5-9.5 9.5C4.253 57 0 52.747 0 47.5z" fill-rule="nonzero" fill-opacity="1" fill="#0acf83" stroke="none"></path><path d="M19 0v19h9.5c5.247 0 9.5-4.253 9.5-9.5C38 4.253 33.747 0 28.5 0H19z" fill-rule="nonzero" fill-opacity="1" fill="#ff7262" stroke="none"></path><path d="M0 9.5C0 14.747 4.253 19 9.5 19H19V0H9.5C4.253 0 0 4.253 0 9.5z" fill-rule="nonzero" fill-opacity="1" fill="#f24e1e" stroke="none"></path><path d="M0 28.5C0 33.747 4.253 38 9.5 38H19V19H9.5C4.253 19 0 23.253 0 28.5z" fill-rule="nonzero" fill-opacity="1" fill="#a259ff" stroke="none"></path></svg>
-`;
-const ADOBE_ICON = `
-<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2"><path d="M302.562 477.27L266.27 376.206h-91.166l76.604-192.875 116.25 293.937h138.04L321.729 34.73H191.604L6 477.269h296.562z" fill="#eb1000" fill-rule="nonzero"/></svg>
-`;
-
 let draggedPanelBlock = null;
 let draggedMainBlock = null;
 let dropPlaceholder = null;
@@ -70,7 +63,7 @@ export async function applyEditChanges() {
   try {
     editChanges.forEach((change) => {
       if (change.dataset.removed === 'true') return;
-      const source = change.dataset.source;
+      const { source } = change.dataset;
       const idx = change.dataset.sectionIndex;
       if (source === 'figma') {
         html += originalFigmaBlocks[idx].outerHTML;
@@ -82,7 +75,7 @@ export async function applyEditChanges() {
     handleError(error, ' error creating a combined page from Figma and DA.');
     throw error;
   }
-  let previewHtml = fixRelativeLinks(html);
+  const previewHtml = fixRelativeLinks(html);
   pushPreviewHtmlToStore(previewHtml);
   const targetHtml = targetCompatibleHtml(previewHtml);
   pushTargetHtmlToStore(targetHtml);
@@ -237,8 +230,8 @@ export async function editStreamOperation() {
     fetchFigmaContent(),
     fetchDAContent(),
   ]);
-  originalFigmaBlocks = figmaResult.html.map(el => el.cloneNode(true));
-  originalDABlocks = Array.from(daMain.querySelectorAll(":scope > div")).map(el => el.cloneNode(true));
+  originalFigmaBlocks = figmaResult.html.map((el) => el.cloneNode(true));
+  originalDABlocks = Array.from(daMain.querySelectorAll(':scope > div')).map((el) => el.cloneNode(true));
   startEditorMode();
   const mainEl = document.createElement('main');
   document.body.appendChild(mainEl);
@@ -247,7 +240,7 @@ export async function editStreamOperation() {
     html.dataset.sectionIndex = idx;
     mainEl.appendChild(html);
   });
-  daMain.querySelectorAll(":scope > div").forEach((div, idx) => {
+  daMain.querySelectorAll(':scope > div').forEach((div, idx) => {
     div.dataset.source = 'da';
     div.dataset.sectionIndex = idx;
     mainEl.appendChild(div);
