@@ -12,24 +12,24 @@ import {
   resetPreviewHtmlInStore,
 } from './store/store.js';
 import {
-  getLibs,
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
   getConfig,
+  miloLoadArea,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import {
   createStreamOperation,
   editStreamOperation,
+  applyEditChanges,
+  handleBackToEditor,
   preflightOperation,
 } from './utils/operations.js';
 import { LOADER_MSG_LIST } from './utils/constants.js';
-import { handleApplyChanges } from './utils/operations-ui.js';
 
 const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
 const LOADER = document.querySelector('#loader-container');
-const EDIT_MAPPER = document.querySelector('#edit-operation-container');
 let BUTTON_CONTAINER = null;
 
 function handleLoader(displayLoader = true, message = null) {
@@ -72,17 +72,13 @@ export async function initiatePreviewer(forceOperation = null) {
   switch (forceOperation || window.streamConfig.operation) {
     case 'create':
       handleLoader();
-      hideDOMElements([EDIT_MAPPER]);
       html = await createStreamOperation();
       await postOperationProcessing(html);
       break;
     case 'edit':
+      handleLoader(true, 'Preparing the editor. Please wait');
+      await editStreamOperation();
       hideDOMElements([LOADER]);
-      showDOMElements([EDIT_MAPPER]);
-      await editStreamOperation(async () => {
-        await initiatePreviewer('create');
-      });
-      await postOperationProcessing(html);
       return;
     case 'preflight':
       handleLoader();
@@ -96,9 +92,7 @@ export async function initiatePreviewer(forceOperation = null) {
 
 async function startHTMLPainting() {
   paintHtmlOnPage();
-  window['page-load-ok-milo']?.remove();
-  const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
-  await loadArea();
+  await miloLoadArea();
 }
 
 async function paintHtmlOnPage() {
@@ -183,9 +177,9 @@ async function handleBackToEditClick(event) {
   BUTTON_CONTAINER.style.display = 'none';
   resetTargetHtmlInStore();
   resetPreviewHtmlInStore();
-  document.querySelector('#edit-operation-container').style.display = 'block';
   document.querySelector('header').remove();
   document.querySelector('main').remove();
+  await handleBackToEditor();
 }
 
 async function handlePreflightClick() {
@@ -258,10 +252,10 @@ async function setupMessageListener() {
       window.location.href = url.toString();
     }
     if (event.data.type === 'EDIT_APPLY_CHANGES') {
-      await handleApplyChanges();
+      await applyEditChanges();
     }
     if (event.data.type === 'BACK_TO_EDIT') {
-      await handleBackToEditClick();
+      await handleBackToEditor();
     }
     if (event.data.type === 'RESET') {
       window.location.reload();

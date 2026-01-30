@@ -116,3 +116,9 @@ export function ackCodeGeneration() {
   }
   return ackCode;
 }
+
+export async function miloLoadArea() {
+  window['page-load-ok-milo']?.remove();
+  const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
+  await loadArea();
+}
