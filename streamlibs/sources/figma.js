@@ -126,18 +126,32 @@ async function getFigmaContent(figmaUrl) {
   return { html, blockMapping };
 }
 
+function hasModified(tag) {
+  if (tag?.includes('-modified')) {
+    return true;
+  }
+  return false;
+}
+
 // eslint-disable-next-line import/prefer-default-export
 export async function fetchFigmaContent() {
   // eslint-disable-next-line no-return-await
   const pageComponents = await getFigmaContent(window.streamConfig.contentUrl);
   let htmlDom = '';
   pageComponents.html.forEach((h, idx) => {
+    const isModified = hasModified(pageComponents?.blockMapping?.details?.components[idx]?.tag);
     if (Array.isArray(h)) {
       h.forEach((hdash, idxx) => {
+        if (isModified) {
+          hdash.dataset.modified = 'true';
+        }
         hdash.id = `block-${idx}-${idxx}`;
         htmlDom += hdash.outerHTML;
       });
     } else if (typeof h === 'object') {
+      if (isModified) {
+        h.dataset.modified = 'true';
+      }
       h.id = `block-${idx}`;
       htmlDom += h.outerHTML;
     }

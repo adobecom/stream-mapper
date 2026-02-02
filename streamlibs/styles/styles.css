@@ -739,7 +739,7 @@ img.da-process-wait {
     scale: 0.5;
     transform-origin: top left;
     background: #cbcbcb;
-    border-right: 10px solid #cbcbcb;
+    border-right: 3px solid #e7e0e0;
   }
 
   body.editor-mode .figma-panel::before {
@@ -795,6 +795,21 @@ img.da-process-wait {
     outline-color: #fffb;
   }
 
+  .figma-panel-block[data-modified="true"] {
+    position: relative;
+  }
+
+  .figma-panel-block[data-modified="true"]::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    animation: alert 1.2s infinite;
+    top: 20px;
+    right: 20px;
+  }
+
   .da-panel.da-drop-active {
     outline: 3px dashed #667eea;
     outline-offset: 4px;
@@ -811,12 +826,17 @@ img.da-process-wait {
     display: flex;
     top: 0;
     left: 0;
-    width: 100%;
+    width: 15px;
     height: 100%;
-    background: rgba(16, 185, 129, 0.2);
+    background: rgb(8 203 13);
     pointer-events: none;
     cursor: grabbing;
     z-index: 5000;
+    transition: width 0.2s ease-in-out;
+  }
+  
+  .da-panel > [data-source="figma"]:hover::before{
+    width: 20px;
   }
 
   .da-panel > [data-source="figma"]::after,
@@ -934,3 +954,17 @@ img.da-process-wait {
   div.figma-panel.hidden {
     display: none;
   }
+
+  @keyframes alert {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0%);
+    }
+    
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
