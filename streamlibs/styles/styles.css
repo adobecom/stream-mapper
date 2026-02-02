@@ -801,6 +801,7 @@ img.da-process-wait {
 
   .figma-panel-block[data-modified="true"]::after {
     content: '';
+    position: absolute;
     width: 20px;
     height: 20px;
     background-color: #ef4444;
