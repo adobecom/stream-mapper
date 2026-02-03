@@ -225,6 +225,20 @@ function createDAPanel() {
   return panel;
 }
 
+function getIdxFromId(id) {
+  if (!id) return null;
+
+  const parts = id.split('-');
+  return parts.length > 1 ? parts[1] : null;
+}
+
+function hasModified(tag) {
+  if (tag?.includes('-modified')) {
+    return true;
+  }
+  return false;
+}
+
 export async function editStreamOperation() {
   const [figmaResult, daMain] = await Promise.all([
     fetchFigmaContent(),
@@ -236,8 +250,11 @@ export async function editStreamOperation() {
   const mainEl = document.createElement('main');
   document.body.appendChild(mainEl);
   figmaResult.html.forEach((html, idx) => {
+    const blockIndex = getIdxFromId(html?.id);
+    const isModified = hasModified(figmaResult?.blockMapping?.details?.components[blockIndex]?.tag);
     html.dataset.source = 'figma';
     html.dataset.sectionIndex = idx;
+    if (isModified) html.dataset.modified = 'true';
     mainEl.appendChild(html);
   });
   daMain.querySelectorAll(':scope > div').forEach((div, idx) => {
