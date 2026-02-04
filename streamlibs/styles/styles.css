@@ -837,7 +837,7 @@ img.da-process-wait {
   }
   
   .da-panel > [data-source="figma"]:hover::before{
-    width: 30px;
+    width: 20px;
   }
 
   .da-panel > [data-source="figma"]::after,
@@ -847,15 +847,24 @@ img.da-process-wait {
     inset: 0;
     background: transparent;
     pointer-events: none;
-    transition: background 0.2s ease;
   }
 
   .da-panel > [data-source].da-section-removed::before {
-    background: none;
+    background: #E73121;
+    content: '';
+    position: absolute;
+    display: flex;
+    top: 0;
+    left: 0;
+    width: 15px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5000;
+    transition: width 0.5s ease-in-out;
   }
 
-  .da-panel > [data-source].da-section-removed::after {
-    background: rgba(239, 68, 68, 0.16);
+  .da-panel > [data-source].da-section-removed:hover::before {
+   width: 20px;
   }
 
   .da-drop-placeholder {
