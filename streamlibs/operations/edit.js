@@ -92,29 +92,20 @@ function handlePointerMove(e) {
   e.preventDefault();
   container.classList.add('da-drop-active');
 
-  if (!dropPlaceholder) {
-    dropPlaceholder = document.createElement('div');
-    dropPlaceholder.classList.add('da-drop-placeholder');
-  }
-
   const pointEl = document.elementFromPoint(e.clientX, e.clientY);
   let targetBlock = pointEl && pointEl.closest('[data-source="da"], [data-source="figma"]');
   while (targetBlock && targetBlock.parentNode !== container) {
     targetBlock = targetBlock.parentNode;
   }
 
-  if (!targetBlock || !container.contains(targetBlock)) {
-    if (dropPlaceholder.parentNode !== container) {
-      container.appendChild(dropPlaceholder);
+  if (targetBlock && container.contains(targetBlock)) {
+    if (!dropPlaceholder) {
+      dropPlaceholder = document.createElement('div');
+      dropPlaceholder.classList.add('da-drop-placeholder');
     }
-  } else {
     const rect = targetBlock.getBoundingClientRect();
     const before = e.clientY < rect.top + rect.height / 2;
-    if (before) {
-      if (targetBlock.previousSibling !== dropPlaceholder) {
-        container.insertBefore(dropPlaceholder, targetBlock);
-      }
-    } else if (targetBlock.nextSibling !== dropPlaceholder) {
+    if (!before && targetBlock.nextSibling !== dropPlaceholder) {
       container.insertBefore(dropPlaceholder, targetBlock.nextSibling);
     }
   }
@@ -140,11 +131,12 @@ function handlePointerUp() {
 
   if (blockToInsert && container) {
     if (dropPlaceholder && dropPlaceholder.parentNode === container) {
+      if (draggedPanelBlock?.dataset?.modified === 'true') {
+        draggedPanelBlock.dataset.modified = 'false';
+      }
       container.insertBefore(blockToInsert, dropPlaceholder);
       container.removeChild(dropPlaceholder);
       dropPlaceholder = null;
-    } else {
-      container.appendChild(blockToInsert);
     }
   }
 
