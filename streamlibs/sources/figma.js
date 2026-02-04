@@ -10,10 +10,10 @@ async function fetchFigmaMapping(figmaUrl) {
         'Content-Type': 'application/json',
         Authorization: config.streamMapper.figmaAuthToken,
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         figmaUrl,
-        pagePath
-       }),
+        pagePath,
+      }),
     });
     return await response.json();
   } catch (error) {
@@ -143,5 +143,9 @@ export async function fetchFigmaContent() {
     }
   });
   pageComponents.htmlDom = htmlDom;
-  return { htmlDom: pageComponents.htmlDom, html: pageComponents.html };
+  return {
+    htmlDom: pageComponents.htmlDom,
+    html: pageComponents.html,
+    blockMapping: pageComponents?.blockMapping,
+  };
 }
