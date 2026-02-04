@@ -143,5 +143,9 @@ export async function fetchFigmaContent() {
     }
   });
   pageComponents.htmlDom = htmlDom;
-  return { htmlDom: pageComponents.htmlDom, html: pageComponents.html };
+  return {
+    htmlDom: pageComponents.htmlDom,
+    html: pageComponents.html,
+    blockMapping: pageComponents?.blockMapping,
+  };
 }
