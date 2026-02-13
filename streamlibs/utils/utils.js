@@ -117,7 +117,48 @@ export function ackCodeGeneration() {
   return ackCode;
 }
 
+async function fetchImageAsBase64(url, token) {
+  const res = await fetch(url, {
+    headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function transformImages() {
+  const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
+  if (imgs.length === 0) return;
+  const config = await getConfig();
+  if (!config?.streamMapper?.daToken) return;
+  await Promise.all(
+    Array.from(imgs).map(async (img) => {
+      const url = img.getAttribute('src');
+      if (!url) return;
+      try {
+        const dataUrl = await fetchImageAsBase64(url, config.streamMapper.daToken);
+        img.src = dataUrl;
+        const picture = img.closest('picture');
+        if (picture) {
+          picture.querySelectorAll('source').forEach((source) => {
+            source.srcset = dataUrl;
+          });
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not auth-fetch image', url, err);
+      }
+    }),
+  );
+}
+
 export async function miloLoadArea() {
+  await transformImages();
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
   await loadArea();
