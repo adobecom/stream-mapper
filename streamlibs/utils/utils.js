@@ -150,6 +150,7 @@ async function transformImages() {
           });
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.warn('Could not auth-fetch image', url, err);
       }
     }),

@@ -163,7 +163,6 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   if (!properties) return;
 
   if (!blockContent) {
-    console.log('Table blockContent not found - template may not exist');
     return;
   }
 
