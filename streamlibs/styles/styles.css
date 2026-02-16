@@ -26,6 +26,7 @@
     background: none;
     position: relative;
 }
+
 .da-push-icon.sending::after {
     content: '';
     display: block;
@@ -150,14 +151,14 @@ img.da-process-wait {
     align-items: flex-end;
     gap: 10px;
     padding: 20px 32px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(113, 85, 250, 0.15);
+    background: rgba(255, 255, 255, 70%);
+    border: 1px solid rgba(113, 85, 250, 15%);
     border-radius: 100px;
     backdrop-filter: blur(20px);
     box-shadow: 
-      0 4px 24px rgba(113, 85, 250, 0.12),
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      0 4px 24px rgba(113, 85, 250, 12%),
+      0 1px 2px rgba(0, 0, 0, 4%),
+      inset 0 1px 0 rgba(255, 255, 255, 80%);
     position: relative;
     z-index: 1;
   }
@@ -165,7 +166,7 @@ img.da-process-wait {
   .loader-container.is-visible .loader {
     width: 20px;
     height: 20px;
-    border: 2px solid rgba(113, 85, 250, 0.2);
+    border: 2px solid rgba(113, 85, 250, 20%);
     border-bottom-color: #7155fa;
     border-radius: 50%;
     display: inline-block;
@@ -872,7 +873,7 @@ img.da-process-wait {
     align-items: center;
     justify-content: center;
     height: 200px;
-    background-color: rgba(16, 185, 129, 0.05);
+    background-color: rgba(16, 185, 129, 5%);
     background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/add.svg");
     background-repeat: no-repeat;
     background-position: center;
@@ -889,12 +890,12 @@ img.da-process-wait {
     border: none;
     padding: 0;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 90%);
     background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/delete.svg");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 30px 30px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 20%);
     z-index: 6000;
   }
 
@@ -935,14 +936,14 @@ img.da-process-wait {
     font-size: 1.5rem;
     color: #5a3fd6;
     padding: 20px 32px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(113, 85, 250, 0.15);
+    background: rgba(255, 255, 255, 70%);
+    border: 1px solid rgba(113, 85, 250, 15%);
     border-radius: 100px;
     backdrop-filter: blur(20px);
     box-shadow: 
-      0 4px 24px rgba(113, 85, 250, 0.12),
-      0 1px 2px rgba(0, 0, 0, 0.04),
-      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      0 4px 24px rgba(113, 85, 250, 12%),
+      0 1px 2px rgba(0, 0, 0, 4%),
+      inset 0 1px 0 rgba(255, 255, 255, 80%);
     max-width: 90%;
   }
 
