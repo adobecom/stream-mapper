@@ -102,13 +102,29 @@ img.da-process-wait {
 }
 
 #loader-content {
-  font-size: 1.5rem;
+  font-size: 1.05rem;
   font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: -0.01em;
   color: #5a3fd6;
   position: relative;
   z-index: 2;
+}
+
+.loader-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.loader-progress {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #7155fa;
 }
 
 @media screen and (min-width: 600px) {
@@ -147,7 +163,7 @@ img.da-process-wait {
     display: flex;
     flex-direction: row;
     justify-content: center;
-    align-items: flex-end;
+    align-items: center;
     gap: 10px;
     padding: 20px 32px;
     background: rgba(255, 255, 255, 0.7);

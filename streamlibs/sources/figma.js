@@ -1,4 +1,5 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
+import { createFigmaLoaderReporter } from '../utils/loader.js';
 
 async function fetchFigmaMapping(figmaUrl) {
   try {
@@ -96,11 +97,11 @@ async function mapFigmaContent(blockContent, block, figContent) {
   }
 }
 
-async function processBlock(block, figmaUrl) {
+async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   if (!block.id || !block.path) return '';
   const [doc, figContent] = await Promise.all([
     fetchContent(block.path),
-    fetchBlockContent(block.figId, block.id, figmaUrl),
+    fetchBlockContent(block.figId, block.id, figmaUrl).finally(() => onDetailResponse()),
   ]);
   let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
@@ -109,20 +110,37 @@ async function processBlock(block, figmaUrl) {
   return blockContent || '';
 }
 
-async function createHTML(blockMapping, figmaUrl) {
+async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
   const htmlParts = await Promise.all(
-    blocks.map((block) => processBlock(block, figmaUrl)),
+    blocks.map((block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse())),
   );
   return htmlParts.filter(Boolean);
 }
 
 async function getFigmaContent(figmaUrl) {
-  const blockMapping = await fetchFigmaMapping(figmaUrl);
+  const loaderReporter = createFigmaLoaderReporter();
+  loaderReporter.startDesignLoading();
+
+  let blockMapping = null;
+  try {
+    blockMapping = await fetchFigmaMapping(figmaUrl);
+  } finally {
+    loaderReporter.completeDesignLoading();
+  }
   if (!blockMapping?.details?.components) {
+    loaderReporter.markNoComponents();
     return { html: [], blockMapping };
   }
-  const html = await createHTML(blockMapping, figmaUrl);
+  const validBlocksCount = blockMapping.details.components
+    .filter((block) => block.id && block.path).length;
+  if (!validBlocksCount) {
+    loaderReporter.markNoBlocks();
+    return { html: [], blockMapping };
+  }
+
+  const tracker = loaderReporter.createBlocksTracker(validBlocksCount);
+  const html = await createHTML(blockMapping, figmaUrl, tracker);
   return { html, blockMapping };
 }
 
