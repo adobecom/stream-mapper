@@ -40,6 +40,7 @@
     background: none;
     position: relative;
 }
+
 .da-push-icon.sending::after {
     content: '';
     display: block;
@@ -1008,7 +1009,7 @@ img.da-process-wait {
     align-items: center;
     justify-content: center;
     height: 200px;
-    background-color: rgba(16, 185, 129, 0.05);
+    background-color: rgba(16, 185, 129, 5%);
     background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/add.svg");
     background-repeat: no-repeat;
     background-position: center;
@@ -1025,12 +1026,12 @@ img.da-process-wait {
     border: none;
     padding: 0;
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 90%);
     background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/delete.svg");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 30px 30px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 20%);
     z-index: 6000;
   }
 
