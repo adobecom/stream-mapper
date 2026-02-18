@@ -14,6 +14,7 @@ function getLoaderElements() {
   return {
     messageArea: document.querySelector('#loader-content'),
     progressArea: document.querySelector('#loader-progress'),
+    progressFill: document.querySelector('#loader-progress-fill'),
     container: document.querySelector('#loader-container'),
   };
 }
@@ -24,12 +25,18 @@ function normalizePercentage(percentage) {
 }
 
 function renderLoader() {
-  const { messageArea, progressArea, container } = getLoaderElements();
+  const {
+    messageArea, progressArea, progressFill, container,
+  } = getLoaderElements();
   if (!container || !messageArea) return;
 
   const fallbackMessage = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
   messageArea.textContent = loaderMessage || fallbackMessage;
   if (progressArea) progressArea.textContent = `${loaderPercentage}%`;
+  if (progressFill) {
+    progressFill.style.width = `${loaderPercentage}%`;
+    progressFill.setAttribute('aria-valuenow', `${loaderPercentage}`);
+  }
 
   container.style.display = 'flex';
   container.classList.add('is-visible');
