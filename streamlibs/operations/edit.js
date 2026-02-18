@@ -198,6 +198,8 @@ function enableMainReorder(container) {
 function createFigmaPanel() {
   const panel = document.createElement('div');
   panel.classList.add('figma-panel');
+  const header = createPanelLocationHeader('figma', window.streamConfig?.contentUrl);
+  panel.appendChild(header);
   const figmaBlocks = document.body.querySelectorAll('main > div[data-source="figma"]');
   figmaBlocks.forEach((block) => {
     panel.appendChild(block);
@@ -209,12 +211,44 @@ function createFigmaPanel() {
 function createDAPanel() {
   const panel = document.createElement('div');
   panel.classList.add('da-panel');
+  const header = createPanelLocationHeader('da', window.streamConfig?.targetUrl);
+  panel.appendChild(header);
   const daBlocks = document.body.querySelectorAll('main > div[data-source="da"]');
   daBlocks.forEach((block) => {
     panel.appendChild(block);
   });
   document.body.prepend(panel);
   return panel;
+}
+
+function createPanelLocationHeader(source, location) {
+  const header = document.createElement('div');
+  header.className = 'panel-location-header';
+  const sourceLocationLabel = source === 'figma' ? 'Figma Location' : 'DA Location';
+
+  const box = document.createElement('div');
+  box.className = 'panel-location-searchbox';
+
+  const icon = document.createElement('span');
+  icon.className = 'panel-location-search-icon';
+  icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = '<svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>';
+
+  const sourceText = document.createElement('span');
+  sourceText.className = 'panel-location-source';
+  sourceText.textContent = sourceLocationLabel;
+
+  const input = document.createElement('input');
+  input.className = 'panel-location-input';
+  input.type = 'text';
+  input.readOnly = true;
+  input.tabIndex = -1;
+  input.value = location || 'Location not available';
+  input.setAttribute('aria-label', `${sourceLocationLabel} value`);
+
+  box.append(icon, sourceText, input);
+  header.append(box);
+  return header;
 }
 
 function getIdxFromId(id) {

@@ -190,3 +190,26 @@ export const LOADER_MSG_LIST = [
   'Crafting brilliance behind the scenes ',
   'Constructing the masterpiece. Stay tuned ',
 ];
+
+export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
+
+export const LOADER_PROGRESS_STEPS = {
+  START: 0,
+  FIGMA_DESIGN_DONE: 10,
+  BLOCKS_START: 10,
+  BLOCKS_DONE: 90,
+  START_PAINTING: 100,
+};
+
+export const LOADER_STEP_MESSAGES = {
+  INITIAL: 'Starting loader',
+  FIGMA_DESIGN_LOADING: 'Loading Figma design',
+  FIGMA_DESIGN_LOADED: 'Figma design loaded',
+  NO_COMPONENTS: 'No components found',
+  NO_BLOCKS: 'No blocks to create',
+  START_PAINTING: 'Start painting',
+};
+
+export function getBlocksCreationMessage(current, total) {
+  return `Creating blocks ${current}/${total}`;
+}

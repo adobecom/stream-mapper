@@ -26,20 +26,10 @@ import {
   handleBackToEditor,
   preflightOperation,
 } from './utils/operations.js';
-import { LOADER_MSG_LIST } from './utils/constants.js';
+import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
+import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
 
-const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
-const LOADER = document.querySelector('#loader-container');
 let BUTTON_CONTAINER = null;
-
-function handleLoader(displayLoader = true, message = null) {
-  if (!displayLoader) return;
-  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
-  const loaderMessage = message || loadermsg;
-  LOADER_MESSAGE_AREA.textContent = loaderMessage;
-  LOADER.style.display = 'flex';
-  LOADER.classList.add('is-visible');
-}
 
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
@@ -61,29 +51,32 @@ function showDOMElements(eles = []) {
 async function postOperationProcessing(rawhtml) {
   let html = fixRelativeLinks(rawhtml);
   pushPreviewHtmlToStore(html);
+  updateLoader({
+    message: LOADER_STEP_MESSAGES.START_PAINTING,
+    percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+  });
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
   pushTargetHtmlToStore(html);
-  hideDOMElements([LOADER]);
+  hideLoader();
 }
 
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
     case 'create':
-      handleLoader();
       html = await createStreamOperation();
       await postOperationProcessing(html);
       break;
     case 'edit':
-      handleLoader(true, 'Preparing the editor. Please wait');
+      updateLoader({ message: 'Preparing the editor. Please wait' });
       await editStreamOperation();
-      hideDOMElements([LOADER]);
+      hideLoader();
       return;
     case 'preflight':
-      handleLoader();
+      updateLoader();
       await preflightOperation();
-      hideDOMElements([LOADER]);
+      hideLoader();
       break;
     default:
       break;
@@ -265,6 +258,7 @@ async function setupMessageListener() {
 
 export default async function initPreviewer() {
   window.sessionStorage.clear();
+  initializeLoader();
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
@@ -285,13 +279,13 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
-    handleLoader(true, 'Pushing content to DA');
+    updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     await persistOnTarget();
-    hideDOMElements([LOADER]);
+    hideLoader();
     showDOMElements([document.querySelector('main')]);
   } catch (error) {
-    hideDOMElements([LOADER]);
+    hideLoader();
     showDOMElements([document.querySelector('main')]);
     handleError(error, 'persisting content');
     throw error;
