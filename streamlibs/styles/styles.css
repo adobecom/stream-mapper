@@ -848,6 +848,9 @@ img.da-process-wait {
     }
   }
 
+
+/* ============ Review Operation =========== */
+
   body.editor-mode {
     height: 100vh;
     overflow: hidden;
@@ -915,16 +918,6 @@ img.da-process-wait {
     padding: 0 22px;
     box-sizing: border-box;
   }
-
-  /* body.editor-mode .figma-panel .panel-location-searchbox {
-    background: rgba(219, 234, 254, 75%);
-    border-color: rgba(59, 130, 246, 45%);
-  }
-
-  body.editor-mode .da-panel .panel-location-searchbox {
-    background: rgba(226, 232, 240, 78%);
-    border-color: rgba(71, 85, 105, 45%);
-  } */
 
   body.editor-mode .panel-location-search-icon {
     font-size: 40px;
@@ -1097,6 +1090,7 @@ img.da-process-wait {
   }
 
   /* ============ PREFLIGHT OPERATION =========== */
+
   .preflight-iframe {
     width: 100%;
     height: 100%;
@@ -1171,4 +1165,22 @@ img.da-process-wait {
     100% {
         box-shadow: 0 0 0 0 rgba(253, 94, 83, 0%);
     }
+}
+
+
+/* ============ Annotations Operation =========== */
+
+body.annotation-mode {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.annotation-mode header {
+    transform: scale(0.8);
+    transform-origin: top left;
+}
+
+body.annotation-mode main {
+    transform: scale(0.8);
+    transform-origin: top left;
 }
