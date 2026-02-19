@@ -113,6 +113,7 @@ async function requestStreamConfigFromParent() {
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
+      reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
     };
   }
 
@@ -190,6 +191,7 @@ export default async function initPreviewer() {
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+    reviewId: previewParams.reviewId || previewParams.reviewid || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
