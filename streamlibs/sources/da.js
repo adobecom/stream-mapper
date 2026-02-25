@@ -1,7 +1,8 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
-async function getDAContent() {
+async function getDAContent(path = false) {
   let url = window.streamConfig.targetUrl;
+  if (path) url = path;
   if (!url.startsWith('/')) url = `/${url}`;
   if (!url.endsWith('.html')) url += '.html';
   const options = {
@@ -23,8 +24,8 @@ async function getDAContent() {
 }
 
 // eslint-disable-next-line import/prefer-default-export
-export async function fetchDAContent() {
-  const doc = await getDAContent();
+export async function fetchDAContent(path = false) {
+  const doc = await getDAContent(path);
   const parser = new DOMParser();
   const html = parser.parseFromString(doc, 'text/html');
   return html.querySelector('main');

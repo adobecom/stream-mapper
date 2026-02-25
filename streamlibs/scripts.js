@@ -65,7 +65,7 @@ const CONFIG = {
   },
   dev: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
+      serviceEP: 'http://localhost:8081',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',

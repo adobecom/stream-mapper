@@ -2,12 +2,14 @@ import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { transformImages } from '../utils/utils.js';
 import { getLibs } from '../utils/utils.js';
+import { getDACompatibleHtml, postData } from '../target/da.js';
 
 const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
 const DEFAULT_USERNAME = 'stream';
 const COMMENT_STATUSES = ['Open', 'Complete', 'Resolved', 'Closed'];
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
 const MEDIUM_EDITOR_JS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/js/medium-editor.min.js';
+const START_REVIEW_DA_PATH = 'adobecom/da-cc-sandbox/drafts/mathuria';
 
 let annotationStore = { threads: [], easyEdits: [] };
 let selectedElement = null;
@@ -45,10 +47,10 @@ async function getDADom() {
     const { htmlDom: html } = await fetchFigmaContent();
     return html;
   } if (source === 'da') {
-    const { htmlDom: html } = await fetchDAContent();
+    const html = await fetchDAContent(window.streamConfig.contentUrl);
     return html;
   }
-  return '';
+  return null;
 }
 
 export async function miloLoadArea() {
@@ -62,9 +64,14 @@ async function initializePreview() {
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
-  mainEle.innerHTML = htmlDom;
+  if (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN') {
+    mainEle.innerHTML = htmlDom.innerHTML;
+  } else {
+    mainEle.innerHTML = htmlDom;
+  }
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
+  return mainEle.cloneNode(true);
 }
 
 function generateId(prefix) {
@@ -106,7 +113,10 @@ function parseAnnotationPayload(parsed) {
     : [];
 
   if (Array.isArray(parsed?.threads)) {
-    return { threads: parsed.threads, easyEdits };
+    return {
+      threads: parsed.threads,
+      easyEdits,
+    };
   }
 
   if (Array.isArray(parsed?.comments)) {
@@ -141,14 +151,16 @@ function parseAnnotationPayload(parsed) {
     };
   }
 
-  return { threads: [], easyEdits: [] };
+  return {
+    threads: [],
+    easyEdits: [],
+  };
 }
 
 function loadAnnotationStore() {
   try {
     const reviewId = getReviewId();
-    const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY)
-      || window.sessionStorage.getItem(ANNOTATION_STORE_KEY);
+    const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY);
     if (!raw) {
       annotationStore = { threads: [], easyEdits: [] };
       return;
@@ -201,12 +213,85 @@ function saveAnnotationStore() {
   } catch (error) {
     existingMap = {};
   }
+
   existingMap[reviewId] = payload;
 
   const serialized = JSON.stringify(existingMap);
   window.localStorage.setItem(ANNOTATION_STORE_KEY, serialized);
-  window.sessionStorage.setItem(ANNOTATION_STORE_KEY, serialized);
   window.streamAnnotationComments = existingMap;
+}
+
+function replaceFirstOccurrence(source, fromValue, toValue) {
+  const haystack = `${source || ''}`;
+  const needle = `${fromValue || ''}`;
+  if (!needle) return haystack;
+  const index = haystack.indexOf(needle);
+  if (index === -1) return haystack;
+  return `${haystack.slice(0, index)}${toValue || ''}${haystack.slice(index + needle.length)}`;
+}
+
+function escapeRegExp(value) {
+  return `${value || ''}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function applyEasyEditsToHtmlString(html, easyEdits = []) {
+  let updatedHtml = `${html || ''}`;
+  easyEdits.forEach((edit) => {
+    if (!edit || typeof edit !== 'object') return;
+
+    if (edit.editType === 'image-alt') {
+      const fromAlt = `${edit.from || ''}`;
+      const toAlt = `${edit.to || ''}`;
+      if (!fromAlt) return;
+      const escapedFromAlt = escapeRegExp(fromAlt);
+      const doubleQuoteAlt = new RegExp(`alt="${escapedFromAlt}"`);
+      const singleQuoteAlt = new RegExp(`alt='${escapedFromAlt}'`);
+      if (doubleQuoteAlt.test(updatedHtml)) {
+        updatedHtml = updatedHtml.replace(doubleQuoteAlt, `alt="${toAlt}"`);
+      } else if (singleQuoteAlt.test(updatedHtml)) {
+        updatedHtml = updatedHtml.replace(singleQuoteAlt, `alt='${toAlt}'`);
+      }
+      return;
+    }
+
+    const fromHtml = `${edit.fromHtml || ''}`;
+    const toHtml = `${edit.toHtml || ''}`;
+    const fromText = `${edit.from || ''}`;
+    const toText = `${edit.to || ''}`;
+
+    if (fromHtml) {
+      updatedHtml = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
+      return;
+    }
+    if (fromText) {
+      updatedHtml = replaceFirstOccurrence(updatedHtml, fromText, toText);
+    }
+  });
+  return updatedHtml;
+}
+
+function getStoredAnnotationPayload() {
+  try {
+    const reviewId = getReviewId();
+    const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) || {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed[reviewId]) {
+      return parseAnnotationPayload(parsed[reviewId]);
+    }
+    return parseAnnotationPayload(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function syncInlineEditsBeforePersist() {
+  if (!annotationUI.inlineMode) return;
+  annotationUI.editableElements.forEach((element) => {
+    trackInlineEditChange(element);
+  });
+  syncImageAltChanges();
+  saveAnnotationStore();
 }
 
 function getThreadType(thread) {
@@ -1520,9 +1605,20 @@ function setupAnnotationUI(mainEl) {
   }
 }
 
+function shouldAutoStartReview() {
+  const startReview = window.streamConfig?.startReview;
+  return startReview !== false && startReview !== 'false';
+}
+
+async function pushAnnotationHtmlToDA(mainEl) {
+  if (!(mainEl instanceof HTMLElement)) return;
+  const daCompatibleHtml = getDACompatibleHtml(mainEl.innerHTML);
+  await postData(`${START_REVIEW_DA_PATH}/${window.streamConfig.reviewId.toLowerCase()}`, daCompatibleHtml);
+}
+
 export async function annotationOperation() {
   document.body.classList.add('annotation-mode');
-  await initializePreview();
+  const originalHtml = await initializePreview();
   await miloLoadArea();
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
@@ -1532,4 +1628,19 @@ export async function annotationOperation() {
   saveAnnotationStore();
   renderThreadMarkers();
   renderCommentsPanel();
+  
+  if (shouldAutoStartReview()) {
+    await pushAnnotationHtmlToDA(originalHtml);
+  }
+}
+
+export async function persistAnnotationChangesToDA() {
+  syncInlineEditsBeforePersist();
+  const payload = getStoredAnnotationPayload() || annotationStore;
+  const easyEdits = payload?.easyEdits || annotationStore.easyEdits || [];
+  const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);
+  const originalHtml = htmlMainEl?.innerHTML || '';
+  const rebuiltHtml = applyEasyEditsToHtmlString(originalHtml, easyEdits);
+  const daCompatibleHtml = getDACompatibleHtml(rebuiltHtml);
+  await postData(window.streamConfig.targetUrl, daCompatibleHtml);
 }
