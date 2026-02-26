@@ -1,0 +1,258 @@
+/* ============ EDIT OPERATION =========== */
+
+body.editor-mode {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.editor-mode .da-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 200%;
+  max-height: 200%;
+  overflow: auto;
+  scale: 0.5;
+  transform-origin: top right;
+}
+
+body.editor-mode .figma-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 200%;
+  max-height: 200%;
+  overflow: auto;
+  scale: 0.5;
+  transform-origin: top left;
+  background: #c8c9ca;
+  border-right: 3px solid #e7e0e0;
+}
+
+body.editor-mode .panel-location-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 24px;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+body.editor-mode .figma-panel .panel-location-header,
+body.editor-mode .da-panel .panel-location-header {
+  background: #c4c7c978;
+}
+
+body.editor-mode .panel-location-label {
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+body.editor-mode .panel-location-searchbox {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 72px;
+  border-radius: 999px;
+  border: 1px solid rgba(156, 163, 175, 50%);
+  background: #fff;
+  padding: 0 22px;
+  box-sizing: border-box;
+}
+
+body.editor-mode .panel-location-search-icon {
+  font-size: 40px;
+  line-height: 1;
+  color: #6b7280;
+  flex: 0 0 auto;
+}
+
+body.editor-mode .panel-location-search-icon svg {
+  height: 24px;
+  width: auto;
+}
+
+body.editor-mode .panel-location-source {
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+}
+
+body.editor-mode .figma-panel .panel-location-source {
+  background: #f4f4f4;
+  color: #1e3a8a;
+}
+
+body.editor-mode .da-panel .panel-location-source {
+  background: #f4f4f4;
+  color: #334155;
+}
+
+body.editor-mode .panel-location-input {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: #111827;
+  font-size: 24px;
+  outline: none;
+  text-overflow: ellipsis;
+}
+
+div[data-source="figma"] {
+  cursor: grab;
+}
+
+.section[data-source="figma"],
+.section[data-source="da"] {
+  border-top: 1px dashed #8a8a8a;
+  border-bottom: 1px dashed #8a8a8a;
+}
+
+.figma-panel-block.is-dragging {
+  opacity: 0.6;
+  outline-color: #fffb;
+}
+
+.figma-panel-block[data-modified="true"] {
+  position: relative;
+}
+
+.figma-panel-block[data-modified="true"]::after {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background-color: #FF7518;
+  border-radius: 50%;
+  animation: alert 1.2s infinite;
+  top: 30px;
+  right: 30px;
+}
+
+@keyframes alert {
+  0% {
+    box-shadow: 0 0 0 0 rgba(253, 94, 83, 70%);
+  }
+
+  70% {
+    box-shadow: 0 0 0 20px rgba(253, 94, 83, 0%);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(253, 94, 83, 0%);
+  }
+}
+
+.da-panel.da-drop-active {
+  outline: 3px dashed var(--sm-color-primary);
+  outline-offset: 4px;
+}
+
+.da-panel > [data-source="figma"],
+.da-panel > [data-source="da"] {
+  position: relative;
+}
+
+.da-panel > [data-source="figma"]::before {
+  content: '';
+  position: absolute;
+  display: flex;
+  top: 0;
+  left: 0;
+  width: 15px;
+  height: 100%;
+  background: rgb(16, 185, 129);
+  pointer-events: none;
+  cursor: grabbing;
+  z-index: 5000;
+  transition: width 0.5s ease-in-out;
+}
+
+.da-panel > [data-source="figma"]:hover::before{
+  width: 20px;
+}
+
+.da-panel > [data-source="figma"]::after,
+.da-panel > [data-source="da"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.da-panel > [data-source].da-section-removed::before {
+  background: #E73121;
+  content: '';
+  position: absolute;
+  display: flex;
+  top: 0;
+  left: 0;
+  width: 15px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5000;
+  transition: width 0.5s ease-in-out;
+}
+
+.da-panel > [data-source].da-section-removed:hover::before {
+  width: 20px;
+}
+
+.da-drop-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background-color: rgba(16, 185, 129, 5%);
+  background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/add.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 36px 36px;
+}
+
+.da-section-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 90%);
+  background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/delete.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 30px 30px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 20%);
+  z-index: 6000;
+}
+
+.da-section-delete.is-removed {
+  background-image: url("https://main--stream-mapper--adobecom.aem.live/assets/undo.svg");
+}
+
+div.da-panel.hidden,
+div.figma-panel.hidden {
+  display: none;
+}
