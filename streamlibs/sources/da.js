@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
 function restoreImgToPicture(html) {
@@ -20,6 +21,7 @@ function restoreImgToPicture(html) {
 }
 
 function restoreColonTextToSpan(html) {
+  // eslint-disable-next-line arrow-body-style
   return html.replace(/:([a-zA-Z0-9_-]+):/g, (_, iconText) => {
     return `<span class="icon icon-${iconText}"></span>`;
   });
