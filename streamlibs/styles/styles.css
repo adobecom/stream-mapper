@@ -851,7 +851,6 @@ img.da-process-wait {
   body.editor-mode {
     height: 100vh;
     overflow: hidden;
-    background: white;
   }
 
   body.editor-mode .da-panel {
@@ -876,7 +875,7 @@ img.da-process-wait {
     overflow: auto;
     scale: 0.5;
     transform-origin: top left;
-    background: white;
+    background: #c8c9ca;
     border-right: 3px solid #e7e0e0;
   }
 
@@ -916,6 +915,16 @@ img.da-process-wait {
     padding: 0 22px;
     box-sizing: border-box;
   }
+
+  /* body.editor-mode .figma-panel .panel-location-searchbox {
+    background: rgba(219, 234, 254, 75%);
+    border-color: rgba(59, 130, 246, 45%);
+  }
+
+  body.editor-mode .da-panel .panel-location-searchbox {
+    background: rgba(226, 232, 240, 78%);
+    border-color: rgba(71, 85, 105, 45%);
+  } */
 
   body.editor-mode .panel-location-search-icon {
     font-size: 40px;
