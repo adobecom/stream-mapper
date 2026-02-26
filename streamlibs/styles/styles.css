@@ -854,6 +854,7 @@ img.da-process-wait {
   body.editor-mode {
     height: 100vh;
     overflow: hidden;
+    background: #c8c9ca;
   }
 
   body.editor-mode .da-panel {
@@ -866,6 +867,7 @@ img.da-process-wait {
     overflow: auto;
     scale: 0.5;
     transform-origin: top right;
+    background: white;
   }
 
   body.editor-mode .figma-panel {
@@ -878,7 +880,7 @@ img.da-process-wait {
     overflow: auto;
     scale: 0.5;
     transform-origin: top left;
-    background: #c8c9ca;
+    background: white;
     border-right: 3px solid #e7e0e0;
   }
 

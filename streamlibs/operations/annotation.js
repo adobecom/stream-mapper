@@ -28,7 +28,9 @@ const annotationUI = {
   panelListEl: null,
   inlineToggleEl: null,
   inlineCommentsToggleEl: null,
+  inlineAssetsToggleEl: null,
   inlineMode: false,
+  annotationMode: 'comments',
   mediumEditorInstance: null,
   editableElements: [],
   editableImages: [],
@@ -48,6 +50,13 @@ async function getDADom() {
     return html;
   } if (source === 'da') {
     const html = await fetchDAContent(window.streamConfig.contentUrl);
+    html.querySelectorAll('img').forEach((img) => {
+      if (img.src.includes('content.da.live') && img.parentElement.tagName !== 'PICTURE') {
+        const pic = document.createElement('picture');
+        img.parentElement.replaceWith(pic);
+        pic.appendChild(img);
+      }
+    });
     return html;
   }
   return null;
@@ -978,6 +987,8 @@ function ensureCommentsPanel() {
           <label for="annotation-inline-mode-comments">Comments</label>
           <input type="radio" id="annotation-inline-mode-edit" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="edit" />
           <label for="annotation-inline-mode-edit">Edit</label>
+          <input type="radio" id="annotation-inline-mode-assets" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="assets" />
+          <label for="annotation-inline-mode-assets">Assets</label>
         </div>
       </div>
     </div>
@@ -991,6 +1002,7 @@ function ensureCommentsPanel() {
   annotationUI.panelListEl = panel.querySelector('.annotation-comments-list');
   annotationUI.inlineToggleEl = panel.querySelector('#annotation-inline-mode-edit');
   annotationUI.inlineCommentsToggleEl = panel.querySelector('#annotation-inline-mode-comments');
+  annotationUI.inlineAssetsToggleEl = panel.querySelector('#annotation-inline-mode-assets');
 }
 
 function buildCommentGroups(thread) {
@@ -1025,7 +1037,16 @@ function renderCommentsPanel() {
   annotationUI.panelListEl.innerHTML = '';
   const panelTitle = annotationUI.panelEl?.querySelector('.annotation-comments-panel-header h3');
   if (panelTitle instanceof HTMLElement) {
-    panelTitle.textContent = annotationUI.inlineMode ? 'Edits' : 'Comments';
+    const mode = annotationUI.annotationMode || (annotationUI.inlineMode ? 'edit' : 'comments');
+    panelTitle.textContent = mode === 'edit' ? 'Edits' : mode === 'assets' ? 'Assets' : 'Comments';
+  }
+
+  if (annotationUI.annotationMode === 'assets') {
+    const empty = document.createElement('p');
+    empty.className = 'annotation-comments-empty';
+    empty.textContent = 'No assets yet.';
+    annotationUI.panelListEl.appendChild(empty);
+    return;
   }
 
   const visibleThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
@@ -1585,13 +1606,17 @@ function setupAnnotationUI(mainEl) {
       if (!(target instanceof HTMLInputElement) || !target.checked) return;
       target.disabled = true;
       try {
+        annotationUI.annotationMode = 'edit';
+        if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
         await enableInlineEditMode();
       } catch {
         target.checked = false;
         if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = true;
+        annotationUI.annotationMode = 'comments';
       } finally {
         target.disabled = false;
       }
+      renderCommentsPanel();
     });
   }
 
@@ -1599,8 +1624,23 @@ function setupAnnotationUI(mainEl) {
     annotationUI.inlineCommentsToggleEl.addEventListener('change', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLInputElement) || !target.checked) return;
+      annotationUI.annotationMode = 'comments';
       disableInlineEditMode();
       if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
+      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+      renderCommentsPanel();
+    });
+  }
+
+  if (annotationUI.inlineAssetsToggleEl) {
+    annotationUI.inlineAssetsToggleEl.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || !target.checked) return;
+      annotationUI.annotationMode = 'assets';
+      disableInlineEditMode();
+      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
+      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = false;
+      renderCommentsPanel();
     });
   }
 }

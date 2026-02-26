@@ -283,6 +283,13 @@ export async function editStreamOperation() {
     if (isModified) html.dataset.modified = 'true';
     mainEl.appendChild(html);
   });
+  daMain.querySelectorAll('img').forEach((img) => {
+    if (img.src.includes('content.da.live') && img.parentElement.tagName !== 'PICTURE') {
+      const pic = document.createElement('picture');
+      img.parentElement.replaceWith(pic);
+      pic.appendChild(img);
+    }
+  });
   daMain.querySelectorAll(':scope > div').forEach((div, idx) => {
     div.dataset.source = 'da';
     div.dataset.sectionIndex = idx;
