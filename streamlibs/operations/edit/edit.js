@@ -1,11 +1,11 @@
 /* eslint-disable import/prefer-default-export */
 /* eslint-disable no-use-before-define */
-import { miloLoadArea, fixRelativeLinks } from '../utils/utils.js';
-import { fetchDAContent } from '../sources/da.js';
-import { fetchFigmaContent } from '../sources/figma.js';
-import { pushPreviewHtmlToStore, pushTargetHtmlToStore } from '../store/store.js';
-import { targetCompatibleHtml } from '../target/da.js';
-import { handleError } from '../utils/error-handler.js';
+import { miloLoadArea, fixRelativeLinks } from '../../utils/utils.js';
+import { fetchDAContent } from '../../sources/da.js';
+import { fetchFigmaContent } from '../../sources/figma.js';
+import { pushPreviewHtmlToStore, pushTargetHtmlToStore } from '../../store/store.js';
+import { targetCompatibleHtml } from '../../target/da.js';
+import { handleError } from '../../utils/error-handler.js';
 
 let draggedPanelBlock = null;
 let draggedMainBlock = null;
