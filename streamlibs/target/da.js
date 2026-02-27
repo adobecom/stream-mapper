@@ -39,7 +39,6 @@ export function getDACompatibleHtml(html) {
   html = replaceSpanWithColonText(html);
   html = html.replaceAll('\n', '');
   html = html.replaceAll('"', "'");
-  html = html.replaceAll("alt= ','");
   return html;
 }
 
