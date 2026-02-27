@@ -11,37 +11,22 @@
   <body>
     <div class="loader-container" id="loader-container" style="display: none;">
       <div class="loader-row-1">
-        <div class="loader-content" id="loader-content"></div>
-        <div class="dot-loader">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div class="loader-text">
+          <div class="loader-content" id="loader-content"></div>
         </div>
-      </div>
-    </div>
-    <div class="edit-operation-container" style="display: none;" id="edit-operation-container">
-      <div class="decks-container">
-        <div class="deck figma-deck">
-          <div class="deck-header"><h2>Figma Blocks</h2><span class="deck-count">0 blocks</span></div>
-          <div class="deck-cards">
-            <div class="circle-loader-container" style="display: flex; justify-content: center; align-items: center; height: 100%;">
-              <div class="circle-loader"></div>
-            </div>
+        <div class="loader-progress-row">
+          <div class="loader-progress-track">
+            <div
+              class="loader-progress-fill"
+              id="loader-progress-fill"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="0"
+            ></div>
           </div>
+          <div class="loader-progress" id="loader-progress">0%</div>
         </div>
-        <div class="deck-divider"><div class="divider-arrow">→</div><div class="divider-text">Drag to add</div></div>
-        <div class="deck da-deck">
-          <div class="deck-header"><h2>DA Blocks</h2><span class="deck-count">0 blocks</span></div>
-          <div class="deck-cards">
-            <div class="circle-loader-container" style="display: flex; justify-content: center; align-items: center; height: 100%;">
-              <div class="circle-loader"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="edit-actions">
-        <button class="action-btn primary" id="apply-changes-btn">Apply Changes</button>
-        <button class="action-btn secondary" id="reset-changes-btn">Reset</button>
       </div>
     </div>
     <div class="preflight-operation-container" id="preflight-operation-container" style="display: none;">

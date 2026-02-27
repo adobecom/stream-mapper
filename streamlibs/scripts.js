@@ -74,7 +74,7 @@ const CONFIG = {
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
       sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
-      allowMessagesFromDomains: ['https://440859-stream*.adobeio-static.net'],
+      allowMessagesFromDomains: ['*', 'https://440859-stream*.adobeio-static.net'],
     },
   },
 };

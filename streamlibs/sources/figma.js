@@ -1,4 +1,5 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
+import { createFigmaLoaderReporter } from '../utils/loader.js';
 
 async function fetchFigmaMapping(figmaUrl) {
   try {
@@ -10,10 +11,10 @@ async function fetchFigmaMapping(figmaUrl) {
         'Content-Type': 'application/json',
         Authorization: config.streamMapper.figmaAuthToken,
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         figmaUrl,
-        pagePath
-       }),
+        pagePath,
+      }),
     });
     return await response.json();
   } catch (error) {
@@ -24,15 +25,16 @@ async function fetchFigmaMapping(figmaUrl) {
 
 const SPECIAL_OVERRIDES = {
   'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
+  carousel: ({ doc }) => doc.body.querySelectorAll(':scope > div'),
 };
 
-function getHtml(resp, miloId, variant) {
+function getHtml(resp, miloId, variant, figContent) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(resp, 'text/html');
   const overrideFunction = SPECIAL_OVERRIDES[miloId];
   if (overrideFunction) {
     return overrideFunction({
-      doc, miloId, variant,
+      doc, miloId, variant, figContent,
     });
   }
   return doc.querySelectorAll(`.${miloId}`)[variant];
@@ -83,7 +85,9 @@ async function mapFigmaContent(blockContent, block, figContent) {
   try {
     const { default: mapBlockContent } = await import(`../blocks/${block.id}.js`);
     const sectionWrapper = document.createElement('div');
-    sectionWrapper.append(blockContent);
+    if (!(blockContent instanceof NodeList)) {
+      sectionWrapper.append(blockContent);
+    }
     const res = await mapBlockContent(sectionWrapper, blockContent, figContent);
     if (Array.isArray(res)) {
       return res;
@@ -96,11 +100,11 @@ async function mapFigmaContent(blockContent, block, figContent) {
   }
 }
 
-async function processBlock(block, figmaUrl) {
+async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   if (!block.id || !block.path) return '';
   const [doc, figContent] = await Promise.all([
     fetchContent(block.path),
-    fetchBlockContent(block.figId, block.id, figmaUrl),
+    fetchBlockContent(block.figId, block.id, figmaUrl).finally(() => onDetailResponse()),
   ]);
   let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
@@ -109,20 +113,37 @@ async function processBlock(block, figmaUrl) {
   return blockContent || '';
 }
 
-async function createHTML(blockMapping, figmaUrl) {
+async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
   const htmlParts = await Promise.all(
-    blocks.map((block) => processBlock(block, figmaUrl)),
+    blocks.map((block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse())),
   );
   return htmlParts.filter(Boolean);
 }
 
 async function getFigmaContent(figmaUrl) {
-  const blockMapping = await fetchFigmaMapping(figmaUrl);
+  const loaderReporter = createFigmaLoaderReporter();
+  loaderReporter.startDesignLoading();
+
+  let blockMapping = null;
+  try {
+    blockMapping = await fetchFigmaMapping(figmaUrl);
+  } finally {
+    loaderReporter.completeDesignLoading();
+  }
   if (!blockMapping?.details?.components) {
+    loaderReporter.markNoComponents();
     return { html: [], blockMapping };
   }
-  const html = await createHTML(blockMapping, figmaUrl);
+  const validBlocksCount = blockMapping.details.components
+    .filter((block) => block.id && block.path).length;
+  if (!validBlocksCount) {
+    loaderReporter.markNoBlocks();
+    return { html: [], blockMapping };
+  }
+
+  const tracker = loaderReporter.createBlocksTracker(validBlocksCount);
+  const html = await createHTML(blockMapping, figmaUrl, tracker);
   return { html, blockMapping };
 }
 
@@ -143,5 +164,9 @@ export async function fetchFigmaContent() {
     }
   });
   pageComponents.htmlDom = htmlDom;
-  return { htmlDom: pageComponents.htmlDom, html: pageComponents.html };
+  return {
+    htmlDom: pageComponents.htmlDom,
+    html: pageComponents.html,
+    blockMapping: pageComponents?.blockMapping,
+  };
 }
