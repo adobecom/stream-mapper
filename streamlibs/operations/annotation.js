@@ -113,7 +113,7 @@ export async function persistAnnotationChangesToDA() {
   inlineEditing.syncInlineEditsBeforePersist();
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
   const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
-  const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);
+  const htmlMainEl = await fetchDAContent(window.streamConfig.targetUrl);
   const originalHtml = htmlMainEl?.innerHTML || '';
   const rebuiltHtml = store.applyEasyEditsToHtmlString(originalHtml, easyEdits);
   const daCompatibleHtml = getDACompatibleHtml(rebuiltHtml);
