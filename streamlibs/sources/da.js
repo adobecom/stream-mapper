@@ -1,5 +1,36 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
+function restoreImgToPicture(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  doc.querySelectorAll('p').forEach((p) => {
+    const img = p.querySelector(':scope > img');
+    const hasOnlyImg = img && p.childNodes.length === 1;
+    if (hasOnlyImg) {
+      const picture = document.createElement('picture');
+      const newImg = document.createElement('img');
+      Array.from(img.attributes).forEach((attr) => {
+        newImg.setAttribute(attr.name, attr.value);
+      });
+      picture.appendChild(newImg);
+      p.replaceWith(picture);
+    }
+  });
+  return doc.body.innerHTML;
+}
+
+function restoreColonTextToSpan(html) {
+  // eslint-disable-next-line arrow-body-style
+  return html.replace(/:([a-zA-Z0-9_-]+):/g, (_, iconText) => {
+    return `<span class="icon icon-${iconText}"></span>`;
+  });
+}
+
+export function getMiloCompatibleHtml(html) {
+  const htmlWithRestoredColonText = restoreColonTextToSpan(html);
+  return restoreImgToPicture(htmlWithRestoredColonText);
+}
+
 async function getDAContent(path = false) {
   let url = window.streamConfig.targetUrl;
   if (path) url = path;
@@ -19,7 +50,8 @@ async function getDAContent(path = false) {
     handleError(error, 'getting html from DA page');
     throw error;
   }
-  const html = await response.text();
+  let html = await response.text();
+  html = getMiloCompatibleHtml(html);
   return html;
 }
 
