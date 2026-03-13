@@ -1,10 +1,9 @@
-/* eslint-disable import/prefer-default-export */
-import { miloLoadArea, fixRelativeLinks } from '../utils/utils.js';
-import { fetchDAContent } from '../sources/da.js';
-import { fetchFigmaContent } from '../sources/figma.js';
-import { pushPreviewHtmlToStore, pushTargetHtmlToStore } from '../store/store.js';
-import { targetCompatibleHtml } from '../target/da.js';
-import createEditState from './edit/state.js';
+import { miloLoadArea, fixRelativeLinks } from '../../utils/utils.js';
+import { fetchDAContent } from '../../sources/da.js';
+import { fetchFigmaContent } from '../../sources/figma.js';
+import { pushPreviewHtmlToStore, pushTargetHtmlToStore } from '../../store/store.js';
+import { targetCompatibleHtml } from '../../target/da.js';
+import createEditState from './state.js';
 import {
   attachSectionDeleteControls,
   createDAPanel,
@@ -15,9 +14,9 @@ import {
   hasModified,
   normalizeDAImages,
   startEditorMode,
-} from './edit/dom.js';
-import createEditDragDropController from './edit/drag-drop.js';
-import buildCombinedHtml from './edit/serialize.js';
+} from './dom.js';
+import createEditDragDropController from './drag-drop.js';
+import buildCombinedHtml from './serialize.js';
 
 const editState = createEditState();
 const dragDropController = createEditDragDropController({

@@ -1,7 +1,7 @@
 /* eslint-disable import/prefer-default-export */
 /* eslint-disable no-use-before-define */
 /* eslint-disable no-console */
-import { fetchFigmaContent } from '../sources/figma.js';
+import { fetchFigmaContent } from '../../sources/figma.js';
 
 export async function createStreamOperation() {
   // eslint-disable-next-line prefer-const
