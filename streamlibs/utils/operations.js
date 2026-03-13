@@ -8,3 +8,7 @@ export {
   handleBackToEditor,
 } from '../operations/edit/edit.js';
 export { preflightOperation } from '../operations/preflight/preflight.js';
+export {
+  annotationOperation,
+  persistAnnotationChangesToDA,
+} from '../operations/annotation.js';

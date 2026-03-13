@@ -23,6 +23,8 @@ import {
   applyEditChanges,
   handleBackToEditor,
   preflightOperation,
+  annotationOperation,
+  persistAnnotationChangesToDA,
 } from './utils/operations.js';
 import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
 import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
@@ -74,6 +76,11 @@ export async function initiatePreviewer(forceOperation = null) {
       await preflightOperation();
       hideLoader();
       break;
+    case 'annotation':
+      updateLoader();
+      await annotationOperation();
+      hideLoader();
+      break;
     default:
       break;
   }
@@ -107,6 +114,8 @@ async function requestStreamConfigFromParent() {
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
+      reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
+      startReview: getQueryParam('startReview') || getQueryParam('startreview'),
     };
   }
 
@@ -184,6 +193,8 @@ export default async function initPreviewer() {
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+    reviewId: previewParams.reviewId || previewParams.reviewid || null,
+    startReview: previewParams.startReview || previewParams.startreview || false,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -194,7 +205,11 @@ export async function persist() {
   try {
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    await persistOnTarget();
+    if (window.streamConfig.operation === 'annotation') {
+      await persistAnnotationChangesToDA();
+    } else {
+      await persistOnTarget();
+    }
     hideLoader();
     showDOMElements([document.querySelector('main')]);
   } catch (error) {

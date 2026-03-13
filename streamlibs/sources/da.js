@@ -1,40 +1,8 @@
-/* eslint-disable no-param-reassign */
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
-function restoreImgToPicture(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('p').forEach((p) => {
-    const img = p.querySelector(':scope > img');
-    const hasOnlyImg = img && p.childNodes.length === 1;
-    if (hasOnlyImg) {
-      const picture = document.createElement('picture');
-      const newImg = document.createElement('img');
-      Array.from(img.attributes).forEach((attr) => {
-        newImg.setAttribute(attr.name, attr.value);
-      });
-      picture.appendChild(newImg);
-      p.replaceWith(picture);
-    }
-  });
-  return doc.body.innerHTML;
-}
-
-function restoreColonTextToSpan(html) {
-  // eslint-disable-next-line arrow-body-style
-  return html.replace(/:([a-zA-Z0-9_-]+):/g, (_, iconText) => {
-    return `<span class="icon icon-${iconText}"></span>`;
-  });
-}
-
-export function getMiloCompatibleHtml(html) {
-  html = restoreColonTextToSpan(html);
-  html = restoreImgToPicture(html);
-  return html;
-}
-
-async function getDAContent() {
+async function getDAContent(path = false) {
   let url = window.streamConfig.targetUrl;
+  if (path) url = path;
   if (!url.startsWith('/')) url = `/${url}`;
   if (!url.endsWith('.html')) url += '.html';
   const options = {
@@ -51,14 +19,13 @@ async function getDAContent() {
     handleError(error, 'getting html from DA page');
     throw error;
   }
-  let html = await response.text();
-  html = getMiloCompatibleHtml(html);
+  const html = await response.text();
   return html;
 }
 
 // eslint-disable-next-line import/prefer-default-export
-export async function fetchDAContent() {
-  const doc = await getDAContent();
+export async function fetchDAContent(path = false) {
+  const doc = await getDAContent(path);
   const parser = new DOMParser();
   const html = parser.parseFromString(doc, 'text/html');
   return html.querySelector('main');

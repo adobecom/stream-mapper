@@ -131,7 +131,7 @@ async function fetchImageAsBase64(url, token) {
   });
 }
 
-async function transformImages() {
+export async function transformImages() {
   const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
   if (imgs.length === 0) return;
   const config = await getConfig();
