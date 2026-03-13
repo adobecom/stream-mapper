@@ -63,6 +63,9 @@ async function miloLoadArea() {
 }
 
 async function initializePreview() {
+  document.body.querySelectorAll(':scope > header, :scope > main').forEach((element) => {
+    element.remove();
+  });
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');

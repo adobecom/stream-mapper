@@ -517,7 +517,23 @@ export default function createCommentsPanelController({
     }
   }
 
+  function teardownGlobalListeners() {
+    if (annotationUI.mainEl && annotationState.mainScrollHandler) {
+      annotationUI.mainEl.removeEventListener('scroll', annotationState.mainScrollHandler);
+      annotationState.mainScrollHandler = null;
+    }
+    if (annotationState.documentClickHandler) {
+      document.removeEventListener('click', annotationState.documentClickHandler);
+      annotationState.documentClickHandler = null;
+    }
+    if (annotationState.windowResizeHandler) {
+      window.removeEventListener('resize', annotationState.windowResizeHandler);
+      annotationState.windowResizeHandler = null;
+    }
+  }
+
   function setupAnnotationUI(mainEl) {
+    teardownGlobalListeners();
     annotationUI.mainEl = mainEl;
     ensureFloatingLayer();
     ensureCommentsPanel();
@@ -630,7 +646,7 @@ export default function createCommentsPanelController({
       renderCommentsPanel();
     });
 
-    document.addEventListener('click', (event) => {
+    annotationState.documentClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
@@ -639,10 +655,13 @@ export default function createCommentsPanelController({
       if (target.closest('.annotation-comments-panel')) return;
       if (target.closest('main')) return;
       closePopupAndSelection();
-    });
+    };
+    document.addEventListener('click', annotationState.documentClickHandler);
 
-    mainEl.addEventListener('scroll', syncFloatingUI);
-    window.addEventListener('resize', syncFloatingUI);
+    annotationState.mainScrollHandler = syncFloatingUI;
+    annotationState.windowResizeHandler = syncFloatingUI;
+    mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
+    window.addEventListener('resize', annotationState.windowResizeHandler);
 
     if (annotationUI.inlineToggleEl) {
       annotationUI.inlineToggleEl.addEventListener('change', async (event) => {

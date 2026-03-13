@@ -6,5 +6,8 @@ export default function createEditState() {
     currentDropContainer: null,
     originalFigmaBlocks: [],
     originalDABlocks: [],
+    mainEl: null,
+    figmaPanelEl: null,
+    daPanelEl: null,
   };
 }

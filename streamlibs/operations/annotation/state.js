@@ -8,6 +8,9 @@ export function createAnnotationState() {
     activeMessageId: '',
     activeEditId: '',
     mediumEditorLoadPromise: null,
+    documentClickHandler: null,
+    windowResizeHandler: null,
+    mainScrollHandler: null,
   };
 }
 

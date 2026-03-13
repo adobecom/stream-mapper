@@ -8,9 +8,10 @@ import {
   attachSectionDeleteControls,
   createDAPanel,
   createFigmaPanel,
+  ensureSingleEditorMain,
   exitEditorMode,
   getIdxFromId,
-  handleBackToEditor,
+  handleBackToEditor as showEditorShell,
   hasModified,
   normalizeDAImages,
   startEditorMode,
@@ -23,12 +24,6 @@ const dragDropController = createEditDragDropController({
   editState,
   attachSectionDeleteControls,
 });
-
-function createEditorMain() {
-  const main = document.createElement('main');
-  document.body.appendChild(main);
-  return main;
-}
 
 function cacheOriginalBlocks(figmaResult, daMain) {
   editState.originalFigmaBlocks = figmaResult.html.map((element) => element.cloneNode(true));
@@ -59,7 +54,9 @@ function appendDABlocks(main, daMain) {
   });
 }
 
-export { handleBackToEditor };
+export function handleBackToEditor() {
+  showEditorShell(editState);
+}
 
 export async function applyEditChanges() {
   const html = buildCombinedHtml(editState);
@@ -67,8 +64,8 @@ export async function applyEditChanges() {
   pushPreviewHtmlToStore(previewHtml);
   pushTargetHtmlToStore(targetCompatibleHtml(previewHtml));
 
-  exitEditorMode();
-  document.querySelector('main').innerHTML = html;
+  exitEditorMode(editState);
+  if (editState.mainEl) editState.mainEl.innerHTML = html;
   await miloLoadArea();
 }
 
@@ -79,17 +76,17 @@ export async function editStreamOperation() {
   ]);
 
   cacheOriginalBlocks(figmaResult, daMain);
-  startEditorMode();
+  startEditorMode(editState);
 
-  const main = createEditorMain();
+  const main = ensureSingleEditorMain(editState);
   appendFigmaBlocks(main, figmaResult);
   appendDABlocks(main, daMain);
 
   await miloLoadArea();
 
-  const figmaPanel = createFigmaPanel();
-  const daPanel = createDAPanel();
-  dragDropController.enablePanelDragAndDrop(figmaPanel, daPanel);
-  dragDropController.enableMainReorder(daPanel);
-  attachSectionDeleteControls(daPanel);
+  editState.figmaPanelEl = createFigmaPanel();
+  editState.daPanelEl = createDAPanel();
+  dragDropController.enablePanelDragAndDrop(editState.figmaPanelEl, editState.daPanelEl);
+  dragDropController.enableMainReorder(editState.daPanelEl);
+  attachSectionDeleteControls(editState.daPanelEl);
 }

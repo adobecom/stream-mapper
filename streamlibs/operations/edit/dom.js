@@ -4,6 +4,11 @@ function togglePanelVisibility(panelSelector, isHidden) {
   panel.classList.toggle('hidden', isHidden);
 }
 
+function toggleTrackedPanelVisibility(panel, isHidden) {
+  if (!panel?.isConnected) return;
+  panel.classList.toggle('hidden', isHidden);
+}
+
 export function attachSectionDeleteControls(container) {
   const sections = Array.from(
     container.querySelectorAll(':scope > [data-source="figma"], :scope > [data-source="da"]'),
@@ -30,22 +35,32 @@ export function attachSectionDeleteControls(container) {
   });
 }
 
-export function startEditorMode() {
+export function startEditorMode(editState) {
   document.body.classList.add('editor-mode');
+  if (editState) {
+    toggleTrackedPanelVisibility(editState.daPanelEl, false);
+    toggleTrackedPanelVisibility(editState.figmaPanelEl, false);
+    return;
+  }
   togglePanelVisibility('.da-panel', false);
   togglePanelVisibility('.figma-panel', false);
 }
 
-export function exitEditorMode() {
+export function exitEditorMode(editState) {
   document.body.classList.remove('editor-mode');
+  if (editState) {
+    toggleTrackedPanelVisibility(editState.daPanelEl, true);
+    toggleTrackedPanelVisibility(editState.figmaPanelEl, true);
+    return;
+  }
   togglePanelVisibility('.da-panel', true);
   togglePanelVisibility('.figma-panel', true);
 }
 
-export function handleBackToEditor() {
-  const main = document.querySelector('main');
+export function handleBackToEditor(editState) {
+  const main = editState?.mainEl?.isConnected ? editState.mainEl : document.querySelector('main');
   if (main) main.innerHTML = '';
-  startEditorMode();
+  startEditorMode(editState);
 }
 
 function createPanelLocationHeader(source, location) {
@@ -79,6 +94,8 @@ function createPanelLocationHeader(source, location) {
 }
 
 function createSourcePanel(panelClassName, source, location) {
+  document.querySelectorAll(`.${panelClassName}`).forEach((panel) => panel.remove());
+
   const panel = document.createElement('div');
   panel.classList.add(panelClassName);
   panel.appendChild(createPanelLocationHeader(source, location));
@@ -98,6 +115,24 @@ export function createFigmaPanel() {
 
 export function createDAPanel() {
   return createSourcePanel('da-panel', 'da', window.streamConfig?.targetUrl);
+}
+
+export function ensureSingleEditorMain(editState) {
+  const mains = Array.from(document.body.querySelectorAll(':scope > main'));
+  let main = editState.mainEl?.isConnected ? editState.mainEl : mains[0] || null;
+
+  if (!main) {
+    main = document.createElement('main');
+    document.body.appendChild(main);
+  }
+
+  mains.forEach((existingMain) => {
+    if (existingMain !== main) existingMain.remove();
+  });
+
+  main.innerHTML = '';
+  editState.mainEl = main;
+  return main;
 }
 
 export function normalizeDAImages(root) {
