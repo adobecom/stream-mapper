@@ -1,11 +1,98 @@
 const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
 
 export const DEFAULT_USERNAME = 'stream';
-export const COMMENT_STATUSES = ['Open', 'Complete', 'Resolved', 'Closed'];
+export const COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+
+export function normalizeCommentStatus(status) {
+  const value = `${status || ''}`.trim();
+  if (value === 'Complete') return 'Resolved';
+  if (COMMENT_STATUSES.includes(value)) return value;
+  return COMMENT_STATUSES[0];
+}
 
 export function createAnnotationStore({ annotationState, annotationUI }) {
   function generateId(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function getCommentElementDescriptor(element) {
+    return {
+      tag: element.tagName.toLowerCase(),
+      id: element.id || '',
+      href: element.getAttribute('href') || '',
+      src: element.getAttribute('src') || '',
+      alt: element.getAttribute('alt') || '',
+      title: element.getAttribute('title') || '',
+      ariaLabel: element.getAttribute('aria-label') || '',
+    };
+  }
+
+  function parseCommentElementPath(elementPath) {
+    if (!elementPath) return null;
+    if (typeof elementPath === 'object') {
+      const hasStructuredAnchor = Boolean(
+        elementPath.sectionDaaLh
+        || Number.isInteger(elementPath.sectionIndex)
+        || elementPath.blockDaaLh
+        || elementPath.blockClass
+        || Number.isInteger(elementPath.blockIndex)
+        || elementPath.pathWithinBlock,
+      );
+      if (!hasStructuredAnchor && elementPath.selector) {
+        return {
+          ...elementPath,
+          legacy: true,
+        };
+      }
+      return elementPath;
+    }
+    try {
+      const parsed = JSON.parse(elementPath);
+      if (parsed && typeof parsed === 'object') {
+        const hasStructuredAnchor = Boolean(
+          parsed.sectionDaaLh
+          || Number.isInteger(parsed.sectionIndex)
+          || parsed.blockDaaLh
+          || parsed.blockClass
+          || Number.isInteger(parsed.blockIndex)
+          || parsed.pathWithinBlock,
+        );
+        if (!hasStructuredAnchor && parsed.selector) {
+          return {
+            ...parsed,
+            legacy: true,
+          };
+        }
+        return parsed;
+      }
+    } catch (error) {
+      // Ignore legacy plain-selector paths.
+    }
+    return {
+      legacy: true,
+      selector: elementPath,
+    };
+  }
+
+  function getCommentElementPathKey(elementPath) {
+    const descriptor = parseCommentElementPath(elementPath);
+    if (!descriptor) return '';
+    if (descriptor.legacy) return `legacy:${descriptor.selector || ''}`;
+    return [
+      descriptor.sectionDaaLh || '',
+      descriptor.sectionIndex ?? '',
+      descriptor.blockDaaLh || '',
+      descriptor.blockClass || '',
+      descriptor.blockIndex ?? '',
+      descriptor.pathWithinBlock || '',
+      descriptor.tag || '',
+      descriptor.id || '',
+      descriptor.href || '',
+      descriptor.src || '',
+      descriptor.alt || '',
+      descriptor.title || '',
+      descriptor.ariaLabel || '',
+    ].join('|');
   }
 
   function getReviewId() {
@@ -42,48 +129,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         }))
       : [];
 
-    if (Array.isArray(parsed?.threads)) {
-      return {
-        threads: parsed.threads,
-        easyEdits,
-      };
-    }
-
-    if (Array.isArray(parsed?.comments)) {
-      return {
-        threads: parsed.comments.map((comment) => {
-          const rootMessage = {
-            id: generateId('message'),
-            username: comment.username || DEFAULT_USERNAME,
-            text: comment.comment || '',
-            kind: 'comment',
-          };
-          const replyMessages = Array.isArray(comment.replies)
-            ? comment.replies.map((reply) => ({
-              id: generateId('message'),
-              username: reply.username || DEFAULT_USERNAME,
-              text: reply.text || '',
-              kind: 'reply',
-            }))
-            : [];
-
-          return {
-            id: comment.id || generateId('thread'),
-            threadType: 'comment',
-            elementPath: comment.elementPath || '',
-            elementRef: comment.elementRef || '',
-            status: comment.status || COMMENT_STATUSES[0],
-            username: comment.username || DEFAULT_USERNAME,
-            messages: [rootMessage, ...replyMessages],
-          };
-        }),
-        easyEdits,
-      };
-    }
-
     return {
       threads: [],
-      easyEdits: [],
+      easyEdits,
     };
   }
 
@@ -108,30 +156,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     }
   }
 
-  function toLegacyCommentShape() {
-    return annotationState.store.threads.map((thread) => {
-      const [first, ...rest] = thread.messages || [];
-      return {
-        id: thread.id,
-        elementPath: thread.elementPath,
-        elementRef: thread.elementRef,
-        comment: first?.text || '',
-        status: thread.status,
-        username: thread.username || DEFAULT_USERNAME,
-        replies: rest.map((message) => ({
-          username: message.username,
-          text: message.text,
-        })),
-      };
-    });
-  }
-
   function saveAnnotationStore() {
     const payload = {
-      threads: annotationState.store.threads,
       easyEdits: annotationState.store.easyEdits,
       'easy-edits': annotationState.store.easyEdits,
-      comments: toLegacyCommentShape(),
     };
     const reviewId = getReviewId();
     let existingMap = {};
@@ -239,6 +267,97 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return `main > ${segments.join(' > ')}`;
   }
 
+  function buildRelativeElementPath(element, root) {
+    if (!element || !root) return '';
+    if (element === root) return ':scope';
+
+    const segments = [];
+    let current = element;
+
+    while (current && current !== root) {
+      if (!current.parentElement) break;
+      const tag = current.tagName.toLowerCase();
+      const siblings = [];
+      const children = Array.from(current.parentElement.children);
+      for (let index = 0; index < children.length; index += 1) {
+        const child = children[index];
+        if (child.tagName === current.tagName) siblings.push(child);
+      }
+      const siblingIndex = siblings.indexOf(current);
+      segments.unshift(`${tag}:nth-of-type(${siblingIndex + 1})`);
+      current = current.parentElement;
+    }
+
+    return segments.join(' > ') || ':scope';
+  }
+
+  function getDirectSectionChildren(root) {
+    if (!(root instanceof HTMLElement)) return [];
+    return Array.from(root.children).filter((child) => (
+      child instanceof HTMLElement && child.classList.contains('section')
+    ));
+  }
+
+  function getCommentAnchorContext(element, root = annotationUI.mainEl) {
+    if (!(element instanceof HTMLElement) || !(root instanceof HTMLElement)) return null;
+
+    const section = element.closest('.section');
+    if (!(section instanceof HTMLElement) || !root.contains(section)) return null;
+
+    let block = element;
+    while (
+      block
+      && block.parentElement
+      && block.parentElement !== section
+    ) {
+      block = block.parentElement;
+    }
+    if (!(block instanceof HTMLElement)) return null;
+
+    const sections = getDirectSectionChildren(root);
+    const sectionIndex = sections.indexOf(section);
+    const blockChildren = Array.from(section.children)
+      .filter((child) => child instanceof HTMLElement);
+    const blockIndex = blockChildren.indexOf(block);
+    const blockClass = Array.from(block.classList || []).find(Boolean) || '';
+
+    return {
+      section,
+      block,
+      sectionDaaLh: section.getAttribute('daa-lh') || '',
+      sectionIndex: sectionIndex > -1 ? sectionIndex : null,
+      blockDaaLh: block.getAttribute('daa-lh') || '',
+      blockClass,
+      blockIndex: blockIndex > -1 ? blockIndex : null,
+    };
+  }
+
+  function buildCommentElementPath(element, root = annotationUI.mainEl) {
+    const selector = buildElementPath(element, root);
+    const context = getCommentAnchorContext(element, root);
+    if (!context) {
+      return JSON.stringify({
+        selector,
+        ...getCommentElementDescriptor(element),
+      });
+    }
+
+    return JSON.stringify({
+      selector,
+      sectionDaaLh: context.sectionDaaLh,
+      sectionIndex: context.sectionIndex,
+      blockDaaLh: context.blockDaaLh,
+      blockClass: context.blockClass,
+      blockIndex: context.blockIndex,
+      pathWithinBlock: buildRelativeElementPath(element, context.block),
+      ...getCommentElementDescriptor(element),
+    });
+  }
+
+  function buildThreadElementPath(element, root = annotationUI.mainEl) {
+    return buildCommentElementPath(element, root);
+  }
+
   function ensureElementRef(element) {
     if (!element.dataset.annotationRef) {
       element.dataset.annotationRef = generateId('el');
@@ -251,15 +370,149 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return annotationUI.mainEl.querySelector(`[data-annotation-ref="${elementRef}"]`);
   }
 
+  function getMainRelativeSelector(selector) {
+    const value = `${selector || ''}`.trim();
+    if (!value) return '';
+    if (value === 'main') return '';
+    if (value.startsWith('main > ')) return value.slice('main > '.length);
+    return value;
+  }
+
+  function getRelativeSelector(selector) {
+    const value = `${selector || ''}`.trim();
+    if (!value || value === ':scope') return '';
+    if (value.startsWith(':scope > ')) return value.slice(':scope > '.length);
+    if (value.startsWith(':scope')) return value.slice(':scope'.length).trim();
+    return value;
+  }
+
+  function getCommentBlockFromDescriptor(descriptor) {
+    if (!annotationUI.mainEl || !descriptor || descriptor.legacy) return null;
+
+    let section = null;
+    if (descriptor.sectionDaaLh) {
+      section = getDirectSectionChildren(annotationUI.mainEl).find((child) => (
+        child.getAttribute('daa-lh') === descriptor.sectionDaaLh
+      )) || null;
+    }
+    if (!(section instanceof HTMLElement) && Number.isInteger(descriptor.sectionIndex)) {
+      const sections = getDirectSectionChildren(annotationUI.mainEl);
+      section = sections[descriptor.sectionIndex] || null;
+    }
+    if (!(section instanceof HTMLElement)) return null;
+
+    let block = null;
+    if (descriptor.blockDaaLh) {
+      block = Array.from(section.children).find((child) => (
+        child instanceof HTMLElement && child.getAttribute('daa-lh') === descriptor.blockDaaLh
+      )) || null;
+    }
+    if (!(block instanceof HTMLElement) && Number.isInteger(descriptor.blockIndex)) {
+      const blockChildren = Array.from(section.children)
+        .filter((child) => child instanceof HTMLElement);
+      const candidate = blockChildren[descriptor.blockIndex] || null;
+      if (candidate instanceof HTMLElement) {
+        block = candidate;
+      }
+    }
+    if (!(block instanceof HTMLElement) && descriptor.blockClass) {
+      block = Array.from(section.children).find((child) => (
+        child instanceof HTMLElement && child.classList.contains(descriptor.blockClass)
+      )) || null;
+    }
+    return block instanceof HTMLElement ? block : null;
+  }
+
+  function getElementByCommentPath(elementPath) {
+    if (!annotationUI.mainEl || !elementPath) return null;
+    const descriptor = parseCommentElementPath(elementPath);
+    if (!descriptor) return null;
+
+    if (!descriptor.legacy) {
+      const block = getCommentBlockFromDescriptor(descriptor);
+      if (!block) return null;
+
+      const selector = getRelativeSelector(descriptor.pathWithinBlock);
+      const candidates = !selector
+        ? [block]
+        : Array.from(block.querySelectorAll(selector));
+
+      const exactMatch = candidates.find((candidate) => {
+        if (!(candidate instanceof HTMLElement)) return false;
+        const candidateDescriptor = getCommentElementDescriptor(candidate);
+        if (descriptor.tag && candidateDescriptor.tag !== descriptor.tag) return false;
+        if (descriptor.id && candidateDescriptor.id !== descriptor.id) return false;
+        if (descriptor.href && candidateDescriptor.href !== descriptor.href) return false;
+        if (descriptor.src && candidateDescriptor.src !== descriptor.src) return false;
+        if (descriptor.alt && candidateDescriptor.alt !== descriptor.alt) return false;
+        if (descriptor.title && candidateDescriptor.title !== descriptor.title) return false;
+        if (
+          descriptor.ariaLabel
+          && candidateDescriptor.ariaLabel !== descriptor.ariaLabel
+        ) return false;
+        return true;
+      });
+
+      if (exactMatch instanceof HTMLElement) return exactMatch;
+      if (candidates.length === 1 && descriptor.tag) {
+        return candidates[0];
+      }
+      if (descriptor.selector) {
+        return getElementByCommentPath({
+          ...descriptor,
+          legacy: true,
+        });
+      }
+      return null;
+    }
+
+    if (!descriptor.selector) return null;
+
+    const candidates = Array.from(
+      annotationUI.mainEl.querySelectorAll(getMainRelativeSelector(descriptor.selector)),
+    );
+    const exactMatch = candidates.find((candidate) => {
+      if (!(candidate instanceof HTMLElement)) return false;
+      const candidateDescriptor = getCommentElementDescriptor(candidate);
+      if (descriptor.tag && candidateDescriptor.tag !== descriptor.tag) return false;
+      if (descriptor.id && candidateDescriptor.id !== descriptor.id) return false;
+      if (descriptor.href && candidateDescriptor.href !== descriptor.href) return false;
+      if (descriptor.src && candidateDescriptor.src !== descriptor.src) return false;
+      if (descriptor.alt && candidateDescriptor.alt !== descriptor.alt) return false;
+      if (descriptor.title && candidateDescriptor.title !== descriptor.title) return false;
+      if (
+        descriptor.ariaLabel
+        && candidateDescriptor.ariaLabel !== descriptor.ariaLabel
+      ) return false;
+      return true;
+    });
+
+    if (exactMatch instanceof HTMLElement) return exactMatch;
+    if (descriptor.legacy && candidates[0] instanceof HTMLElement) return candidates[0];
+    if (candidates.length === 1 && descriptor.tag) {
+      return candidates[0];
+    }
+    return null;
+  }
+
+  function getElementByThreadPath(elementPath) {
+    return getElementByCommentPath(elementPath);
+  }
+
+  function getElementForThread(thread) {
+    if (!thread) return null;
+    if (thread.elementPath) {
+      const byPath = getElementByThreadPath(thread.elementPath);
+      if (byPath) return byPath;
+    }
+    return getElementByRef(thread.elementRef);
+  }
+
   function rebindThreadsToCurrentDom() {
     if (!annotationUI.mainEl) return;
 
     annotationState.store.threads.forEach((thread) => {
-      const existingByRef = getElementByRef(thread.elementRef);
-      if (existingByRef) return;
-
-      if (!thread.elementPath) return;
-      const target = annotationUI.mainEl.querySelector(thread.elementPath);
+      const target = getElementForThread(thread);
       if (!(target instanceof HTMLElement)) return;
       thread.elementRef = ensureElementRef(target);
     });
@@ -270,8 +523,78 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       && (!threadType || getThreadType(thread) === threadType));
   }
 
+  function getThreadByElementPath(elementPath, threadType = null) {
+    return annotationState.store.threads.find((thread) => (
+      (!threadType || getThreadType(thread) === threadType)
+        && getCommentElementPathKey(thread.elementPath) === getCommentElementPathKey(elementPath)
+    ));
+  }
+
+  function getCommentThreadByElementPath(elementPath) {
+    return getThreadByElementPath(elementPath, 'comment');
+  }
+
+  function getEditThreadByElementPath(elementPath) {
+    return getThreadByElementPath(elementPath, 'edit');
+  }
+
+  function getCommentThreadByElement(element) {
+    if (!(element instanceof HTMLElement)) return null;
+    const exactPath = buildThreadElementPath(element, annotationUI.mainEl);
+    const exactThread = getCommentThreadByElementPath(exactPath);
+    if (exactThread) return exactThread;
+
+    return annotationState.store.threads.find((thread) => (
+      getThreadType(thread) === 'comment' && getElementByThreadPath(thread.elementPath) === element
+    ));
+  }
+
+  function getEditThreadByElement(element) {
+    if (!(element instanceof HTMLElement)) return null;
+    const exactPath = buildThreadElementPath(element, annotationUI.mainEl);
+    const exactThread = getEditThreadByElementPath(exactPath);
+    if (exactThread) return exactThread;
+
+    return annotationState.store.threads.find((thread) => (
+      getThreadType(thread) === 'edit' && getElementByThreadPath(thread.elementPath) === element
+    ));
+  }
+
   function getThreadById(threadId) {
     return annotationState.store.threads.find((thread) => thread.id === threadId);
+  }
+
+  function replaceThreadsByType(threadType, nextThreads = []) {
+    const preservedThreads = annotationState.store.threads.filter(
+      (thread) => getThreadType(thread) !== threadType,
+    );
+    annotationState.store.threads = [
+      ...preservedThreads,
+      ...nextThreads.map((thread) => ({
+        ...thread,
+        threadType: thread.threadType || threadType,
+        status: normalizeCommentStatus(thread.status),
+        messages: Array.isArray(thread.messages) ? thread.messages : [],
+      })),
+    ];
+  }
+
+  function upsertThread(nextThread) {
+    if (!nextThread?.id) return;
+    const normalizedThread = {
+      ...nextThread,
+      threadType: nextThread.threadType || getThreadType(nextThread),
+      status: normalizeCommentStatus(nextThread.status),
+      messages: Array.isArray(nextThread.messages) ? nextThread.messages : [],
+    };
+    const existingIndex = annotationState.store.threads.findIndex(
+      (thread) => thread.id === normalizedThread.id,
+    );
+    if (existingIndex > -1) {
+      annotationState.store.threads[existingIndex] = normalizedThread;
+      return;
+    }
+    annotationState.store.threads.push(normalizedThread);
   }
 
   function clearSelectedElement() {
@@ -350,9 +673,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function getEditPanelMessage(edit) {
     if (edit.editType === 'image-alt') {
-      return `${DEFAULT_USERNAME} changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
+      return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
     }
-    return `${DEFAULT_USERNAME} changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
+    return `changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
   }
 
   function pushThreadMessage(thread, text, kind = 'reply') {
@@ -366,7 +689,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function recordEditMessage(elementRef, elementPath, text) {
-    let thread = getThreadByElementRef(elementRef, 'edit');
+    let thread = getEditThreadByElementPath(elementPath);
+    if (!thread && elementRef) {
+      thread = getThreadByElementRef(elementRef, 'edit');
+    }
     if (!thread) {
       thread = {
         id: generateId('thread'),
@@ -444,24 +770,37 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     applyEasyEditsToDom,
     applyEasyEditsToHtmlString,
     buildElementPath,
+    buildCommentElementPath,
+    buildThreadElementPath,
     clearSelectedElement,
     ensureElementRef,
     generateId,
     getChangedSegments,
+    getCommentThreadByElement,
+    getCommentThreadByElementPath,
+    getEditThreadByElement,
+    getEditThreadByElementPath,
     getEditPanelMessage,
+    getElementByCommentPath,
+    getElementByThreadPath,
     getEasyEditByElement,
     getElementByRef,
+    getElementForThread,
     getStoredAnnotationPayload,
+    getThreadByElementPath,
     getThreadByElementRef,
     getThreadById,
     getThreadType,
     loadAnnotationStore,
+    normalizeCommentStatus,
     pushThreadMessage,
     recordEditMessage,
     rebindEasyEditsToCurrentDom,
     rebindThreadsToCurrentDom,
+    replaceThreadsByType,
     removeEasyEditHighlights,
     saveAnnotationStore,
+    upsertThread,
     upsertEasyEdit,
   };
 }

@@ -1,10 +1,15 @@
 import { COMMENT_STATUSES, DEFAULT_USERNAME } from './store.js';
+import createAnnotationServiceClient from './service.js';
+import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
+
+const COMMENT_THREAD_POLL_INTERVAL_MS = 60000;
 
 export default function createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
 }) {
+  const annotationService = createAnnotationServiceClient();
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
 
@@ -17,8 +22,8 @@ export default function createCommentsPanelController({
     store.clearSelectedElement();
     annotationState.selectedElement = element;
     annotationState.selectedElement.classList.add('annotation-selected-element');
-    annotationState.selectedElementRef = store.ensureElementRef(annotationState.selectedElement);
-    annotationState.selectedElementPath = store.buildElementPath(
+    annotationState.selectedElementRef = '';
+    annotationState.selectedElementPath = store.buildCommentElementPath(
       annotationState.selectedElement,
       annotationUI.mainEl,
     );
@@ -92,6 +97,10 @@ export default function createCommentsPanelController({
     });
 
     return groups;
+  }
+
+  function getRootComment(thread) {
+    return buildCommentGroups(thread)[0]?.comment || thread?.messages?.[0] || null;
   }
 
   function renderCommentsPanel() {
@@ -254,6 +263,45 @@ export default function createCommentsPanelController({
       .forEach((marker) => marker.remove());
   }
 
+  function clearThreadTargetCache() {
+    if (!(annotationState.threadTargetCache instanceof Map)) {
+      annotationState.threadTargetCache = new Map();
+      return;
+    }
+    annotationState.threadTargetCache.clear();
+  }
+
+  function resolveThreadTargets() {
+    clearThreadTargetCache();
+    annotationState.store.threads.forEach((thread) => {
+      if (!thread?.id) return;
+      annotationState.threadTargetCache.set(thread.id, store.getElementForThread(thread));
+    });
+  }
+
+  function getCachedThreadTarget(thread) {
+    if (!thread?.id) return null;
+    if (!(annotationState.threadTargetCache instanceof Map)) {
+      annotationState.threadTargetCache = new Map();
+    }
+
+    const cachedTarget = annotationState.threadTargetCache.get(thread.id);
+    if (
+      cachedTarget instanceof HTMLElement
+      && annotationUI.mainEl?.contains(cachedTarget)
+    ) {
+      return cachedTarget;
+    }
+
+    if (annotationState.threadTargetCache.has(thread.id) && cachedTarget === null) {
+      return null;
+    }
+
+    const resolvedTarget = store.getElementForThread(thread);
+    annotationState.threadTargetCache.set(thread.id, resolvedTarget);
+    return resolvedTarget;
+  }
+
   function scrollCommentsPanelToBottom() {
     const scrollContainer = getCommentsScrollContainer();
     if (!scrollContainer) return;
@@ -265,10 +313,10 @@ export default function createCommentsPanelController({
     });
   }
 
-  function renderThreadMarkers() {
+  function renderThreadMarkers({ resolveTargets = false } = {}) {
     if (!annotationUI.layerEl || !annotationUI.mainEl) return;
+    if (resolveTargets) resolveThreadTargets();
     const occupiedMarkerSlots = new Set();
-    const markerThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
     const MARKER_STEP = 28;
     const MIN_MARKER_LEFT = 8;
 
@@ -277,6 +325,9 @@ export default function createCommentsPanelController({
       el.removeAttribute('data-annotation-count');
     });
     clearMarkers();
+    if (annotationUI.annotationMode === 'assets') return;
+
+    const markerThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
 
     const resolveMarkerPosition = (baseTop, baseLeft) => {
       const row = Math.max(0, Math.round(baseTop));
@@ -296,7 +347,7 @@ export default function createCommentsPanelController({
     annotationState.store.threads
       .filter((thread) => store.getThreadType(thread) === markerThreadType)
       .forEach((thread) => {
-        const targetEl = store.getElementByRef(thread.elementRef);
+        const targetEl = getCachedThreadTarget(thread);
         if (!targetEl) return;
 
         if (!annotationUI.inlineMode) {
@@ -343,19 +394,36 @@ export default function createCommentsPanelController({
       });
   }
 
-  function submitPanelReply(threadId, commentId, rawValue) {
+  async function submitPanelReply(threadId, commentId, rawValue) {
     const value = (rawValue || '').trim();
     if (!value) return;
     const thread = store.getThreadById(threadId);
     if (!thread) return;
+    let activeThread = thread;
+    let didPersistToService = false;
 
-    store.pushThreadMessage(thread, value, 'reply');
-    const latest = thread.messages[thread.messages.length - 1];
-    if (latest) latest.replyToCommentId = commentId || '';
-    annotationState.activeThreadId = thread.id;
-    annotationState.activeMessageId = commentId || '';
+    try {
+      const remoteThread = await annotationService.createReply(threadId, value);
+      if (remoteThread) {
+        store.upsertThread(remoteThread);
+        activeThread = store.getThreadById(remoteThread.id) || thread;
+        didPersistToService = true;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not save reply to service', error);
+    }
+
+    if (!didPersistToService) {
+      showGlobalSnackbar("Couldn't send reply. Please try again.");
+      return;
+    }
+
+    hideGlobalSnackbar();
+    annotationState.activeThreadId = activeThread.id;
+    annotationState.activeMessageId = commentId || getRootComment(activeThread)?.id || '';
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     scrollCommentsPanelToBottom();
   }
@@ -371,11 +439,11 @@ export default function createCommentsPanelController({
     removePopup();
   }
 
-  function submitPopupMessage() {
+  async function submitPopupMessage() {
     if (
       !annotationUI.popupEl
       || !annotationState.selectedElement
-      || !annotationState.selectedElementRef
+      || !annotationState.selectedElementPath
     ) return;
     const input = annotationUI.popupEl.querySelector('.annotation-reply-input');
     if (!(input instanceof HTMLTextAreaElement)) return;
@@ -383,25 +451,49 @@ export default function createCommentsPanelController({
     const value = input.value.trim();
     if (!value) return;
 
-    let thread = store.getThreadByElementRef(annotationState.selectedElementRef, 'comment');
-    if (!thread) {
-      thread = {
-        id: store.generateId('thread'),
-        elementRef: annotationState.selectedElementRef,
-        elementPath: annotationState.selectedElementPath,
-        status: COMMENT_STATUSES[0],
-        username: DEFAULT_USERNAME,
-        messages: [],
-      };
-      annotationState.store.threads.push(thread);
+    let thread = store.getCommentThreadByElement(annotationState.selectedElement);
+    const isReply = Boolean(thread);
+    let didPersistToService = false;
+    try {
+      if (!thread) {
+        const remoteThread = await annotationService.createThread({
+          elementPath: annotationState.selectedElementPath,
+          body: value,
+          quotedText: annotationState.selectedElement.textContent?.trim() || null,
+        });
+        if (remoteThread) {
+          store.upsertThread(remoteThread);
+          thread = store.getThreadById(remoteThread.id);
+          didPersistToService = true;
+        }
+      } else {
+        const remoteThread = await annotationService.createReply(thread.id, value);
+        if (remoteThread) {
+          store.upsertThread(remoteThread);
+          thread = store.getThreadById(remoteThread.id);
+          didPersistToService = true;
+        }
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not save comment thread to service', error);
     }
 
-    store.pushThreadMessage(thread, value, 'comment');
+    if (!didPersistToService || !thread) {
+      showGlobalSnackbar(
+        isReply
+          ? "Couldn't send reply. Please try again."
+          : "Couldn't post comment. Please try again.",
+      );
+      return;
+    }
+
+    hideGlobalSnackbar();
     const latest = thread.messages[thread.messages.length - 1];
-    annotationState.activeMessageId = latest?.id || '';
+    annotationState.activeMessageId = getRootComment(thread)?.id || latest?.id || '';
     annotationState.activeThreadId = thread.id;
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     scrollCommentsPanelToBottom();
     closePopupAndSelection();
@@ -450,7 +542,7 @@ export default function createCommentsPanelController({
   function openPopupForElement(element, shouldScroll = false) {
     if (!annotationUI.layerEl) return;
     setSelectedElement(element);
-    const thread = store.getThreadByElementRef(annotationState.selectedElementRef, 'comment');
+    const thread = store.getCommentThreadByElement(annotationState.selectedElement);
     annotationState.activeThreadId = thread?.id || '';
     annotationState.activeMessageId = '';
     renderCommentsPanel();
@@ -468,7 +560,7 @@ export default function createCommentsPanelController({
 
     const title = document.createElement('h3');
     title.className = 'annotation-popup-title';
-    title.textContent = 'Comment';
+    title.textContent = thread ? 'Reply' : 'Comment';
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
@@ -488,8 +580,8 @@ export default function createCommentsPanelController({
     const composer = document.createElement('div');
     composer.className = 'annotation-reply-composer';
     composer.innerHTML = `
-      <textarea class="annotation-reply-input" placeholder="Write a comment..."></textarea>
-      <button type="button" class="annotation-reply-btn" aria-label="Send comment">
+      <textarea class="annotation-reply-input" placeholder="${thread ? 'Write a reply...' : 'Write a comment...'}"></textarea>
+      <button type="button" class="annotation-reply-btn" aria-label="${thread ? 'Send reply' : 'Send comment'}">
         <span aria-hidden="true">➤</span>
       </button>
     `;
@@ -517,10 +609,87 @@ export default function createCommentsPanelController({
     }
   }
 
+  function scheduleFloatingUISync() {
+    if (annotationState.floatingUiFrameId) return;
+    annotationState.floatingUiFrameId = window.requestAnimationFrame(() => {
+      annotationState.floatingUiFrameId = null;
+      syncFloatingUI();
+    });
+  }
+
+  async function refreshThreadsFromService() {
+    try {
+      const remoteThreads = await annotationService.listThreads();
+      if (!Array.isArray(remoteThreads)) return;
+      store.replaceThreadsByType(
+        'comment',
+        remoteThreads.filter((thread) => store.getThreadType(thread) === 'comment'),
+      );
+      store.replaceThreadsByType(
+        'edit',
+        remoteThreads.filter((thread) => store.getThreadType(thread) === 'edit'),
+      );
+      store.rebindThreadsToCurrentDom();
+      store.saveAnnotationStore();
+      renderThreadMarkers({ resolveTargets: true });
+      renderCommentsPanel();
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not load annotation threads from service', error);
+    }
+  }
+
   function teardownGlobalListeners() {
+    hideGlobalSnackbar();
+    if (annotationState.commentThreadPollId) {
+      window.clearInterval(annotationState.commentThreadPollId);
+      annotationState.commentThreadPollId = null;
+    }
+    if (annotationState.floatingUiFrameId) {
+      window.cancelAnimationFrame(annotationState.floatingUiFrameId);
+      annotationState.floatingUiFrameId = null;
+    }
     if (annotationUI.mainEl && annotationState.mainScrollHandler) {
       annotationUI.mainEl.removeEventListener('scroll', annotationState.mainScrollHandler);
       annotationState.mainScrollHandler = null;
+    }
+    if (annotationUI.mainEl && annotationState.mainClickHandler) {
+      annotationUI.mainEl.removeEventListener('click', annotationState.mainClickHandler, true);
+      annotationState.mainClickHandler = null;
+    }
+    if (annotationUI.layerEl && annotationState.layerClickHandler) {
+      annotationUI.layerEl.removeEventListener('click', annotationState.layerClickHandler);
+      annotationState.layerClickHandler = null;
+    }
+    if (annotationUI.panelEl && annotationState.panelClickHandler) {
+      annotationUI.panelEl.removeEventListener('click', annotationState.panelClickHandler);
+      annotationState.panelClickHandler = null;
+    }
+    if (annotationUI.panelEl && annotationState.panelKeydownHandler) {
+      annotationUI.panelEl.removeEventListener('keydown', annotationState.panelKeydownHandler);
+      annotationState.panelKeydownHandler = null;
+    }
+    if (annotationUI.panelEl && annotationState.panelChangeHandler) {
+      annotationUI.panelEl.removeEventListener('change', annotationState.panelChangeHandler);
+      annotationState.panelChangeHandler = null;
+    }
+    if (annotationUI.inlineToggleEl && annotationState.inlineToggleChangeHandler) {
+      annotationUI.inlineToggleEl.removeEventListener('change', annotationState.inlineToggleChangeHandler);
+      annotationState.inlineToggleChangeHandler = null;
+    }
+    if (annotationUI.inlineCommentsToggleEl && annotationState.inlineCommentsToggleChangeHandler) {
+      annotationUI.inlineCommentsToggleEl.removeEventListener(
+        'change',
+        annotationState.inlineCommentsToggleChangeHandler,
+      );
+      annotationState.inlineCommentsToggleChangeHandler = null;
+    }
+    if (annotationUI.inlineAssetsToggleEl && annotationState.inlineAssetsToggleChangeHandler) {
+      annotationUI.inlineAssetsToggleEl.removeEventListener(
+        'change',
+        annotationState.inlineAssetsToggleChangeHandler,
+      );
+      annotationState.inlineAssetsToggleChangeHandler = null;
     }
     if (annotationState.documentClickHandler) {
       document.removeEventListener('click', annotationState.documentClickHandler);
@@ -532,7 +701,7 @@ export default function createCommentsPanelController({
     }
   }
 
-  function setupAnnotationUI(mainEl) {
+  async function setupAnnotationUI(mainEl) {
     teardownGlobalListeners();
     annotationUI.mainEl = mainEl;
     ensureFloatingLayer();
@@ -540,20 +709,26 @@ export default function createCommentsPanelController({
     store.loadAnnotationStore();
     store.rebindThreadsToCurrentDom();
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
+    await refreshThreadsFromService();
+    annotationState.commentThreadPollId = window.setInterval(() => {
+      refreshThreadsFromService();
+    }, COMMENT_THREAD_POLL_INTERVAL_MS);
 
-    mainEl.addEventListener('click', (event) => {
+    annotationState.mainClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
+      if (annotationUI.annotationMode === 'assets') return;
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
       if (target === mainEl) return;
       if (target.closest('a')) event.preventDefault();
       event.stopPropagation();
       openPopupForElement(target);
-    }, true);
+    };
+    mainEl.addEventListener('click', annotationState.mainClickHandler, true);
 
-    annotationUI.layerEl.addEventListener('click', (event) => {
+    annotationState.layerClickHandler = (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
       const editMarker = target.closest('.annotation-edit-marker');
@@ -572,9 +747,10 @@ export default function createCommentsPanelController({
         marker.dataset.messageId,
         Number.parseInt(marker.dataset.commentIndex || '0', 10),
       );
-    });
+    };
+    annotationUI.layerEl.addEventListener('click', annotationState.layerClickHandler);
 
-    annotationUI.panelEl.addEventListener('click', (event) => {
+    annotationState.panelClickHandler = (event) => {
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('.annotation-inline-edit-switcher')) return;
@@ -584,7 +760,7 @@ export default function createCommentsPanelController({
         if (!(card instanceof HTMLElement)) return;
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
-        const targetEl = store.getElementByRef(thread.elementRef);
+        const targetEl = store.getElementForThread(thread);
         if (targetEl) targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
         annotationState.activeThreadId = thread.id;
         annotationState.activeMessageId = card.dataset.messageId || '';
@@ -613,12 +789,13 @@ export default function createCommentsPanelController({
       if (!thread) return;
       annotationState.activeEditId = '';
       annotationState.activeMessageId = card.dataset.messageId || '';
-      const targetEl = store.getElementByRef(thread.elementRef);
+      const targetEl = store.getElementForThread(thread);
       if (!targetEl) return;
       openPopupForElement(targetEl, true);
-    });
+    };
+    annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);
 
-    annotationUI.panelEl.addEventListener('keydown', (event) => {
+    annotationState.panelKeydownHandler = (event) => {
       if (annotationUI.inlineMode) return;
       const { target } = event;
       if (!(target instanceof HTMLInputElement)) return;
@@ -626,9 +803,10 @@ export default function createCommentsPanelController({
       if (event.key !== 'Enter') return;
       event.preventDefault();
       submitPanelReply(target.dataset.threadId, target.dataset.commentId, target.value);
-    });
+    };
+    annotationUI.panelEl.addEventListener('keydown', annotationState.panelKeydownHandler);
 
-    annotationUI.panelEl.addEventListener('change', (event) => {
+    annotationState.panelChangeHandler = (event) => {
       const { target } = event;
       if (target instanceof HTMLInputElement && target.classList.contains('annotation-inline-mode-radio')) return;
       if (annotationUI.inlineMode) return;
@@ -644,7 +822,20 @@ export default function createCommentsPanelController({
       store.saveAnnotationStore();
       renderThreadMarkers();
       renderCommentsPanel();
-    });
+      annotationService.updateThreadStatus(threadId, target.value)
+        .then((remoteThread) => {
+          if (!remoteThread) return;
+          store.upsertThread(remoteThread);
+          store.saveAnnotationStore();
+          renderThreadMarkers({ resolveTargets: true });
+          renderCommentsPanel();
+        })
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.warn('Could not update thread status in service', error);
+        });
+    };
+    annotationUI.panelEl.addEventListener('change', annotationState.panelChangeHandler);
 
     annotationState.documentClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
@@ -658,13 +849,13 @@ export default function createCommentsPanelController({
     };
     document.addEventListener('click', annotationState.documentClickHandler);
 
-    annotationState.mainScrollHandler = syncFloatingUI;
-    annotationState.windowResizeHandler = syncFloatingUI;
+    annotationState.mainScrollHandler = scheduleFloatingUISync;
+    annotationState.windowResizeHandler = scheduleFloatingUISync;
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
     window.addEventListener('resize', annotationState.windowResizeHandler);
 
     if (annotationUI.inlineToggleEl) {
-      annotationUI.inlineToggleEl.addEventListener('change', async (event) => {
+      annotationState.inlineToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
         target.disabled = true;
@@ -682,33 +873,42 @@ export default function createCommentsPanelController({
           target.disabled = false;
         }
         renderCommentsPanel();
-      });
+      };
+      annotationUI.inlineToggleEl.addEventListener('change', annotationState.inlineToggleChangeHandler);
     }
 
     if (annotationUI.inlineCommentsToggleEl) {
-      annotationUI.inlineCommentsToggleEl.addEventListener('change', (event) => {
+      annotationState.inlineCommentsToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
         annotationUI.annotationMode = 'comments';
-        disableInlineEditMode();
+        await disableInlineEditMode();
         if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
         if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
         renderCommentsPanel();
-      });
+      };
+      annotationUI.inlineCommentsToggleEl.addEventListener(
+        'change',
+        annotationState.inlineCommentsToggleChangeHandler,
+      );
     }
 
     if (annotationUI.inlineAssetsToggleEl) {
-      annotationUI.inlineAssetsToggleEl.addEventListener('change', (event) => {
+      annotationState.inlineAssetsToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
         annotationUI.annotationMode = 'assets';
-        disableInlineEditMode();
+        await disableInlineEditMode();
         if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
         if (annotationUI.inlineCommentsToggleEl) {
           annotationUI.inlineCommentsToggleEl.checked = false;
         }
         renderCommentsPanel();
-      });
+      };
+      annotationUI.inlineAssetsToggleEl.addEventListener(
+        'change',
+        annotationState.inlineAssetsToggleChangeHandler,
+      );
     }
   }
 
