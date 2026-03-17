@@ -115,6 +115,7 @@ async function requestStreamConfigFromParent() {
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
       collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
+      profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
       reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
       startReview: getQueryParam('startReview') || getQueryParam('startreview'),
     };
@@ -196,6 +197,13 @@ export default async function initPreviewer() {
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
     collabId: previewParams.collabId
       || previewParams.collab_id
+      || null,
+    profileId: previewParams.profileId
+      || previewParams.profile_id
+      || null,
+    displayName: previewParams.displayName
+      || previewParams.userName
+      || previewParams.username
       || null,
     reviewId: previewParams.reviewId || previewParams.reviewid || null,
     startReview: previewParams.startReview || previewParams.startreview || false,

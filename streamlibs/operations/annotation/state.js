@@ -14,6 +14,7 @@ export function createAnnotationState() {
     mainClickHandler: null,
     layerClickHandler: null,
     panelClickHandler: null,
+    panelInputHandler: null,
     panelKeydownHandler: null,
     panelChangeHandler: null,
     inlineToggleChangeHandler: null,

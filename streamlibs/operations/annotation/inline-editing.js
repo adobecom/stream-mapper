@@ -15,14 +15,36 @@ export default function createInlineEditingController({
 }) {
   const annotationService = createAnnotationServiceClient();
 
+  function refreshThreadsFromServiceInBackground() {
+    annotationService.listThreads()
+      .then((remoteThreads) => {
+        if (!Array.isArray(remoteThreads)) return;
+        store.replaceThreadsByType(
+          'comment',
+          remoteThreads.filter((thread) => store.getThreadType(thread) === 'comment'),
+        );
+        store.replaceThreadsByType(
+          'edit',
+          remoteThreads.filter((thread) => store.getThreadType(thread) === 'edit'),
+        );
+        renderThreadMarkers({ resolveTargets: true });
+        renderCommentsPanel();
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.warn('Could not refresh annotation threads after edit write', error);
+      });
+  }
+
   async function persistEditThreadMessage(element, threadElementPath, text) {
     if (!(element instanceof HTMLElement) || !threadElementPath || !text) return false;
 
     let thread = store.getEditThreadByElement(element);
     let didPersistToService = false;
+    let didHydrateThread = false;
 
     try {
-      const remoteThread = thread
+      const result = thread
         ? await annotationService.createReply(thread.id, text, { loadingMessage: 'Saving edit...' })
         : await annotationService.createThread({
           elementPath: threadElementPath,
@@ -31,10 +53,20 @@ export default function createInlineEditingController({
           threadType: 'edit',
         });
 
-      if (remoteThread) {
-        store.upsertThread(remoteThread);
-        thread = store.getThreadById(remoteThread.id) || remoteThread;
+      if (thread) {
+        if (result?.persisted) {
+          didPersistToService = true;
+        }
+        if (result?.thread) {
+          store.upsertThread(result.thread);
+          thread = store.getThreadById(result.thread.id) || result.thread;
+          didHydrateThread = true;
+        }
+      } else if (result) {
+        store.upsertThread(result);
+        thread = store.getThreadById(result.id) || result;
         didPersistToService = true;
+        didHydrateThread = true;
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -50,6 +82,9 @@ export default function createInlineEditingController({
     annotationState.activeThreadId = thread.id;
     annotationState.activeMessageId = '';
     annotationState.activeEditId = '';
+    if (!didHydrateThread) {
+      refreshThreadsFromServiceInBackground();
+    }
     return true;
   }
 
@@ -436,7 +471,7 @@ export default function createInlineEditingController({
 
   async function enableInlineEditMode() {
     if (!annotationUI.mainEl || annotationUI.inlineMode) return false;
-    if (!annotationService.hasCollabId()) {
+    if (!annotationService.isAvailable()) {
       showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
       return false;
     }

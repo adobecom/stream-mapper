@@ -1620,11 +1620,10 @@ body.annotation-mode main::-webkit-scrollbar {
   border-top: 1px solid #e5e7eb;
 }
 
-.annotation-panel-delete-btn,
-.annotation-panel-reply-delete-btn {
-  border: 1px solid #fecdd3;
-  background: #fff7f8;
-  color: #be123c;
+.annotation-panel-edit-btn {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  color: #1d4ed8;
   border-radius: 8px;
   width: 24px;
   height: 24px;
@@ -1637,95 +1636,114 @@ body.annotation-mode main::-webkit-scrollbar {
   transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
 
-.annotation-panel-reply-delete-btn {
+.annotation-panel-edit-btn-reply {
   margin-top: 1px;
 }
 
-.annotation-panel-delete-btn:hover,
-.annotation-panel-reply-delete-btn:hover {
-  background: #ffe4e6;
-  border-color: #fda4af;
+.annotation-panel-edit-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
   transform: translateY(-1px);
 }
 
-.annotation-panel-delete-btn svg,
-.annotation-panel-reply-delete-btn svg {
+.annotation-panel-edit-btn svg {
   width: 13px;
   height: 13px;
   fill: currentcolor;
 }
 
-.annotation-confirm-dialog {
-  position: fixed;
-  inset: 0;
-  background: rgb(15 23 42 / 28%);
-  backdrop-filter: blur(4px);
+.annotation-panel-edit-form {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 10070;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
 }
 
-.annotation-confirm-dialog-card {
-  width: min(360px, calc(100vw - 32px));
+.annotation-panel-edit-form-reply {
+  width: 100%;
+}
+
+.annotation-panel-edit-input {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
   background: #fff;
-  border: 1px solid #bfdbfe;
-  border-radius: 16px;
-  box-shadow: 0 20px 44px rgb(30 64 175 / 18%);
-  padding: 18px;
-  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
-}
-
-.annotation-confirm-dialog-title {
-  margin: 0;
-  color: #1d4ed8;
-  font-size: 16px;
-}
-
-.annotation-confirm-dialog-text {
-  margin: 10px 0 0;
-  color: #374151;
-  font-size: 13px;
+  color: #111827;
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 12px;
   line-height: 1.5;
 }
 
-.annotation-confirm-dialog-actions {
+.annotation-panel-edit-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 15%);
+}
+
+.annotation-panel-edit-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 18px;
 }
 
-.annotation-confirm-dialog-btn {
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 8px 12px;
+.annotation-panel-edit-save-btn,
+.annotation-panel-edit-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 8px;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
 }
 
-.annotation-confirm-dialog-btn:hover {
+.annotation-panel-edit-save-btn svg,
+.annotation-panel-edit-cancel-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.annotation-panel-edit-save-btn:hover,
+.annotation-panel-edit-cancel-btn:hover {
   transform: translateY(-1px);
 }
 
-.annotation-confirm-dialog-btn-secondary {
+.annotation-panel-edit-cancel-btn {
   background: #fff;
-  border-color: #bfdbfe;
-  color: #1e3a8a;
+  border: 1.5px solid #bfdbfe;
+  color: #27272a;
 }
 
-.annotation-confirm-dialog-btn-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #be123c 100%);
+.annotation-panel-edit-save-btn {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: #fff;
 }
 
-.annotation-confirm-dialog.is-submitting .annotation-confirm-dialog-btn {
+.annotation-panel-edit-cancel-btn:hover {
+  background: #eff6ff;
+}
+
+.annotation-panel-edit-save-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+}
+
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-input,
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-save-btn,
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-cancel-btn {
   opacity: 0.55;
   cursor: wait;
-  transform: none;
 }
 
 .annotation-panel-reply-composer {

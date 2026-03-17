@@ -68,6 +68,7 @@ function normalizeThreadPayload(thread) {
     username: rootComment?.authorName || ANNOTATION_DEFAULT_USERNAME,
     messages: comments.map((comment) => ({
       id: comment.id || '',
+      authorProfileId: comment.authorProfileId ?? null,
       username: comment.authorName || ANNOTATION_DEFAULT_USERNAME,
       text: comment.body || '',
       kind: comment.id === rootCommentId ? 'comment' : 'reply',
@@ -78,37 +79,46 @@ function normalizeThreadPayload(thread) {
   };
 }
 
-async function annotationServiceFetch(path, options = {}) {
-  const config = await getConfig();
-  const serviceEndpoint = `${config?.streamMapper?.serviceEP || ''}`.trim();
-  const collabId = getAnnotationCollabId();
-  if (!serviceEndpoint || !collabId) return null;
-
-  const headers = {
-    ...(options.headers || {}),
-  };
-  const token = normalizeToken(window.streamConfig?.token);
-  if (token) headers.Authorization = token;
-  if (options.body && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  const response = await fetch(`${serviceEndpoint}${path}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    throw new Error(`Annotation service request failed: ${response.status}`);
-  }
-
-  if (response.status === 204) return null;
-  return response.json();
-}
-
 export default function createAnnotationServiceClient() {
-  function hasCollabId() {
+  async function annotationServiceFetch(path, options = {}) {
+    const resolvedServiceEndpoint = `${(await getConfig())?.streamMapper?.serviceEP || ''}`.trim();
+    const collabId = getAnnotationCollabId();
+    if (!resolvedServiceEndpoint || !collabId) return null;
+
+    const headers = {
+      ...(options.headers || {}),
+    };
+    const token = normalizeToken(window.streamConfig?.token);
+    if (token) headers.Authorization = token;
+    if (options.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${resolvedServiceEndpoint}${path}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Annotation service request failed: ${response.status}`);
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function isAvailable() {
     return Boolean(getAnnotationCollabId());
+  }
+
+  function getCurrentUserIdentity() {
+    const profileId = window.streamConfig?.profileId
+      ?? window.streamConfig?.profile_id
+      ?? null;
+
+    return {
+      profileId: profileId === null || profileId === undefined ? null : `${profileId}`,
+    };
   }
 
   async function withSyncIndicator(message, callback) {
@@ -178,7 +188,18 @@ export default function createAnnotationServiceClient() {
           }),
         },
       );
-      return getThread(threadId);
+
+      try {
+        return {
+          persisted: true,
+          thread: await getThread(threadId),
+        };
+      } catch (error) {
+        return {
+          persisted: true,
+          thread: null,
+        };
+      }
     });
   }
 
@@ -194,33 +215,35 @@ export default function createAnnotationServiceClient() {
     });
   }
 
-  async function deleteThread(threadId) {
-    return withSyncIndicator('Deleting thread...', async () => {
-      if (!threadId) return false;
-      await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-        method: 'DELETE',
-      });
-      return true;
-    });
-  }
-
-  async function deleteComment(commentId) {
-    return withSyncIndicator('Deleting comment...', async () => {
-      if (!commentId) return false;
+  async function updateComment(commentId, body, threadId) {
+    return withSyncIndicator('Saving comment...', async () => {
+      if (!commentId || !threadId) return null;
       await annotationServiceFetch(`/api/comments/${encodeURIComponent(commentId)}`, {
-        method: 'DELETE',
+        method: 'PATCH',
+        body: JSON.stringify({ body }),
       });
-      return true;
+
+      try {
+        return {
+          persisted: true,
+          thread: await getThread(threadId),
+        };
+      } catch (error) {
+        return {
+          persisted: true,
+          thread: null,
+        };
+      }
     });
   }
 
   return {
     createReply,
     createThread,
-    deleteComment,
-    deleteThread,
-    hasCollabId,
+    getCurrentUserIdentity,
+    isAvailable,
     listThreads,
+    updateComment,
     updateThreadStatus,
   };
 }
