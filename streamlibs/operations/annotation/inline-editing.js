@@ -122,10 +122,7 @@ export default function createInlineEditingController({
 
     const currentHtml = element.innerHTML;
     const currentText = element.textContent || '';
-    if (
-      currentHtml === snapshot.originalHtml
-      && currentText.trim() === snapshot.originalText.trim()
-    ) return;
+    if (currentText.trim() === snapshot.originalText.trim()) return;
 
     const easyEditElementPath = store.buildElementPath(element, annotationUI.mainEl);
     const threadElementPath = store.buildThreadElementPath(element, annotationUI.mainEl);

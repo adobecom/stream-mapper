@@ -247,20 +247,22 @@ export default function createCommentsPanelController({
           replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
           replyText.append(replyUsername, document.createTextNode(reply.text || ''));
 
-          const replyDeleteBtn = document.createElement('button');
-          replyDeleteBtn.type = 'button';
-          replyDeleteBtn.className = 'annotation-panel-reply-delete-btn';
-          replyDeleteBtn.dataset.action = 'delete-comment';
-          replyDeleteBtn.dataset.threadId = thread.id;
-          replyDeleteBtn.dataset.commentId = reply.id || '';
-          replyDeleteBtn.setAttribute('aria-label', ANNOTATION_MESSAGES.deleteCommentAriaLabel);
-          replyDeleteBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9z"></path>
-            </svg>
-          `;
-
-          replyRow.append(replyText, replyDeleteBtn);
+          replyRow.append(replyText);
+          if (showComments) {
+            const replyDeleteBtn = document.createElement('button');
+            replyDeleteBtn.type = 'button';
+            replyDeleteBtn.className = 'annotation-panel-reply-delete-btn';
+            replyDeleteBtn.dataset.action = 'delete-comment';
+            replyDeleteBtn.dataset.threadId = thread.id;
+            replyDeleteBtn.dataset.commentId = reply.id || '';
+            replyDeleteBtn.setAttribute('aria-label', ANNOTATION_MESSAGES.deleteCommentAriaLabel);
+            replyDeleteBtn.innerHTML = `
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9z"></path>
+              </svg>
+            `;
+            replyRow.append(replyDeleteBtn);
+          }
           repliesWrap.appendChild(replyRow);
         });
 
