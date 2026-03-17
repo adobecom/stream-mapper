@@ -112,9 +112,7 @@ export default function createAnnotationServiceClient() {
   }
 
   function getCurrentUserIdentity() {
-    const profileId = window.streamConfig?.profileId
-      ?? window.streamConfig?.profile_id
-      ?? null;
+    const profileId = window.streamConfig?.profileId ?? null;
 
     return {
       profileId: profileId === null || profileId === undefined ? null : `${profileId}`,

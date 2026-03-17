@@ -218,7 +218,7 @@ export const ANNOTATION_DEFAULT_USERNAME = 'stream';
 
 export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
 
-export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 60000;
+export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 30000;
 
 export const ANNOTATION_MESSAGES = {
   collabUnavailableTitle: 'Collaboration unavailable',

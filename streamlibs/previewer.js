@@ -110,16 +110,12 @@ async function requestStreamConfigFromParent() {
       target: getQueryParam('target'),
       targetUrl: getQueryParam('targetUrl'),
       token: getQueryParam('token'),
-      profile_id: getQueryParam('profile_id') || getQueryParam('profileId'),
       profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
-      collab_id: getQueryParam('collab_id') || getQueryParam('collabId'),
       collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
       operation: getQueryParam('operation') || 'create',
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
-      collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
-      profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
       reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
       startReview: getQueryParam('startReview') || getQueryParam('startreview'),
     };
@@ -195,20 +191,12 @@ export default async function initPreviewer() {
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
     token: previewParams.token,
-    profile_id: previewParams.profile_id || previewParams.profileId || null,
     profileId: previewParams.profileId || previewParams.profile_id || null,
-    collab_id: previewParams.collab_id || previewParams.collabId || null,
     collabId: previewParams.collabId || previewParams.collab_id || null,
     operation: previewParams.operation || 'create',
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
-    collabId: previewParams.collabId
-      || previewParams.collab_id
-      || null,
-    profileId: previewParams.profileId
-      || previewParams.profile_id
-      || null,
     displayName: previewParams.displayName
       || previewParams.userName
       || previewParams.username
