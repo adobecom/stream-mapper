@@ -1,8 +1,11 @@
-import { COMMENT_STATUSES, DEFAULT_USERNAME } from './store.js';
+import {
+  ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS,
+  ANNOTATION_MESSAGES,
+  ANNOTATION_DEFAULT_USERNAME,
+} from '../../utils/constants.js';
+import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
-
-const COMMENT_THREAD_POLL_INTERVAL_MS = 60000;
 
 export default function createCommentsPanelController({
   annotationState,
@@ -12,6 +15,10 @@ export default function createCommentsPanelController({
   const annotationService = createAnnotationServiceClient();
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
+  let popupSubmitPending = false;
+  let deleteDialogEl = null;
+  let deleteDialogPending = false;
+  const pendingReplyComposerKeys = new Set();
 
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
@@ -72,6 +79,24 @@ export default function createCommentsPanelController({
     annotationUI.inlineAssetsToggleEl = panel.querySelector('#annotation-inline-mode-assets');
   }
 
+  function removeDeleteDialog() {
+    deleteDialogPending = false;
+    if (!deleteDialogEl) return;
+    deleteDialogEl.remove();
+    deleteDialogEl = null;
+  }
+
+  function setDeleteDialogPending(isPending) {
+    deleteDialogPending = isPending;
+    if (!(deleteDialogEl instanceof HTMLElement)) return;
+
+    deleteDialogEl.classList.toggle('is-submitting', isPending);
+    const cancelBtn = deleteDialogEl.querySelector('.annotation-confirm-dialog__btn--secondary');
+    const confirmBtn = deleteDialogEl.querySelector('.annotation-confirm-dialog__btn--danger');
+    if (cancelBtn instanceof HTMLButtonElement) cancelBtn.disabled = isPending;
+    if (confirmBtn instanceof HTMLButtonElement) confirmBtn.disabled = isPending;
+  }
+
   function buildCommentGroups(thread) {
     const groups = [];
     const byCommentId = new Map();
@@ -103,6 +128,10 @@ export default function createCommentsPanelController({
     return buildCommentGroups(thread)[0]?.comment || thread?.messages?.[0] || null;
   }
 
+  function isCommentsServiceAvailable() {
+    return annotationService.hasCollabId();
+  }
+
   function renderCommentsPanel() {
     if (!annotationUI.panelListEl) return;
     annotationUI.panelListEl.innerHTML = '';
@@ -118,7 +147,18 @@ export default function createCommentsPanelController({
     if (annotationUI.annotationMode === 'assets') {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      empty.textContent = 'No assets yet.';
+      empty.textContent = ANNOTATION_MESSAGES.noAssets;
+      annotationUI.panelListEl.appendChild(empty);
+      return;
+    }
+
+    if (!isCommentsServiceAvailable()) {
+      const empty = document.createElement('div');
+      empty.className = 'annotation-comments-empty annotation-comments-empty-warning';
+      empty.innerHTML = `
+        <strong>${ANNOTATION_MESSAGES.collabUnavailableTitle}</strong>
+        <span>${ANNOTATION_MESSAGES.collabUnavailableDescription}</span>
+      `;
       annotationUI.panelListEl.appendChild(empty);
       return;
     }
@@ -132,8 +172,8 @@ export default function createCommentsPanelController({
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
       empty.textContent = showComments
-        ? 'No comments yet. Click an element to add one.'
-        : 'No edits yet. Start editing text or image alt.';
+        ? ANNOTATION_MESSAGES.noComments
+        : ANNOTATION_MESSAGES.noEdits;
       annotationUI.panelListEl.appendChild(empty);
       return;
     }
@@ -169,13 +209,26 @@ export default function createCommentsPanelController({
             option.selected = thread.status === status;
             statusSelect.appendChild(option);
           });
-          statusControls.appendChild(statusSelect);
+          const deleteThreadBtn = document.createElement('button');
+          deleteThreadBtn.type = 'button';
+          deleteThreadBtn.className = 'annotation-panel-delete-btn';
+          deleteThreadBtn.dataset.action = 'delete-thread';
+          deleteThreadBtn.dataset.threadId = thread.id;
+          deleteThreadBtn.setAttribute('aria-label', ANNOTATION_MESSAGES.deleteThreadAriaLabel);
+          deleteThreadBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9z"></path>
+            </svg>
+          `;
+          statusControls.append(statusSelect, deleteThreadBtn);
           card.append(statusControls);
         }
 
         const username = document.createElement('p');
         username.className = 'annotation-panel-comment-user';
-        username.textContent = group.comment.username || thread.username || DEFAULT_USERNAME;
+        username.textContent = group.comment.username
+          || thread.username
+          || ANNOTATION_DEFAULT_USERNAME;
 
         const text = document.createElement('p');
         text.className = 'annotation-panel-comment-text';
@@ -184,10 +237,31 @@ export default function createCommentsPanelController({
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
         group.replies.forEach((reply) => {
+          const replyRow = document.createElement('div');
+          replyRow.className = 'annotation-panel-reply-row';
+
           const replyText = document.createElement('p');
           replyText.className = 'annotation-panel-reply-text';
-          replyText.innerHTML = `<span class="annotation-panel-reply-user">${reply.username || DEFAULT_USERNAME}</span>${reply.text || ''}`;
-          repliesWrap.appendChild(replyText);
+          const replyUsername = document.createElement('span');
+          replyUsername.className = 'annotation-panel-reply-user';
+          replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
+          replyText.append(replyUsername, document.createTextNode(reply.text || ''));
+
+          const replyDeleteBtn = document.createElement('button');
+          replyDeleteBtn.type = 'button';
+          replyDeleteBtn.className = 'annotation-panel-reply-delete-btn';
+          replyDeleteBtn.dataset.action = 'delete-comment';
+          replyDeleteBtn.dataset.threadId = thread.id;
+          replyDeleteBtn.dataset.commentId = reply.id || '';
+          replyDeleteBtn.setAttribute('aria-label', ANNOTATION_MESSAGES.deleteCommentAriaLabel);
+          replyDeleteBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9z"></path>
+            </svg>
+          `;
+
+          replyRow.append(replyText, replyDeleteBtn);
+          repliesWrap.appendChild(replyRow);
         });
 
         card.append(username, text, repliesWrap);
@@ -394,7 +468,70 @@ export default function createCommentsPanelController({
       });
   }
 
+  function getReplyComposerKey(threadId, commentId = '') {
+    return `${threadId || ''}::${commentId || ''}`;
+  }
+
+  function setPanelReplyPending(threadId, commentId, isPending) {
+    const key = getReplyComposerKey(threadId, commentId);
+    if (isPending) {
+      pendingReplyComposerKeys.add(key);
+    } else {
+      pendingReplyComposerKeys.delete(key);
+    }
+
+    const input = annotationUI.panelEl?.querySelector(
+      `.annotation-panel-reply-input[data-thread-id="${threadId}"][data-comment-id="${commentId || ''}"]`,
+    );
+    const button = annotationUI.panelEl?.querySelector(
+      `.annotation-panel-reply-btn[data-thread-id="${threadId}"][data-comment-id="${commentId || ''}"]`,
+    );
+    const composer = input?.closest('.annotation-panel-reply-composer')
+      || button?.closest('.annotation-panel-reply-composer');
+
+    if (composer instanceof HTMLElement) {
+      composer.classList.toggle('is-submitting', isPending);
+      composer.setAttribute('aria-busy', `${isPending}`);
+    }
+    if (input instanceof HTMLInputElement) {
+      input.readOnly = isPending;
+    }
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = isPending;
+    }
+  }
+
+  function setPopupSubmitPending(isPending) {
+    popupSubmitPending = isPending;
+
+    if (!(annotationUI.popupEl instanceof HTMLElement)) return;
+
+    annotationUI.popupEl.classList.toggle('is-submitting', isPending);
+    annotationUI.popupEl.setAttribute('aria-busy', `${isPending}`);
+
+    const input = annotationUI.popupEl.querySelector('.annotation-reply-input');
+    const sendBtn = annotationUI.popupEl.querySelector('.annotation-reply-btn');
+    const closeBtn = annotationUI.popupEl.querySelector('.annotation-popup-close');
+
+    if (input instanceof HTMLTextAreaElement) {
+      input.readOnly = isPending;
+    }
+    if (sendBtn instanceof HTMLButtonElement) {
+      sendBtn.disabled = isPending;
+    }
+    if (closeBtn instanceof HTMLButtonElement) {
+      closeBtn.disabled = isPending;
+    }
+  }
+
   async function submitPanelReply(threadId, commentId, rawValue) {
+    if (!isCommentsServiceAvailable()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.commentsUnavailableSnackbar);
+      return;
+    }
+    const composerKey = getReplyComposerKey(threadId, commentId);
+    if (pendingReplyComposerKeys.has(composerKey)) return;
+
     const value = (rawValue || '').trim();
     if (!value) return;
     const thread = store.getThreadById(threadId);
@@ -402,6 +539,7 @@ export default function createCommentsPanelController({
     let activeThread = thread;
     let didPersistToService = false;
 
+    setPanelReplyPending(threadId, commentId, true);
     try {
       const remoteThread = await annotationService.createReply(threadId, value);
       if (remoteThread) {
@@ -415,7 +553,8 @@ export default function createCommentsPanelController({
     }
 
     if (!didPersistToService) {
-      showGlobalSnackbar("Couldn't send reply. Please try again.");
+      showGlobalSnackbar(ANNOTATION_MESSAGES.sendReplyError);
+      setPanelReplyPending(threadId, commentId, false);
       return;
     }
 
@@ -426,9 +565,11 @@ export default function createCommentsPanelController({
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     scrollCommentsPanelToBottom();
+    setPanelReplyPending(threadId, commentId, false);
   }
 
   function removePopup() {
+    popupSubmitPending = false;
     if (!annotationUI.popupEl) return;
     annotationUI.popupEl.remove();
     annotationUI.popupEl = null;
@@ -439,7 +580,133 @@ export default function createCommentsPanelController({
     removePopup();
   }
 
+  function clearActiveThreadSelection(threadId, messageId = '') {
+    if (annotationState.activeThreadId === threadId) {
+      annotationState.activeThreadId = '';
+    }
+    if (messageId && annotationState.activeMessageId === messageId) {
+      annotationState.activeMessageId = '';
+    }
+  }
+
+  function handleDeletedThread(threadId) {
+    if (!threadId) return;
+    clearActiveThreadSelection(threadId);
+    store.removeThread(threadId);
+    store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+
+    const popupThreadId = annotationUI.popupEl?.dataset.threadId || '';
+    if (popupThreadId === threadId) {
+      closePopupAndSelection();
+    }
+  }
+
+  function handleDeletedComment(threadId, commentId) {
+    if (!threadId || !commentId) return;
+    clearActiveThreadSelection(threadId, commentId);
+    store.removeThreadMessage(threadId, commentId);
+    const thread = store.getThreadById(threadId);
+    if (thread && !(thread.messages || []).length) {
+      handleDeletedThread(threadId);
+      return;
+    }
+
+    store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+  }
+
+  function openDeleteDialog({
+    kind,
+    threadId,
+    commentId = '',
+  }) {
+    if (annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return;
+    removeDeleteDialog();
+
+    const isThreadDelete = kind === 'thread';
+    const dialog = document.createElement('div');
+    dialog.className = 'annotation-confirm-dialog';
+    dialog.innerHTML = `
+      <div class="annotation-confirm-dialog-card" role="dialog" aria-modal="true" aria-labelledby="annotation-confirm-dialog-title">
+        <h4 id="annotation-confirm-dialog-title" class="annotation-confirm-dialog-title">${isThreadDelete ? ANNOTATION_MESSAGES.deleteThreadTitle : ANNOTATION_MESSAGES.deleteCommentTitle}</h4>
+        <p class="annotation-confirm-dialog-text">
+          ${isThreadDelete
+    ? ANNOTATION_MESSAGES.deleteThreadDescription
+    : ANNOTATION_MESSAGES.deleteCommentDescription}
+        </p>
+        <div class="annotation-confirm-dialog-actions">
+          <button type="button" class="annotation-confirm-dialog-btn annotation-confirm-dialog-btn-secondary">Cancel</button>
+          <button type="button" class="annotation-confirm-dialog-btn annotation-confirm-dialog-btn-danger">
+            ${isThreadDelete ? ANNOTATION_MESSAGES.deleteThreadAction : ANNOTATION_MESSAGES.deleteCommentAction}
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+    deleteDialogEl = dialog;
+
+    const cancelBtn = dialog.querySelector('.annotation-confirm-dialog-btn-secondary');
+    const confirmBtn = dialog.querySelector('.annotation-confirm-dialog-btn-danger');
+
+    cancelBtn?.addEventListener('click', () => {
+      if (deleteDialogPending) return;
+      removeDeleteDialog();
+    });
+
+    dialog.addEventListener('click', (event) => {
+      if (deleteDialogPending) return;
+      if (event.target === dialog) {
+        removeDeleteDialog();
+      }
+    });
+
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || deleteDialogPending) return;
+      event.preventDefault();
+      removeDeleteDialog();
+    });
+
+    confirmBtn?.addEventListener('click', async () => {
+      if (deleteDialogPending) return;
+      setDeleteDialogPending(true);
+      try {
+        if (isThreadDelete) {
+          const didDeleteThread = await annotationService.deleteThread(threadId);
+          if (!didDeleteThread) throw new Error('Thread delete failed');
+          handleDeletedThread(threadId);
+        } else {
+          const didDeleteComment = await annotationService.deleteComment(commentId);
+          if (!didDeleteComment) throw new Error('Comment delete failed');
+          handleDeletedComment(threadId, commentId);
+        }
+        hideGlobalSnackbar();
+        removeDeleteDialog();
+      } catch (error) {
+        showGlobalSnackbar(
+          isThreadDelete
+            ? ANNOTATION_MESSAGES.deleteThreadError
+            : ANNOTATION_MESSAGES.deleteCommentError,
+        );
+        // eslint-disable-next-line no-console
+        console.warn(isThreadDelete ? 'Could not delete thread' : 'Could not delete comment', error);
+        setDeleteDialogPending(false);
+      }
+    });
+
+    if (cancelBtn instanceof HTMLButtonElement) {
+      cancelBtn.focus();
+    }
+  }
+
   async function submitPopupMessage() {
+    if (!isCommentsServiceAvailable()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.commentsUnavailableSnackbar);
+      return;
+    }
+    if (popupSubmitPending) return;
     if (
       !annotationUI.popupEl
       || !annotationState.selectedElement
@@ -454,6 +721,7 @@ export default function createCommentsPanelController({
     let thread = store.getCommentThreadByElement(annotationState.selectedElement);
     const isReply = Boolean(thread);
     let didPersistToService = false;
+    setPopupSubmitPending(true);
     try {
       if (!thread) {
         const remoteThread = await annotationService.createThread({
@@ -482,9 +750,10 @@ export default function createCommentsPanelController({
     if (!didPersistToService || !thread) {
       showGlobalSnackbar(
         isReply
-          ? "Couldn't send reply. Please try again."
-          : "Couldn't post comment. Please try again.",
+          ? ANNOTATION_MESSAGES.sendReplyError
+          : ANNOTATION_MESSAGES.postCommentError,
       );
+      setPopupSubmitPending(false);
       return;
     }
 
@@ -496,6 +765,7 @@ export default function createCommentsPanelController({
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     scrollCommentsPanelToBottom();
+    setPopupSubmitPending(false);
     closePopupAndSelection();
   }
 
@@ -522,15 +792,20 @@ export default function createCommentsPanelController({
 
   function positionPopup(anchorElement) {
     if (!annotationUI.popupEl) return;
+    const panelRect = annotationUI.panelEl?.getBoundingClientRect();
+    const maxPopupRight = panelRect ? Math.max(24, panelRect.left - 12) : window.innerWidth - 12;
+    const maxPopupWidth = Math.max(220, maxPopupRight - 24);
+    annotationUI.popupEl.style.maxWidth = `${maxPopupWidth}px`;
+
     const rect = anchorElement.getBoundingClientRect();
-    const popupWidth = annotationUI.popupEl.offsetWidth || 320;
+    const popupWidth = Math.min(annotationUI.popupEl.offsetWidth || 320, maxPopupWidth);
     const popupHeight = annotationUI.popupEl.offsetHeight || 260;
 
     let left = rect.right + 12;
-    if (left + popupWidth > window.innerWidth - 12) {
+    if (left + popupWidth > maxPopupRight) {
       left = rect.left - popupWidth - 12;
     }
-    left = Math.max(12, Math.min(left, window.innerWidth - popupWidth - 12));
+    left = Math.max(12, Math.min(left, maxPopupRight - popupWidth));
 
     let { top } = rect;
     top = Math.max(12, Math.min(top, window.innerHeight - popupHeight - 12));
@@ -540,6 +815,7 @@ export default function createCommentsPanelController({
   }
 
   function openPopupForElement(element, shouldScroll = false) {
+    if (popupSubmitPending) return;
     if (!annotationUI.layerEl) return;
     setSelectedElement(element);
     const thread = store.getCommentThreadByElement(annotationState.selectedElement);
@@ -618,6 +894,10 @@ export default function createCommentsPanelController({
   }
 
   async function refreshThreadsFromService() {
+    if (!isCommentsServiceAvailable()) {
+      renderCommentsPanel();
+      return;
+    }
     try {
       const remoteThreads = await annotationService.listThreads();
       if (!Array.isArray(remoteThreads)) return;
@@ -641,6 +921,7 @@ export default function createCommentsPanelController({
 
   function teardownGlobalListeners() {
     hideGlobalSnackbar();
+    removeDeleteDialog();
     if (annotationState.commentThreadPollId) {
       window.clearInterval(annotationState.commentThreadPollId);
       annotationState.commentThreadPollId = null;
@@ -712,13 +993,18 @@ export default function createCommentsPanelController({
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     await refreshThreadsFromService();
-    annotationState.commentThreadPollId = window.setInterval(() => {
-      refreshThreadsFromService();
-    }, COMMENT_THREAD_POLL_INTERVAL_MS);
+    if (isCommentsServiceAvailable()) {
+      annotationState.commentThreadPollId = window.setInterval(() => {
+        refreshThreadsFromService();
+      }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
+    }
 
     annotationState.mainClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
       if (annotationUI.annotationMode === 'assets') return;
+      if (!isCommentsServiceAvailable()) return;
+      if (popupSubmitPending) return;
+      if (deleteDialogEl) return;
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
       if (target === mainEl) return;
@@ -752,8 +1038,9 @@ export default function createCommentsPanelController({
 
     annotationState.panelClickHandler = (event) => {
       const { target } = event;
-      if (!(target instanceof HTMLElement)) return;
+      if (!(target instanceof Element)) return;
       if (target.closest('.annotation-inline-edit-switcher')) return;
+      if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
       if (annotationUI.inlineMode) {
@@ -781,6 +1068,29 @@ export default function createCommentsPanelController({
         return;
       }
 
+      if (target.closest('.annotation-panel-delete-btn')) {
+        const deleteBtn = target.closest('.annotation-panel-delete-btn');
+        if (!(deleteBtn instanceof HTMLButtonElement)) return;
+        if (!deleteBtn.dataset.threadId) return;
+        openDeleteDialog({
+          kind: 'thread',
+          threadId: deleteBtn.dataset.threadId,
+        });
+        return;
+      }
+
+      if (target.closest('.annotation-panel-reply-delete-btn')) {
+        const deleteBtn = target.closest('.annotation-panel-reply-delete-btn');
+        if (!(deleteBtn instanceof HTMLButtonElement)) return;
+        if (!deleteBtn.dataset.threadId || !deleteBtn.dataset.commentId) return;
+        openDeleteDialog({
+          kind: 'comment',
+          threadId: deleteBtn.dataset.threadId,
+          commentId: deleteBtn.dataset.commentId,
+        });
+        return;
+      }
+
       if (target.closest('.annotation-panel-reply-input')) return;
       if (target.closest('.annotation-panel-status-select')) return;
       if (!(card instanceof HTMLElement)) return;
@@ -797,6 +1107,7 @@ export default function createCommentsPanelController({
 
     annotationState.panelKeydownHandler = (event) => {
       if (annotationUI.inlineMode) return;
+      if (!isCommentsServiceAvailable()) return;
       const { target } = event;
       if (!(target instanceof HTMLInputElement)) return;
       if (!target.classList.contains('annotation-panel-reply-input')) return;
@@ -806,39 +1117,47 @@ export default function createCommentsPanelController({
     };
     annotationUI.panelEl.addEventListener('keydown', annotationState.panelKeydownHandler);
 
-    annotationState.panelChangeHandler = (event) => {
+    annotationState.panelChangeHandler = async (event) => {
       const { target } = event;
       if (target instanceof HTMLInputElement && target.classList.contains('annotation-inline-mode-radio')) return;
       if (annotationUI.inlineMode) return;
+      if (!isCommentsServiceAvailable()) return;
       if (!(target instanceof HTMLSelectElement)) return;
       if (!target.classList.contains('annotation-panel-status-select')) return;
       const { threadId } = target.dataset;
       if (!threadId) return;
       const thread = store.getThreadById(threadId);
       if (!thread) return;
-      thread.status = target.value;
+      const previousStatus = thread.status;
+      const nextStatus = target.value;
+      target.value = previousStatus;
+      target.disabled = true;
       annotationState.activeThreadId = thread.id;
       annotationState.activeMessageId = '';
-      store.saveAnnotationStore();
-      renderThreadMarkers();
-      renderCommentsPanel();
-      annotationService.updateThreadStatus(threadId, target.value)
-        .then((remoteThread) => {
-          if (!remoteThread) return;
-          store.upsertThread(remoteThread);
-          store.saveAnnotationStore();
-          renderThreadMarkers({ resolveTargets: true });
-          renderCommentsPanel();
-        })
-        .catch((error) => {
-          // eslint-disable-next-line no-console
-          console.warn('Could not update thread status in service', error);
-        });
+      try {
+        const remoteThread = await annotationService.updateThreadStatus(threadId, nextStatus);
+        if (!remoteThread) return;
+        store.upsertThread(remoteThread);
+        hideGlobalSnackbar();
+        store.saveAnnotationStore();
+        renderThreadMarkers({ resolveTargets: true });
+        renderCommentsPanel();
+      } catch (error) {
+        showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusError);
+        target.value = previousStatus;
+        renderCommentsPanel();
+        // eslint-disable-next-line no-console
+        console.warn('Could not update thread status in service', error);
+      } finally {
+        target.disabled = false;
+      }
     };
     annotationUI.panelEl.addEventListener('change', annotationState.panelChangeHandler);
 
     annotationState.documentClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
+      if (popupSubmitPending) return;
+      if (deleteDialogEl) return;
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('.annotation-floating-popup')) return;
@@ -858,11 +1177,23 @@ export default function createCommentsPanelController({
       annotationState.inlineToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
+        if (!isCommentsServiceAvailable()) {
+          target.checked = false;
+          if (annotationUI.inlineCommentsToggleEl) {
+            annotationUI.inlineCommentsToggleEl.checked = true;
+          }
+          annotationUI.annotationMode = 'comments';
+          showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
+          return;
+        }
         target.disabled = true;
         try {
           annotationUI.annotationMode = 'edit';
           if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
-          await enableInlineEditMode();
+          const didEnable = await enableInlineEditMode();
+          if (!didEnable) {
+            throw new Error('Inline edit mode unavailable');
+          }
         } catch {
           target.checked = false;
           if (annotationUI.inlineCommentsToggleEl) {

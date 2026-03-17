@@ -1,4 +1,6 @@
 import createAnnotationServiceClient from './service.js';
+import { ANNOTATION_MESSAGES } from '../../utils/constants.js';
+import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
 const MEDIUM_EDITOR_JS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/js/medium-editor.min.js';
@@ -14,13 +16,14 @@ export default function createInlineEditingController({
   const annotationService = createAnnotationServiceClient();
 
   async function persistEditThreadMessage(element, threadElementPath, text) {
-    if (!(element instanceof HTMLElement) || !threadElementPath || !text) return;
+    if (!(element instanceof HTMLElement) || !threadElementPath || !text) return false;
 
     let thread = store.getEditThreadByElement(element);
+    let didPersistToService = false;
 
     try {
       const remoteThread = thread
-        ? await annotationService.createReply(thread.id, text)
+        ? await annotationService.createReply(thread.id, text, { loadingMessage: 'Saving edit...' })
         : await annotationService.createThread({
           elementPath: threadElementPath,
           body: text,
@@ -31,16 +34,23 @@ export default function createInlineEditingController({
       if (remoteThread) {
         store.upsertThread(remoteThread);
         thread = store.getThreadById(remoteThread.id) || remoteThread;
+        didPersistToService = true;
       }
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('Could not save edit thread to service', error);
     }
 
-    if (!thread) return;
+    if (!didPersistToService || !thread) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.syncEditError);
+      return false;
+    }
+
+    hideGlobalSnackbar();
     annotationState.activeThreadId = thread.id;
     annotationState.activeMessageId = '';
     annotationState.activeEditId = '';
+    return true;
   }
 
   async function loadMediumEditor() {
@@ -137,13 +147,13 @@ export default function createInlineEditingController({
     };
 
     store.upsertEasyEdit(editRecord);
-    await persistEditThreadMessage(
+    const didPersistThread = await persistEditThreadMessage(
       element,
       threadElementPath,
       store.getEditPanelMessage(editRecord),
     );
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: didPersistThread });
     renderCommentsPanel();
 
     annotationUI.inlineElementSnapshot.set(elementRef, {
@@ -213,13 +223,13 @@ export default function createInlineEditingController({
     };
     store.upsertEasyEdit(editRecord);
     annotationUI.inlineImageAltSnapshot.set(elementRef, currentAlt);
-    await persistEditThreadMessage(
+    const didPersistThread = await persistEditThreadMessage(
       imageElement,
       threadElementPath,
       store.getEditPanelMessage(editRecord),
     );
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: didPersistThread });
     renderCommentsPanel();
   }
 
@@ -417,8 +427,22 @@ export default function createInlineEditingController({
     await Promise.all(pendingUpdates);
   }
 
+  function flushPendingInlineChangesInBackground(pendingTasks = []) {
+    if (!pendingTasks.length) return;
+
+    Promise.allSettled(pendingTasks).then(() => {
+      store.saveAnnotationStore();
+      renderThreadMarkers({ resolveTargets: true });
+      renderCommentsPanel();
+    });
+  }
+
   async function enableInlineEditMode() {
-    if (!annotationUI.mainEl || annotationUI.inlineMode) return;
+    if (!annotationUI.mainEl || annotationUI.inlineMode) return false;
+    if (!annotationService.hasCollabId()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
+      return false;
+    }
     await loadMediumEditor();
     annotationUI.inlineMode = true;
     document.body.classList.add('annotation-inline-edit-mode');
@@ -453,6 +477,7 @@ export default function createInlineEditingController({
 
     renderThreadMarkers();
     renderCommentsPanel();
+    return true;
   }
 
   async function disableInlineEditMode() {
@@ -460,10 +485,10 @@ export default function createInlineEditingController({
     annotationUI.inlineMode = false;
     document.body.classList.remove('annotation-inline-edit-mode');
 
-    await Promise.all(
-      annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
-    );
-    await syncImageAltChanges();
+    const pendingInlineChangeTasks = [
+      ...annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
+      syncImageAltChanges(),
+    ];
 
     if (annotationUI.mediumEditorInstance) {
       annotationUI.mediumEditorInstance.destroy();
@@ -494,6 +519,7 @@ export default function createInlineEditingController({
     store.saveAnnotationStore();
     renderThreadMarkers();
     renderCommentsPanel();
+    flushPendingInlineChangesInBackground(pendingInlineChangeTasks);
   }
 
   async function syncInlineEditsBeforePersist() {

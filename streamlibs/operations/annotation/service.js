@@ -1,5 +1,7 @@
 import { getConfig } from '../../utils/utils.js';
-import { DEFAULT_USERNAME, normalizeCommentStatus } from './store.js';
+import { ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
+import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
+import { normalizeCommentStatus } from './store.js';
 
 const SERVICE_STATUS_BY_COMMENT_STATUS = {
   Open: 'open',
@@ -63,10 +65,10 @@ function normalizeThreadPayload(thread) {
     elementPath: thread?.anchor?.elementPath || '',
     elementRef: '',
     status: normalizeCommentStatus(COMMENT_STATUS_BY_SERVICE_STATUS[thread?.state] || ''),
-    username: rootComment?.authorName || DEFAULT_USERNAME,
+    username: rootComment?.authorName || ANNOTATION_DEFAULT_USERNAME,
     messages: comments.map((comment) => ({
       id: comment.id || '',
-      username: comment.authorName || DEFAULT_USERNAME,
+      username: comment.authorName || ANNOTATION_DEFAULT_USERNAME,
       text: comment.body || '',
       kind: comment.id === rootCommentId ? 'comment' : 'reply',
       replyToCommentId: comment.id === rootCommentId ? '' : (comment.parentCommentId || rootCommentId),
@@ -105,6 +107,19 @@ async function annotationServiceFetch(path, options = {}) {
 }
 
 export default function createAnnotationServiceClient() {
+  function hasCollabId() {
+    return Boolean(getAnnotationCollabId());
+  }
+
+  async function withSyncIndicator(message, callback) {
+    showGlobalSyncIndicator(message);
+    try {
+      return await callback();
+    } finally {
+      hideGlobalSyncIndicator();
+    }
+  }
+
   async function getThread(threadId) {
     if (!threadId) return null;
     const data = await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`);
@@ -125,50 +140,86 @@ export default function createAnnotationServiceClient() {
     quotedText = null,
     threadType = 'comment',
   }) {
-    const collabId = getAnnotationCollabId();
-    if (!collabId) return null;
-    const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/threads`, {
-      method: 'POST',
-      body: JSON.stringify({
-        anchor: {
-          elementPath: normalizeAnchorElementPath(elementPath),
-          isEdit: threadType === 'edit',
-        },
-        quotedText,
-        body,
-      }),
-    });
-    return data ? normalizeThreadPayload(data) : null;
-  }
-
-  async function createReply(threadId, body) {
-    const collabId = getAnnotationCollabId();
-    if (!collabId || !threadId) return null;
-    await annotationServiceFetch(
-      `/api/collabs/${encodeURIComponent(collabId)}/threads/${encodeURIComponent(threadId)}/comments`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          body,
-        }),
+    return withSyncIndicator(
+      threadType === 'edit' ? 'Saving edit...' : 'Posting comment...',
+      async () => {
+        const collabId = getAnnotationCollabId();
+        if (!collabId) return null;
+        const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/threads`, {
+          method: 'POST',
+          body: JSON.stringify({
+            anchor: {
+              elementPath: normalizeAnchorElementPath(elementPath),
+              isEdit: threadType === 'edit',
+            },
+            quotedText,
+            body,
+          }),
+        });
+        return data ? normalizeThreadPayload(data) : null;
       },
     );
-    return getThread(threadId);
+  }
+
+  async function createReply(threadId, body, options = {}) {
+    const {
+      loadingMessage = 'Sending reply...',
+    } = options;
+
+    return withSyncIndicator(loadingMessage, async () => {
+      const collabId = getAnnotationCollabId();
+      if (!collabId || !threadId) return null;
+      await annotationServiceFetch(
+        `/api/collabs/${encodeURIComponent(collabId)}/threads/${encodeURIComponent(threadId)}/comments`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            body,
+          }),
+        },
+      );
+      return getThread(threadId);
+    });
   }
 
   async function updateThreadStatus(threadId, status) {
-    if (!threadId) return null;
-    const nextState = SERVICE_STATUS_BY_COMMENT_STATUS[normalizeCommentStatus(status)] || 'open';
-    const data = await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ state: nextState }),
+    return withSyncIndicator('Updating comment status...', async () => {
+      if (!threadId) return null;
+      const nextState = SERVICE_STATUS_BY_COMMENT_STATUS[normalizeCommentStatus(status)] || 'open';
+      const data = await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ state: nextState }),
+      });
+      return data ? normalizeThreadPayload(data) : null;
     });
-    return data ? normalizeThreadPayload(data) : null;
+  }
+
+  async function deleteThread(threadId) {
+    return withSyncIndicator('Deleting thread...', async () => {
+      if (!threadId) return false;
+      await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`, {
+        method: 'DELETE',
+      });
+      return true;
+    });
+  }
+
+  async function deleteComment(commentId) {
+    return withSyncIndicator('Deleting comment...', async () => {
+      if (!commentId) return false;
+      await annotationServiceFetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+        method: 'DELETE',
+      });
+      return true;
+    });
   }
 
   return {
     createReply,
     createThread,
+    deleteComment,
+    deleteThread,
+    hasCollabId,
     listThreads,
     updateThreadStatus,
   };

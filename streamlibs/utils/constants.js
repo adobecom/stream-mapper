@@ -213,3 +213,33 @@ export const LOADER_STEP_MESSAGES = {
 export function getBlocksCreationMessage(current, total) {
   return `Creating blocks ${current}/${total}`;
 }
+
+export const ANNOTATION_DEFAULT_USERNAME = 'stream';
+
+export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+
+export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 60000;
+
+export const ANNOTATION_MESSAGES = {
+  collabUnavailableTitle: 'Collaboration unavailable',
+  collabUnavailableDescription: 'This review does not have a collab ID yet, so comments and edits cannot load or sync.',
+  collabUnavailableSnackbar: 'Comments and edits are unavailable until a collab is attached.',
+  commentsUnavailableSnackbar: 'Comments are unavailable until a collab is attached.',
+  noAssets: 'No assets yet.',
+  noComments: 'No comments yet. Click an element to add one.',
+  noEdits: 'No edits yet. Start editing text or image alt.',
+  postCommentError: "Couldn't post comment. Please try again.",
+  sendReplyError: "Couldn't send reply. Please try again.",
+  deleteThreadError: "Couldn't delete thread. Please try again.",
+  deleteCommentError: "Couldn't delete comment. Please try again.",
+  updateStatusError: "Couldn't update comment status. Please try again.",
+  syncEditError: "Couldn't sync edit thread. Please try again.",
+  deleteThreadTitle: 'Delete thread?',
+  deleteCommentTitle: 'Delete comment?',
+  deleteThreadDescription: 'This will remove the main comment and all replies from the thread.',
+  deleteCommentDescription: 'This will remove this reply from the thread.',
+  deleteThreadAction: 'Delete thread',
+  deleteCommentAction: 'Delete comment',
+  deleteThreadAriaLabel: 'Delete thread',
+  deleteCommentAriaLabel: 'Delete comment',
+};

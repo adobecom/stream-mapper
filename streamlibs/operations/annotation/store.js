@@ -1,7 +1,8 @@
-const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
+import { ANNOTATION_COMMENT_STATUSES, ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
 
-export const DEFAULT_USERNAME = 'stream';
-export const COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
+export const DEFAULT_USERNAME = ANNOTATION_DEFAULT_USERNAME;
+export const COMMENT_STATUSES = ANNOTATION_COMMENT_STATUSES;
 
 export function normalizeCommentStatus(status) {
   const value = `${status || ''}`.trim();
@@ -597,6 +598,20 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     annotationState.store.threads.push(normalizedThread);
   }
 
+  function removeThread(threadId) {
+    if (!threadId) return;
+    annotationState.store.threads = annotationState.store.threads.filter(
+      (thread) => thread.id !== threadId,
+    );
+  }
+
+  function removeThreadMessage(threadId, messageId) {
+    if (!threadId || !messageId) return;
+    const thread = getThreadById(threadId);
+    if (!thread) return;
+    thread.messages = (thread.messages || []).filter((message) => message.id !== messageId);
+  }
+
   function clearSelectedElement() {
     if (annotationState.selectedElement) {
       annotationState.selectedElement.classList.remove('annotation-selected-element');
@@ -797,6 +812,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     recordEditMessage,
     rebindEasyEditsToCurrentDom,
     rebindThreadsToCurrentDom,
+    removeThread,
+    removeThreadMessage,
     replaceThreadsByType,
     removeEasyEditHighlights,
     saveAnnotationStore,

@@ -1421,21 +1421,41 @@ body.annotation-mode main::-webkit-scrollbar {
   padding: 10px;
 }
 
+.annotation-comments-empty-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-style: solid;
+  border-color: #fcd34d;
+  background: linear-gradient(180deg, #fffdf5 0%, #fff 100%);
+  color: #92400e;
+}
+
+.annotation-comments-empty-warning strong {
+  color: #b45309;
+  font-size: 12px;
+}
+
+.annotation-comments-empty-warning span {
+  color: inherit;
+  line-height: 1.5;
+}
+
 .stream-snackbar {
   position: fixed;
   top: 24px;
   right: 24px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   min-width: min(320px, calc(100vw - 32px));
   max-width: min(520px, calc(100vw - 32px));
   padding: 10px 12px;
   border: 1px solid #f3b4b7;
   border-radius: 12px;
-  background: linear-gradient(180deg, #fff7f8 0%, #ffffff 100%);
-  box-shadow: 0 10px 26px rgba(185, 28, 28, 0.12);
+  background: linear-gradient(180deg, #fff7f8 0%, #fff 100%);
+  box-shadow: 0 10px 26px rgb(185 28 28 / 12%);
   color: #9f1239;
   font-size: 12px;
   line-height: 1.4;
@@ -1444,7 +1464,7 @@ body.annotation-mode main::-webkit-scrollbar {
   pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease;
   z-index: 10060;
-  text-align: center;
+  text-align: left;
 }
 
 .stream-snackbar.is-visible {
@@ -1452,7 +1472,7 @@ body.annotation-mode main::-webkit-scrollbar {
   transform: translateY(0);
 }
 
-.stream-snackbar__icon {
+.stream-snackbar-icon {
   width: 20px;
   height: 20px;
   min-width: 20px;
@@ -1467,9 +1487,40 @@ body.annotation-mode main::-webkit-scrollbar {
   font-weight: 700;
 }
 
-.stream-snackbar__message {
+.stream-snackbar[data-variant="loading"] {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+  box-shadow: 0 10px 26px rgb(37 99 235 / 12%);
+  color: #1d4ed8;
+}
+
+.stream-snackbar[data-variant="loading"] .stream-snackbar-icon {
+  background: transparent;
+  border-color: #93c5fd;
+}
+
+.stream-snackbar-icon.is-spinner {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #93c5fd;
+  border-top-color: #2563eb;
+  background: transparent;
+  animation: stream-snackbar-spin 0.8s linear infinite;
+}
+
+.stream-snackbar-message {
   color: inherit;
   font-weight: 700;
+}
+
+@keyframes stream-snackbar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .annotation-panel-comment {
@@ -1483,12 +1534,12 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-panel-comment.is-active {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 16%);
 }
 
 .annotation-panel-comment.annotation-panel-comment-focus {
   border-color: #1d4ed8;
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.24);
+  box-shadow: 0 0 0 3px rgb(29 78 216 / 24%);
 }
 
 .annotation-panel-comment-user {
@@ -1503,6 +1554,9 @@ body.annotation-mode main::-webkit-scrollbar {
   position: absolute;
   top: 7px;
   right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .annotation-panel-status-select {
@@ -1540,12 +1594,20 @@ body.annotation-mode main::-webkit-scrollbar {
   margin-top: 6px;
 }
 
+.annotation-panel-reply-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
 .annotation-panel-reply-text {
   margin: 0;
+  flex: 1 1 auto;
   color: #374151;
   font-size: 11px;
   line-height: 1.4;
-  padding: 6px 0;
+  padding: 0;
 }
 
 .annotation-panel-reply-user {
@@ -1554,8 +1616,116 @@ body.annotation-mode main::-webkit-scrollbar {
   margin-right: 6px;
 }
 
-.annotation-panel-replies-list .annotation-panel-reply-text + .annotation-panel-reply-text {
+.annotation-panel-reply-row + .annotation-panel-reply-row {
   border-top: 1px solid #e5e7eb;
+}
+
+.annotation-panel-delete-btn,
+.annotation-panel-reply-delete-btn {
+  border: 1px solid #fecdd3;
+  background: #fff7f8;
+  color: #be123c;
+  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.annotation-panel-reply-delete-btn {
+  margin-top: 1px;
+}
+
+.annotation-panel-delete-btn:hover,
+.annotation-panel-reply-delete-btn:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+  transform: translateY(-1px);
+}
+
+.annotation-panel-delete-btn svg,
+.annotation-panel-reply-delete-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: currentcolor;
+}
+
+.annotation-confirm-dialog {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 28%);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10070;
+}
+
+.annotation-confirm-dialog-card {
+  width: min(360px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  box-shadow: 0 20px 44px rgb(30 64 175 / 18%);
+  padding: 18px;
+  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
+}
+
+.annotation-confirm-dialog-title {
+  margin: 0;
+  color: #1d4ed8;
+  font-size: 16px;
+}
+
+.annotation-confirm-dialog-text {
+  margin: 10px 0 0;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.annotation-confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.annotation-confirm-dialog-btn {
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.annotation-confirm-dialog-btn:hover {
+  transform: translateY(-1px);
+}
+
+.annotation-confirm-dialog-btn-secondary {
+  background: #fff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.annotation-confirm-dialog-btn-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #be123c 100%);
+  color: #fff;
+}
+
+.annotation-confirm-dialog.is-submitting .annotation-confirm-dialog-btn {
+  opacity: 0.55;
+  cursor: wait;
+  transform: none;
 }
 
 .annotation-panel-reply-composer {
@@ -1577,6 +1747,12 @@ body.annotation-mode main::-webkit-scrollbar {
   line-height: 1.3;
 }
 
+.annotation-panel-reply-composer.is-submitting .annotation-panel-reply-input,
+.annotation-floating-popup.is-submitting .annotation-reply-input {
+  background: #eff6ff;
+  color: #6b7280;
+}
+
 .annotation-panel-reply-btn {
   border: none;
   border-radius: 8px;
@@ -1590,6 +1766,13 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   font-size: 11px;
+}
+
+.annotation-panel-reply-composer.is-submitting .annotation-panel-reply-btn,
+.annotation-floating-popup.is-submitting .annotation-reply-btn,
+.annotation-floating-popup.is-submitting .annotation-popup-close {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .annotation-floating-popup {
@@ -1794,6 +1977,10 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   font-size: 12px;
+}
+
+.annotation-floating-popup.is-submitting {
+  box-shadow: 0 10px 26px rgb(30 64 175 / 18%);
 }
 
 body.annotation-inline-edit-mode .annotation-selected-element {
