@@ -71,7 +71,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     if (properties?.heading) {
       const outerDiv = document.createElement('div');
       outerDiv.className = 'text';
-      if (properties?.miloTag?.includes) {
+      if (properties?.miloTag?.includes('grd-10')) {
         outerDiv.classList.add('max-width-10-desktop');
       }
 

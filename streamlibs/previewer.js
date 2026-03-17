@@ -8,8 +8,6 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
-  resetTargetHtmlInStore,
-  resetPreviewHtmlInStore,
 } from './store/store.js';
 import {
   getQueryParam,
@@ -25,21 +23,11 @@ import {
   applyEditChanges,
   handleBackToEditor,
   preflightOperation,
+  annotationOperation,
+  persistAnnotationChangesToDA,
 } from './utils/operations.js';
-import { LOADER_MSG_LIST } from './utils/constants.js';
-
-const LOADER_MESSAGE_AREA = document.querySelector('#loader-content');
-const LOADER = document.querySelector('#loader-container');
-let BUTTON_CONTAINER = null;
-
-function handleLoader(displayLoader = true, message = null) {
-  if (!displayLoader) return;
-  const loadermsg = LOADER_MSG_LIST[Math.floor(Math.random() * LOADER_MSG_LIST.length)];
-  const loaderMessage = message || loadermsg;
-  LOADER_MESSAGE_AREA.textContent = loaderMessage;
-  LOADER.style.display = 'flex';
-  LOADER.classList.add('is-visible');
-}
+import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
+import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
 
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
@@ -61,29 +49,37 @@ function showDOMElements(eles = []) {
 async function postOperationProcessing(rawhtml) {
   let html = fixRelativeLinks(rawhtml);
   pushPreviewHtmlToStore(html);
+  updateLoader({
+    message: LOADER_STEP_MESSAGES.START_PAINTING,
+    percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+  });
   await startHTMLPainting();
   html = targetCompatibleHtml(html);
   pushTargetHtmlToStore(html);
-  hideDOMElements([LOADER]);
+  hideLoader();
 }
 
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
     case 'create':
-      handleLoader();
       html = await createStreamOperation();
       await postOperationProcessing(html);
       break;
     case 'edit':
-      handleLoader(true, 'Preparing the editor. Please wait');
+      updateLoader({ message: 'Preparing the editor. Please wait' });
       await editStreamOperation();
-      hideDOMElements([LOADER]);
+      hideLoader();
       return;
     case 'preflight':
-      handleLoader();
+      updateLoader();
       await preflightOperation();
-      hideDOMElements([LOADER]);
+      hideLoader();
+      break;
+    case 'annotation':
+      updateLoader();
+      await annotationOperation();
+      hideLoader();
       break;
     default:
       break;
@@ -101,89 +97,6 @@ async function paintHtmlOnPage() {
   mainEle.innerHTML = fetchPreviewHtmlFromStore();
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
-  if (!BUTTON_CONTAINER) {
-    const div = document.createElement('div');
-    div.classList.add('button-container');
-    const pushToDABtn = createPushButton();
-    const openInDABtn = createOpenButton();
-    const backToEditBtn = createBackToEditButton();
-    const preflightBtn = createPreflightButton();
-    div.append(...[pushToDABtn, openInDABtn, preflightBtn]);
-    document.body.append(div);
-    pushToDABtn.addEventListener('click', handlePushClick);
-    if (backToEditBtn) {
-      div.prepend(backToEditBtn);
-      backToEditBtn.addEventListener('click', handleBackToEditClick);
-    }
-    preflightBtn.addEventListener('click', handlePreflightClick);
-    BUTTON_CONTAINER = div;
-  }
-}
-
-function createPushButton() {
-  const button = document.createElement('a');
-  button.href = '#';
-  button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-push-icon"></span><span class="text">Push to DA</span>';
-  return button;
-}
-
-function createOpenButton() {
-  const button = document.createElement('a');
-  const targetUrl = `https://da.live/edit#${window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl : `/${window.streamConfig.targetUrl}`}`;
-  button.href = targetUrl;
-  button.target = '_blank';
-  button.classList.add('cta-button');
-  button.id = 'open-in-da-button';
-  button.innerHTML = '<span class="da-open-icon"></span><span class="text">Open in DA</span>';
-  if (window.streamConfig.operation === 'create') button.classList.add('disabled');
-  return button;
-}
-
-function createBackToEditButton() {
-  if (window.streamConfig.operation !== 'edit') return;
-  const button = document.createElement('a');
-  button.href = '#';
-  button.classList.add('cta-button');
-  button.id = 'back-to-edit-button';
-  button.innerHTML = '<span class="da-edit-icon"></span><span class="text">Back to Editor</span>';
-  // eslint-disable-next-line consistent-return
-  return button;
-}
-
-function createPreflightButton() {
-  const button = document.createElement('a');
-  button.href = '#';
-  button.classList.add('cta-button');
-  button.innerHTML = '<span class="da-preflight-icon"></span><span class="text">Preview and Preflight</span>';
-  return button;
-}
-
-async function handlePushClick(event) {
-  const button = event.target.closest('.cta-button');
-  const buttonIcon = button.querySelector('span.da-push-icon');
-  buttonIcon.classList.add('sending');
-  try {
-    await persist();
-  } catch (error) {
-    console.log('Error persisting content', error);
-  }
-  buttonIcon.classList.remove('sending');
-  document.querySelector('#open-in-da-button').classList.remove('disabled');
-}
-
-// eslint-disable-next-line no-unused-vars
-async function handleBackToEditClick(event) {
-  BUTTON_CONTAINER.style.display = 'none';
-  resetTargetHtmlInStore();
-  resetPreviewHtmlInStore();
-  document.querySelector('header').remove();
-  document.querySelector('main').remove();
-  await handleBackToEditor();
-}
-
-async function handlePreflightClick() {
-  await preflightOperation();
 }
 
 async function requestStreamConfigFromParent() {
@@ -201,6 +114,8 @@ async function requestStreamConfigFromParent() {
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
+      reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
+      startReview: getQueryParam('startReview') || getQueryParam('startreview'),
     };
   }
 
@@ -265,6 +180,7 @@ async function setupMessageListener() {
 
 export default async function initPreviewer() {
   window.sessionStorage.clear();
+  initializeLoader();
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
@@ -277,6 +193,8 @@ export default async function initPreviewer() {
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+    reviewId: previewParams.reviewId || previewParams.reviewid || null,
+    startReview: previewParams.startReview || previewParams.startreview || false,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -285,13 +203,17 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
-    handleLoader(true, 'Pushing content to DA');
+    updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    await persistOnTarget();
-    hideDOMElements([LOADER]);
+    if (window.streamConfig.operation === 'annotation') {
+      await persistAnnotationChangesToDA();
+    } else {
+      await persistOnTarget();
+    }
+    hideLoader();
     showDOMElements([document.querySelector('main')]);
   } catch (error) {
-    hideDOMElements([LOADER]);
+    hideLoader();
     showDOMElements([document.querySelector('main')]);
     handleError(error, 'persisting content');
     throw error;

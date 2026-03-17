@@ -1,12 +1,34 @@
 export function showErrorPage(context = '') {
+  const safeContext = (context || 'processing your request').replace(/[<>]/g, '');
   document.body.innerHTML = `
       <div class="enigma-error-page">
-          <img src="${window.location.origin}/streamlibs/assets/error-image-purple.webp">
-          <div>
-              <h1>Oops!! Something broke while ${context}</h1>
-              <h1>Give it another go?</h1>
+          <div class="enigma-error-card">
+            <div class="enigma-error-image-wrap">
+              <img
+                src="${window.location.origin}/streamlibs/assets/error-image.webp"
+                alt="Something went wrong"
+              >
+            </div>
+            <div class="enigma-error-copy">
+                <h1 class="enigma-error-title">Oops! Something broke while ${safeContext}</h1>
+                <p class="enigma-retry-line">
+                  <span class="enigma-retry-text">Give it another go?</span>
+                  <button type="button" id="enigma-retry-btn" class="enigma-retry-btn">Yes Retry</button>
+                </p>
+            </div>
           </div>
       </div>`;
+  const retryButton = document.querySelector('#enigma-retry-btn');
+  retryButton?.addEventListener('click', () => {
+    retryButton.disabled = true;
+    retryButton.classList.add('is-loading');
+    retryButton.setAttribute('aria-busy', 'true');
+    retryButton.setAttribute('aria-label', 'Retrying');
+    retryButton.textContent = '';
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  });
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -36,4 +58,16 @@ export async function safeJsonFetch(componentJSONUrl, options = {}) {
   const response = await safeFetch(url, options, { donotShowErrorPage: true });
   // eslint-disable-next-line no-return-await
   return await response.json();
+}
+
+export async function safeTemplateFetch(templateUrl, options = {}) {
+  const { getConfig } = await import('./utils.js');
+  const config = await getConfig();
+  // If templateUrl is already a full URL, use it directly; otherwise construct from config
+  const url = templateUrl.startsWith('http://') || templateUrl.startsWith('https://')
+    ? templateUrl
+    : `${config.streamMapper.blockTemplatesUrl || config.streamMapper.blockTemplatesUrl}/${templateUrl}`;
+  const response = await safeFetch(url, options, { donotShowErrorPage: true });
+  // eslint-disable-next-line no-return-await
+  return await response.text();
 }

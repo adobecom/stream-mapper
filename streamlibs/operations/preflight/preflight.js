@@ -1,7 +1,7 @@
 /* eslint-disable import/prefer-default-export */
-import { getConfig, ackCodeGeneration } from '../utils/utils.js';
-import { handleError } from '../utils/error-handler.js';
-import { previewDAPage } from '../sources/da.js';
+import { getConfig, ackCodeGeneration } from '../../utils/utils.js';
+import { handleError } from '../../utils/error-handler.js';
+import { previewDAPage } from '../../sources/da.js';
 
 async function isSidekickLoginRequired(url) {
   if (new URL(url).host.includes('aem.live')) return false;
