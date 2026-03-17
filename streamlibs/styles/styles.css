@@ -1281,20 +1281,24 @@ body.annotation-mode main::-webkit-scrollbar {
   font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
   display: flex;
   flex-direction: column;
+  container-name: comments-panel;
+  container-type: inline-size;
 }
 
 .annotation-comments-panel-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 .annotation-comments-panel-header h3 {
   margin: 0;
   color: #1d4ed8;
   font-size: 16px;
+  flex: 0 0 auto;
 }
 
 .annotation-comments-content {
@@ -1310,6 +1314,10 @@ body.annotation-mode main::-webkit-scrollbar {
   flex-direction: column;
   align-items: flex-end;
   gap: 5px;
+  margin-left: auto;
+  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .annotation-inline-edit-switcher-label {
@@ -1327,6 +1335,29 @@ body.annotation-mode main::-webkit-scrollbar {
   border: 1px solid #93c5fd;
   border-radius: 999px;
   padding: 2px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  width: fit-content;
+}
+
+/* When the panel itself gets narrow enough that the title and tabs no longer fit, stack them. */
+@container comments-panel (max-width: 260px) {
+  .annotation-comments-panel-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .annotation-inline-edit-switcher {
+    align-items: flex-start;
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+
+  .annotation-inline-radio-group {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
 
 .annotation-inline-mode-radio {
@@ -1390,6 +1421,108 @@ body.annotation-mode main::-webkit-scrollbar {
   padding: 10px;
 }
 
+.annotation-comments-empty-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-style: solid;
+  border-color: #fcd34d;
+  background: linear-gradient(180deg, #fffdf5 0%, #fff 100%);
+  color: #92400e;
+}
+
+.annotation-comments-empty-warning strong {
+  color: #b45309;
+  font-size: 12px;
+}
+
+.annotation-comments-empty-warning span {
+  color: inherit;
+  line-height: 1.5;
+}
+
+.stream-snackbar {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: min(320px, calc(100vw - 32px));
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid #f3b4b7;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff7f8 0%, #fff 100%);
+  box-shadow: 0 10px 26px rgb(185 28 28 / 12%);
+  color: #9f1239;
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 10060;
+  text-align: left;
+}
+
+.stream-snackbar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.stream-snackbar-icon {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffe4e6;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stream-snackbar[data-variant="loading"] {
+  border-color: #bfdbfe;
+  background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
+  box-shadow: 0 10px 26px rgb(37 99 235 / 12%);
+  color: #1d4ed8;
+}
+
+.stream-snackbar[data-variant="loading"] .stream-snackbar-icon {
+  background: transparent;
+  border-color: #93c5fd;
+}
+
+.stream-snackbar-icon.is-spinner {
+  border-width: 2px;
+  border-style: solid;
+  border-color: #93c5fd;
+  border-top-color: #2563eb;
+  background: transparent;
+  animation: stream-snackbar-spin 0.8s linear infinite;
+}
+
+.stream-snackbar-message {
+  color: inherit;
+  font-weight: 700;
+}
+
+@keyframes stream-snackbar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .annotation-panel-comment {
   border: 1px solid #bfdbfe;
   border-radius: 10px;
@@ -1401,12 +1534,12 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-panel-comment.is-active {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 16%);
 }
 
 .annotation-panel-comment.annotation-panel-comment-focus {
   border-color: #1d4ed8;
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.24);
+  box-shadow: 0 0 0 3px rgb(29 78 216 / 24%);
 }
 
 .annotation-panel-comment-user {
@@ -1421,6 +1554,9 @@ body.annotation-mode main::-webkit-scrollbar {
   position: absolute;
   top: 7px;
   right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .annotation-panel-status-select {
@@ -1458,12 +1594,20 @@ body.annotation-mode main::-webkit-scrollbar {
   margin-top: 6px;
 }
 
+.annotation-panel-reply-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+
 .annotation-panel-reply-text {
   margin: 0;
+  flex: 1 1 auto;
   color: #374151;
   font-size: 11px;
   line-height: 1.4;
-  padding: 6px 0;
+  padding: 0;
 }
 
 .annotation-panel-reply-user {
@@ -1472,8 +1616,134 @@ body.annotation-mode main::-webkit-scrollbar {
   margin-right: 6px;
 }
 
-.annotation-panel-replies-list .annotation-panel-reply-text + .annotation-panel-reply-text {
+.annotation-panel-reply-row + .annotation-panel-reply-row {
   border-top: 1px solid #e5e7eb;
+}
+
+.annotation-panel-edit-btn {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.annotation-panel-edit-btn-reply {
+  margin-top: 1px;
+}
+
+.annotation-panel-edit-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+
+.annotation-panel-edit-btn svg {
+  width: 13px;
+  height: 13px;
+  fill: currentcolor;
+}
+
+.annotation-panel-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.annotation-panel-edit-form-reply {
+  width: 100%;
+}
+
+.annotation-panel-edit-input {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  background: #fff;
+  color: #111827;
+  padding: 9px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.annotation-panel-edit-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 15%);
+}
+
+.annotation-panel-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.annotation-panel-edit-save-btn,
+.annotation-panel-edit-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.annotation-panel-edit-save-btn svg,
+.annotation-panel-edit-cancel-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.annotation-panel-edit-save-btn:hover,
+.annotation-panel-edit-cancel-btn:hover {
+  transform: translateY(-1px);
+}
+
+.annotation-panel-edit-cancel-btn {
+  background: #fff;
+  border: 1.5px solid #bfdbfe;
+  color: #27272a;
+}
+
+.annotation-panel-edit-save-btn {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: #fff;
+}
+
+.annotation-panel-edit-cancel-btn:hover {
+  background: #eff6ff;
+}
+
+.annotation-panel-edit-save-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+}
+
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-input,
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-save-btn,
+.annotation-panel-edit-form.is-submitting .annotation-panel-edit-cancel-btn {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .annotation-panel-reply-composer {
@@ -1495,6 +1765,12 @@ body.annotation-mode main::-webkit-scrollbar {
   line-height: 1.3;
 }
 
+.annotation-panel-reply-composer.is-submitting .annotation-panel-reply-input,
+.annotation-floating-popup.is-submitting .annotation-reply-input {
+  background: #eff6ff;
+  color: #6b7280;
+}
+
 .annotation-panel-reply-btn {
   border: none;
   border-radius: 8px;
@@ -1508,6 +1784,13 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   font-size: 11px;
+}
+
+.annotation-panel-reply-composer.is-submitting .annotation-panel-reply-btn,
+.annotation-floating-popup.is-submitting .annotation-reply-btn,
+.annotation-floating-popup.is-submitting .annotation-popup-close {
+  opacity: 0.55;
+  cursor: wait;
 }
 
 .annotation-floating-popup {
@@ -1712,6 +1995,10 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: center;
   font-size: 12px;
+}
+
+.annotation-floating-popup.is-submitting {
+  box-shadow: 0 10px 26px rgb(30 64 175 / 18%);
 }
 
 body.annotation-inline-edit-mode .annotation-selected-element {

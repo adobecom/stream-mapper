@@ -97,7 +97,7 @@ export async function annotationOperation() {
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  commentsPanel.setupAnnotationUI(mainEl);
+  await commentsPanel.setupAnnotationUI(mainEl);
   store.rebindEasyEditsToCurrentDom();
   store.applyEasyEditsToDom();
   store.saveAnnotationStore();
@@ -110,7 +110,7 @@ export async function annotationOperation() {
 }
 
 export async function persistAnnotationChangesToDA() {
-  inlineEditing.syncInlineEditsBeforePersist();
+  await inlineEditing.syncInlineEditsBeforePersist();
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
   const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
   const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);

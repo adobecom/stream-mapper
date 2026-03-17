@@ -1,0 +1,249 @@
+import { getConfig } from '../../utils/utils.js';
+import { ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
+import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
+import { normalizeCommentStatus } from './store.js';
+
+const SERVICE_STATUS_BY_COMMENT_STATUS = {
+  Open: 'open',
+  Resolved: 'resolved',
+  Closed: 'closed',
+  Complete: 'resolved',
+};
+
+const COMMENT_STATUS_BY_SERVICE_STATUS = {
+  open: 'Open',
+  resolved: 'Resolved',
+  closed: 'Closed',
+};
+
+function normalizeToken(token) {
+  const value = `${token || ''}`.trim();
+  if (!value) return '';
+  return value.startsWith('Bearer ') ? value : `Bearer ${value}`;
+}
+
+function normalizeAnchorElementPath(elementPath) {
+  if (!elementPath) return null;
+  if (typeof elementPath === 'object') {
+    return elementPath;
+  }
+  try {
+    const parsed = JSON.parse(elementPath);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (error) {
+    // Ignore legacy plain-string paths.
+  }
+  return {
+    selector: `${elementPath || ''}`,
+  };
+}
+
+function getAnnotationCollabId() {
+  const collabId = window.streamConfig?.collabId;
+  return `${collabId || ''}`.trim();
+}
+
+function sortComments(comments = []) {
+  return [...comments].sort((left, right) => {
+    const leftValue = new Date(left?.createdAt || 0).getTime();
+    const rightValue = new Date(right?.createdAt || 0).getTime();
+    return leftValue - rightValue;
+  });
+}
+
+function normalizeThreadPayload(thread) {
+  const comments = sortComments(thread?.comments || []);
+  const rootComment = comments.find((comment) => !comment?.parentCommentId) || comments[0] || null;
+  const rootCommentId = rootComment?.id || '';
+  const isEditThread = Boolean(thread?.anchor?.isEdit);
+
+  return {
+    id: thread?.id || '',
+    threadType: isEditThread ? 'edit' : 'comment',
+    elementPath: thread?.anchor?.elementPath || '',
+    elementRef: '',
+    status: normalizeCommentStatus(COMMENT_STATUS_BY_SERVICE_STATUS[thread?.state] || ''),
+    username: rootComment?.authorName || ANNOTATION_DEFAULT_USERNAME,
+    messages: comments.map((comment) => ({
+      id: comment.id || '',
+      authorProfileId: comment.authorProfileId ?? null,
+      username: comment.authorName || ANNOTATION_DEFAULT_USERNAME,
+      text: comment.body || '',
+      kind: comment.id === rootCommentId ? 'comment' : 'reply',
+      replyToCommentId: comment.id === rootCommentId ? '' : (comment.parentCommentId || rootCommentId),
+      createdAt: comment.createdAt || null,
+      editedAt: comment.editedAt || null,
+    })),
+  };
+}
+
+export default function createAnnotationServiceClient() {
+  async function annotationServiceFetch(path, options = {}) {
+    const resolvedServiceEndpoint = `${(await getConfig())?.streamMapper?.serviceEP || ''}`.trim();
+    const collabId = getAnnotationCollabId();
+    if (!resolvedServiceEndpoint || !collabId) return null;
+
+    const headers = {
+      ...(options.headers || {}),
+    };
+    const token = normalizeToken(window.streamConfig?.token);
+    if (token) headers.Authorization = token;
+    if (options.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(`${resolvedServiceEndpoint}${path}`, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Annotation service request failed: ${response.status}`);
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function isAvailable() {
+    return Boolean(getAnnotationCollabId());
+  }
+
+  function getCurrentUserIdentity() {
+    const profileId = window.streamConfig?.profileId
+      ?? window.streamConfig?.profile_id
+      ?? null;
+
+    return {
+      profileId: profileId === null || profileId === undefined ? null : `${profileId}`,
+    };
+  }
+
+  async function withSyncIndicator(message, callback) {
+    showGlobalSyncIndicator(message);
+    try {
+      return await callback();
+    } finally {
+      hideGlobalSyncIndicator();
+    }
+  }
+
+  async function getThread(threadId) {
+    if (!threadId) return null;
+    const data = await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`);
+    return data ? normalizeThreadPayload(data) : null;
+  }
+
+  async function listThreads() {
+    const collabId = getAnnotationCollabId();
+    if (!collabId) return null;
+    const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/threads`);
+    if (!Array.isArray(data)) return [];
+    return data.map(normalizeThreadPayload).filter((thread) => thread.id);
+  }
+
+  async function createThread({
+    elementPath,
+    body,
+    quotedText = null,
+    threadType = 'comment',
+  }) {
+    return withSyncIndicator(
+      threadType === 'edit' ? 'Saving edit...' : 'Posting comment...',
+      async () => {
+        const collabId = getAnnotationCollabId();
+        if (!collabId) return null;
+        const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/threads`, {
+          method: 'POST',
+          body: JSON.stringify({
+            anchor: {
+              elementPath: normalizeAnchorElementPath(elementPath),
+              isEdit: threadType === 'edit',
+            },
+            quotedText,
+            body,
+          }),
+        });
+        return data ? normalizeThreadPayload(data) : null;
+      },
+    );
+  }
+
+  async function createReply(threadId, body, options = {}) {
+    const {
+      loadingMessage = 'Sending reply...',
+    } = options;
+
+    return withSyncIndicator(loadingMessage, async () => {
+      const collabId = getAnnotationCollabId();
+      if (!collabId || !threadId) return null;
+      await annotationServiceFetch(
+        `/api/collabs/${encodeURIComponent(collabId)}/threads/${encodeURIComponent(threadId)}/comments`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            body,
+          }),
+        },
+      );
+
+      try {
+        return {
+          persisted: true,
+          thread: await getThread(threadId),
+        };
+      } catch (error) {
+        return {
+          persisted: true,
+          thread: null,
+        };
+      }
+    });
+  }
+
+  async function updateThreadStatus(threadId, status) {
+    return withSyncIndicator('Updating comment status...', async () => {
+      if (!threadId) return null;
+      const nextState = SERVICE_STATUS_BY_COMMENT_STATUS[normalizeCommentStatus(status)] || 'open';
+      const data = await annotationServiceFetch(`/api/threads/${encodeURIComponent(threadId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ state: nextState }),
+      });
+      return data ? normalizeThreadPayload(data) : null;
+    });
+  }
+
+  async function updateComment(commentId, body, threadId) {
+    return withSyncIndicator('Saving comment...', async () => {
+      if (!commentId || !threadId) return null;
+      await annotationServiceFetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ body }),
+      });
+
+      try {
+        return {
+          persisted: true,
+          thread: await getThread(threadId),
+        };
+      } catch (error) {
+        return {
+          persisted: true,
+          thread: null,
+        };
+      }
+    });
+  }
+
+  return {
+    createReply,
+    createThread,
+    getCurrentUserIdentity,
+    isAvailable,
+    listThreads,
+    updateComment,
+    updateThreadStatus,
+  };
+}
