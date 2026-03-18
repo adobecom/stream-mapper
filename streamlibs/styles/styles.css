@@ -1377,6 +1377,12 @@ body.annotation-mode main::-webkit-scrollbar {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+.annotation-inline-mode-radio:disabled + label {
+  color: #94a3b8;
+  cursor: not-allowed;
+  background: rgba(148, 163, 184, 12%);
+}
+
 .annotation-inline-mode-radio:checked + label {
   background: #2563eb;
   color: #fff;

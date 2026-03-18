@@ -30,6 +30,10 @@ import {
 import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
 import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
 
+function isInlineEditingAllowed(value) {
+  return value !== false && value !== 'false';
+}
+
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
   eles.forEach((ele) => {
@@ -119,6 +123,8 @@ async function requestStreamConfigFromParent() {
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
       reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
       startReview: getQueryParam('startReview') || getQueryParam('startreview'),
+      inlineEditingAllowed: getQueryParam('inlineEditingAllowed'),
+      collabRole: getQueryParam('collabRole'),
     };
   }
 
@@ -213,6 +219,8 @@ export default async function initPreviewer() {
       || null,
     reviewId: previewParams.reviewId || previewParams.reviewid || null,
     startReview: previewParams.startReview || previewParams.startreview || false,
+    inlineEditingAllowed: isInlineEditingAllowed(previewParams.inlineEditingAllowed),
+    collabRole: previewParams.collabRole || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
