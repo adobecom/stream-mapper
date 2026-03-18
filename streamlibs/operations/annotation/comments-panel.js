@@ -1028,13 +1028,26 @@ export default function createCommentsPanelController({
     }
   };
 
+  function stopThreadPolling() {
+    if (!annotationState.commentThreadPollId) return;
+    window.clearInterval(annotationState.commentThreadPollId);
+    annotationState.commentThreadPollId = null;
+  }
+
+  function startThreadPolling() {
+    if (!isCommentsServiceAvailable()) return;
+    if (document.visibilityState !== 'visible') return;
+    if (annotationState.commentThreadPollId) return;
+
+    annotationState.commentThreadPollId = window.setInterval(() => {
+      refreshThreadsFromService();
+    }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
+  }
+
   function teardownGlobalListeners() {
     hideGlobalSnackbar();
     closeCommentEditor();
-    if (annotationState.commentThreadPollId) {
-      window.clearInterval(annotationState.commentThreadPollId);
-      annotationState.commentThreadPollId = null;
-    }
+    stopThreadPolling();
     if (annotationState.floatingUiFrameId) {
       window.cancelAnimationFrame(annotationState.floatingUiFrameId);
       annotationState.floatingUiFrameId = null;
@@ -1089,6 +1102,10 @@ export default function createCommentsPanelController({
       document.removeEventListener('click', annotationState.documentClickHandler);
       annotationState.documentClickHandler = null;
     }
+    if (annotationState.documentVisibilityHandler) {
+      document.removeEventListener('visibilitychange', annotationState.documentVisibilityHandler);
+      annotationState.documentVisibilityHandler = null;
+    }
     if (annotationState.windowResizeHandler) {
       window.removeEventListener('resize', annotationState.windowResizeHandler);
       annotationState.windowResizeHandler = null;
@@ -1106,11 +1123,7 @@ export default function createCommentsPanelController({
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
     await refreshThreadsFromService();
-    if (isCommentsServiceAvailable()) {
-      annotationState.commentThreadPollId = window.setInterval(() => {
-        refreshThreadsFromService();
-      }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
-    }
+    startThreadPolling();
 
     annotationState.mainClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
@@ -1311,6 +1324,16 @@ export default function createCommentsPanelController({
     };
     document.addEventListener('click', annotationState.documentClickHandler);
 
+    annotationState.documentVisibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        refreshThreadsFromServiceInBackground();
+        startThreadPolling();
+        return;
+      }
+      stopThreadPolling();
+    };
+    document.addEventListener('visibilitychange', annotationState.documentVisibilityHandler);
+
     annotationState.mainScrollHandler = scheduleFloatingUISync;
     annotationState.windowResizeHandler = scheduleFloatingUISync;
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
@@ -1347,6 +1370,7 @@ export default function createCommentsPanelController({
         } finally {
           target.disabled = false;
         }
+        renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
       };
       annotationUI.inlineToggleEl.addEventListener('change', annotationState.inlineToggleChangeHandler);
@@ -1361,6 +1385,7 @@ export default function createCommentsPanelController({
         await disableInlineEditMode();
         if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
         if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+        renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
       };
       annotationUI.inlineCommentsToggleEl.addEventListener(
@@ -1380,6 +1405,7 @@ export default function createCommentsPanelController({
         if (annotationUI.inlineCommentsToggleEl) {
           annotationUI.inlineCommentsToggleEl.checked = false;
         }
+        renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
       };
       annotationUI.inlineAssetsToggleEl.addEventListener(

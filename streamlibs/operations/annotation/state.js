@@ -21,6 +21,7 @@ export function createAnnotationState() {
     inlineCommentsToggleChangeHandler: null,
     inlineAssetsToggleChangeHandler: null,
     documentClickHandler: null,
+    documentVisibilityHandler: null,
     windowResizeHandler: null,
     mainScrollHandler: null,
   };
