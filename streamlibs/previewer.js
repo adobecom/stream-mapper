@@ -8,6 +8,7 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
+  fetchTargetHtmlFromStore,
 } from './store/store.js';
 import {
   getQueryParam,
@@ -176,6 +177,15 @@ async function setupMessageListener() {
     }
     if (event.data.type === 'RESET') {
       window.location.reload();
+    }
+    if (event.data.type === 'STREAM_GET_TARGET_HTML') {
+      const bodyHtml = fetchTargetHtmlFromStore() || '';
+      event.source?.postMessage({
+        type: 'STREAM_TARGET_HTML',
+        requestId: event.data.requestId,
+        storeId: getQueryParam('storeId'),
+        bodyHtml,
+      }, event.origin);
     }
   });
 }
