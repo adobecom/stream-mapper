@@ -30,8 +30,28 @@ import {
 import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
 import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
 
-function isInlineEditingAllowed(value) {
-  return value !== false && value !== 'false';
+function parseBooleanFlag(value) {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return null;
+}
+
+function isCollabOwnerRole(role) {
+  const normalizedRole = `${role || ''}`
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+  if (!normalizedRole) return false;
+  return normalizedRole === 'owner'
+    || normalizedRole === 'collab owner'
+    || normalizedRole.endsWith(' owner');
+}
+
+function resolveInlineEditingAllowed(previewParams = {}) {
+  const explicitFlag = parseBooleanFlag(previewParams.inlineEditingAllowed);
+  if (explicitFlag !== null) return explicitFlag;
+  if (previewParams.collabRole) return isCollabOwnerRole(previewParams.collabRole);
+  return false;
 }
 
 function hideDOMElements(eles = []) {
@@ -219,7 +239,7 @@ export default async function initPreviewer() {
       || null,
     reviewId: previewParams.reviewId || previewParams.reviewid || null,
     startReview: previewParams.startReview || previewParams.startreview || false,
-    inlineEditingAllowed: isInlineEditingAllowed(previewParams.inlineEditingAllowed),
+    inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
     collabRole: previewParams.collabRole || null,
   };
   await initializeTokens(window.streamConfig.token);

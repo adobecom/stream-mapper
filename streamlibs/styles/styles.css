@@ -1378,9 +1378,9 @@ body.annotation-mode main::-webkit-scrollbar {
 }
 
 .annotation-inline-mode-radio:disabled + label {
-  color: #94a3b8;
+  color: #64748b;
   cursor: not-allowed;
-  background: rgba(148, 163, 184, 12%);
+  background: linear-gradient(180deg, rgba(226, 232, 240, 32%), rgba(226, 232, 240, 16%));
 }
 
 .annotation-inline-mode-radio:checked + label {

@@ -89,8 +89,11 @@ export default function createCommentsPanelController({
 
     if (annotationUI.inlineToggleEl && !isInlineEditingAllowed()) {
       const editLabel = panel.querySelector('label[for="annotation-inline-mode-edit"]');
+      annotationUI.inlineToggleEl.disabled = true;
+      annotationUI.inlineToggleEl.setAttribute('aria-disabled', 'true');
       if (editLabel instanceof HTMLElement) {
         editLabel.title = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
+        editLabel.setAttribute('aria-label', ANNOTATION_MESSAGES.inlineEditRestrictedDescription);
       }
     }
   }
