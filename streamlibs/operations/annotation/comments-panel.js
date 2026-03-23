@@ -199,6 +199,16 @@ export default function createCommentsPanelController({
     panelReplyDrafts.delete(getReplyComposerKey(threadId, commentId));
   }
 
+  function resetPanelReplyComposer(threadId, commentId = '') {
+    clearPanelReplyDraft(threadId, commentId);
+    const input = annotationUI.panelEl?.querySelector(
+      `.annotation-panel-reply-input[data-thread-id="${threadId}"][data-comment-id="${commentId}"]`,
+    );
+    if (input instanceof HTMLInputElement) {
+      input.value = '';
+    }
+  }
+
   function isEditingComment(threadId, commentId) {
     return activeCommentEditor?.threadId === threadId
       && activeCommentEditor?.commentId === commentId;
@@ -241,6 +251,23 @@ export default function createCommentsPanelController({
     return element instanceof HTMLElement
       && Boolean(annotationUI.panelEl?.contains(element))
       && element.matches('input, textarea, select, button');
+  }
+
+  function isCommentsViewActive() {
+    return annotationUI.annotationMode === 'comments' && !annotationUI.inlineMode;
+  }
+
+  function getVisibleThreadType() {
+    if (annotationUI.annotationMode === 'assets') return '';
+    return annotationUI.inlineMode || annotationUI.annotationMode === 'edit'
+      ? 'edit'
+      : 'comment';
+  }
+
+  function schedulePendingCommentsPanelRefreshFlush() {
+    window.requestAnimationFrame(() => {
+      flushPendingCommentsPanelRefresh();
+    });
   }
 
   function shouldDeferCommentsPanelRefresh() {
@@ -291,9 +318,7 @@ export default function createCommentsPanelController({
       cancelBtn.disabled = isPending;
     }
     if (!isPending) {
-      window.requestAnimationFrame(() => {
-        flushPendingCommentsPanelRefresh();
-      });
+      schedulePendingCommentsPanelRefreshFlush();
     }
   }
 
@@ -325,9 +350,7 @@ export default function createCommentsPanelController({
       button.disabled = isPending;
     }
     if (!isPending) {
-      window.requestAnimationFrame(() => {
-        flushPendingCommentsPanelRefresh();
-      });
+      schedulePendingCommentsPanelRefreshFlush();
     }
   }
 
@@ -507,10 +530,10 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const visibleThreadType = isEditViewActive() ? 'edit' : 'comment';
+    const visibleThreadType = getVisibleThreadType();
     const visibleThreads = annotationState.store.threads
       .filter((thread) => store.getThreadType(thread) === visibleThreadType);
-    const showComments = annotationUI.annotationMode === 'comments';
+    const showComments = isCommentsViewActive();
 
     if (!visibleThreads.length) {
       const empty = document.createElement('p');
@@ -854,7 +877,7 @@ export default function createCommentsPanelController({
         const targetEl = getCachedThreadTarget(thread);
         if (!targetEl) return;
 
-        if (annotationUI.annotationMode === 'comments') {
+        if (isCommentsViewActive()) {
           targetEl.classList.add('annotation-has-comments');
           targetEl.setAttribute('data-annotation-count', String((thread.messages || []).length || 1));
         }
@@ -962,7 +985,7 @@ export default function createCommentsPanelController({
     hideGlobalSnackbar();
     annotationState.activeThreadId = activeThread.id;
     annotationState.activeMessageId = commentId || getRootComment(activeThread)?.id || '';
-    clearPanelReplyDraft(threadId, commentId);
+    resetPanelReplyComposer(threadId, commentId);
     setPanelReplyPending(threadId, commentId, false);
     if (didHydrateThread) {
       store.saveAnnotationStore();
@@ -1168,11 +1191,23 @@ export default function createCommentsPanelController({
     annotationUI.popupEl.style.top = `${top}px`;
   }
 
+  function preparePopupDraftForElement(element) {
+    if (annotationState.selectedElement && annotationState.selectedElement !== element) {
+      const popupInput = annotationUI.popupEl?.querySelector('.annotation-reply-input');
+      if (popupInput instanceof HTMLTextAreaElement) {
+        popupInput.value = '';
+      }
+      clearPopupDraft();
+    }
+    return store.buildCommentElementPath(element, annotationUI.mainEl);
+  }
+
   function openPopupForElement(element, shouldScroll = false) {
     if (popupSubmitPending) return;
     if (!annotationUI.layerEl) return;
+    const nextElementPath = preparePopupDraftForElement(element);
     setSelectedElement(element);
-    syncPopupDraftScope(annotationState.selectedElementPath);
+    syncPopupDraftScope(nextElementPath);
     const thread = store.getCommentThreadByElement(annotationState.selectedElement);
     annotationState.activeThreadId = thread?.id || '';
     annotationState.activeMessageId = '';
@@ -1286,10 +1321,7 @@ export default function createCommentsPanelController({
         'edit',
         nextEditThreads,
       );
-      let visibleThreadType = '';
-      if (annotationUI.annotationMode !== 'assets') {
-        visibleThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
-      }
+      const visibleThreadType = getVisibleThreadType();
       let didVisibleThreadsChange = false;
       if (visibleThreadType === 'comment') {
         didVisibleThreadsChange = didCommentsChange;
@@ -1330,6 +1362,7 @@ export default function createCommentsPanelController({
     hideGlobalSnackbar();
     closeCommentEditor();
     stopThreadPolling();
+    pendingCommentsPanelRefresh = false;
     panelReplyDrafts.clear();
     popupDraft = '';
     popupDraftKey = '';
@@ -1415,9 +1448,7 @@ export default function createCommentsPanelController({
     startThreadPolling();
 
     annotationState.mainClickHandler = (event) => {
-      if (annotationUI.inlineMode) return;
-      if (annotationUI.annotationMode === 'edit') return;
-      if (annotationUI.annotationMode === 'assets') return;
+      if (!isCommentsViewActive()) return;
       if (!isCommentsServiceAvailable()) return;
       if (popupSubmitPending) return;
       const { target } = event;
@@ -1458,7 +1489,7 @@ export default function createCommentsPanelController({
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
-      if (annotationUI.inlineMode || annotationUI.annotationMode === 'edit') {
+      if (isEditViewActive()) {
         if (!(card instanceof HTMLElement)) return;
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
@@ -1569,9 +1600,7 @@ export default function createCommentsPanelController({
     annotationUI.panelEl.addEventListener('keydown', annotationState.panelKeydownHandler);
 
     annotationState.panelFocusoutHandler = () => {
-      window.requestAnimationFrame(() => {
-        flushPendingCommentsPanelRefresh();
-      });
+      schedulePendingCommentsPanelRefreshFlush();
     };
     annotationUI.panelEl.addEventListener('focusout', annotationState.panelFocusoutHandler);
 
