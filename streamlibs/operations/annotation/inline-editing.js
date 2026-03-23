@@ -14,6 +14,7 @@ export default function createInlineEditingController({
   removePopup,
 }) {
   const annotationService = createAnnotationServiceClient();
+  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
 
   function refreshThreadsFromServiceInBackground() {
     annotationService.listThreads()
@@ -471,6 +472,10 @@ export default function createInlineEditingController({
 
   async function enableInlineEditMode() {
     if (!annotationUI.mainEl || annotationUI.inlineMode) return false;
+    if (!isInlineEditingAllowed()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.inlineEditRestrictedSnackbar);
+      return false;
+    }
     if (!annotationService.isAvailable()) {
       showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
       return false;

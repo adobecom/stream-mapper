@@ -13,6 +13,7 @@ export default function createCommentsPanelController({
   store,
 }) {
   const annotationService = createAnnotationServiceClient();
+  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
   let refreshThreadsFromService = async () => {};
@@ -91,6 +92,16 @@ export default function createCommentsPanelController({
     annotationUI.inlineToggleEl = panel.querySelector('#annotation-inline-mode-edit');
     annotationUI.inlineCommentsToggleEl = panel.querySelector('#annotation-inline-mode-comments');
     annotationUI.inlineAssetsToggleEl = panel.querySelector('#annotation-inline-mode-assets');
+
+    if (annotationUI.inlineToggleEl && !isInlineEditingAllowed()) {
+      const editLabel = panel.querySelector('label[for="annotation-inline-mode-edit"]');
+      annotationUI.inlineToggleEl.disabled = true;
+      annotationUI.inlineToggleEl.setAttribute('aria-disabled', 'true');
+      if (editLabel instanceof HTMLElement) {
+        editLabel.title = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
+        editLabel.setAttribute('aria-label', ANNOTATION_MESSAGES.inlineEditRestrictedDescription);
+      }
+    }
   }
 
   function buildCommentGroups(thread) {
@@ -419,6 +430,10 @@ export default function createCommentsPanelController({
     });
   }
 
+  function isEditViewActive() {
+    return annotationUI.annotationMode === 'edit';
+  }
+
   renderCommentsPanel = function renderCommentsPanelImpl() {
     if (!annotationUI.panelListEl) return;
     pendingCommentsPanelRefresh = false;
@@ -492,10 +507,10 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const visibleThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
+    const visibleThreadType = isEditViewActive() ? 'edit' : 'comment';
     const visibleThreads = annotationState.store.threads
       .filter((thread) => store.getThreadType(thread) === visibleThreadType);
-    const showComments = !annotationUI.inlineMode;
+    const showComments = annotationUI.annotationMode === 'comments';
 
     if (!visibleThreads.length) {
       const empty = document.createElement('p');
@@ -816,7 +831,7 @@ export default function createCommentsPanelController({
     clearMarkers();
     if (annotationUI.annotationMode === 'assets') return;
 
-    const markerThreadType = annotationUI.inlineMode ? 'edit' : 'comment';
+    const markerThreadType = isEditViewActive() ? 'edit' : 'comment';
 
     const resolveMarkerPosition = (baseTop, baseLeft) => {
       const row = Math.max(0, Math.round(baseTop));
@@ -839,7 +854,7 @@ export default function createCommentsPanelController({
         const targetEl = getCachedThreadTarget(thread);
         if (!targetEl) return;
 
-        if (!annotationUI.inlineMode) {
+        if (annotationUI.annotationMode === 'comments') {
           targetEl.classList.add('annotation-has-comments');
           targetEl.setAttribute('data-annotation-count', String((thread.messages || []).length || 1));
         }
@@ -851,16 +866,16 @@ export default function createCommentsPanelController({
         groups.forEach((group, idx) => {
           const marker = document.createElement('button');
           marker.type = 'button';
-          marker.className = annotationUI.inlineMode ? 'annotation-edit-marker' : 'annotation-thread-marker';
+          marker.className = isEditViewActive() ? 'annotation-edit-marker' : 'annotation-thread-marker';
           marker.dataset.threadId = thread.id;
           marker.dataset.messageId = group.comment.id || '';
           marker.dataset.commentIndex = String(idx);
-          marker.title = annotationUI.inlineMode ? `Edit ${idx + 1}` : `Comment ${idx + 1}`;
+          marker.title = isEditViewActive() ? `Edit ${idx + 1}` : `Comment ${idx + 1}`;
           marker.setAttribute(
             'aria-label',
-            annotationUI.inlineMode ? `Open edit ${idx + 1}` : `Open comment ${idx + 1}`,
+            isEditViewActive() ? `Open edit ${idx + 1}` : `Open comment ${idx + 1}`,
           );
-          marker.innerHTML = annotationUI.inlineMode
+          marker.innerHTML = isEditViewActive()
             ? `
           <svg class="annotation-edit-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75z"></path>
@@ -1401,6 +1416,7 @@ export default function createCommentsPanelController({
 
     annotationState.mainClickHandler = (event) => {
       if (annotationUI.inlineMode) return;
+      if (annotationUI.annotationMode === 'edit') return;
       if (annotationUI.annotationMode === 'assets') return;
       if (!isCommentsServiceAvailable()) return;
       if (popupSubmitPending) return;
@@ -1442,7 +1458,7 @@ export default function createCommentsPanelController({
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
-      if (annotationUI.inlineMode) {
+      if (annotationUI.inlineMode || annotationUI.annotationMode === 'edit') {
         if (!(card instanceof HTMLElement)) return;
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
@@ -1628,6 +1644,20 @@ export default function createCommentsPanelController({
       annotationState.inlineToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
+        if (!isInlineEditingAllowed()) {
+          closeCommentEditor();
+          closePopupAndSelection();
+          annotationUI.annotationMode = 'edit';
+          await disableInlineEditMode();
+          if (annotationUI.inlineCommentsToggleEl) {
+            annotationUI.inlineCommentsToggleEl.checked = false;
+          }
+          if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+          showGlobalSnackbar(ANNOTATION_MESSAGES.inlineEditRestrictedSnackbar);
+          renderThreadMarkers({ resolveTargets: true });
+          renderCommentsPanel();
+          return;
+        }
         if (!isCommentsServiceAvailable()) {
           target.checked = false;
           if (annotationUI.inlineCommentsToggleEl) {
@@ -1640,6 +1670,7 @@ export default function createCommentsPanelController({
         target.disabled = true;
         try {
           closeCommentEditor();
+          closePopupAndSelection();
           annotationUI.annotationMode = 'edit';
           if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
           const didEnable = await enableInlineEditMode();
