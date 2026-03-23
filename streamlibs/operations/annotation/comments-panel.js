@@ -1489,7 +1489,7 @@ export default function createCommentsPanelController({
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
-      if (isEditViewActive()) {
+      if (getVisibleThreadType() === 'edit') {
         if (!(card instanceof HTMLElement)) return;
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
