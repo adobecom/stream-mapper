@@ -16,6 +16,7 @@ export function createAnnotationState() {
     panelClickHandler: null,
     panelInputHandler: null,
     panelKeydownHandler: null,
+    panelFocusoutHandler: null,
     panelChangeHandler: null,
     inlineToggleChangeHandler: null,
     inlineCommentsToggleChangeHandler: null,
