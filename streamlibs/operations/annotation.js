@@ -144,12 +144,16 @@ export async function annotationOperation() {
 
 export async function persistAnnotationChangesToDA() {
   const { daCompatibleHtml } = await buildPersistedAnnotationPayload();
-  await postData(window.streamConfig.targetUrl, daCompatibleHtml);
+  await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
+    suppressErrorPage: true,
+  });
 }
 
 export async function saveAnnotationChanges(reportProgress = () => {}) {
   const { easyEdits, daCompatibleHtml } = await buildPersistedAnnotationPayload();
-  await postData(window.streamConfig.targetUrl, daCompatibleHtml);
+  await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
+    suppressErrorPage: true,
+  });
   reportProgress('htmlSaved');
 
   if (annotationService.isAvailable()) {
