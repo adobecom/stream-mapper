@@ -1,3 +1,7 @@
+import createAnnotationServiceClient from './service.js';
+import { ANNOTATION_MESSAGES } from '../../utils/constants.js';
+import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
+
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
 const MEDIUM_EDITOR_JS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/js/medium-editor.min.js';
 
@@ -9,6 +13,82 @@ export default function createInlineEditingController({
   renderCommentsPanel,
   removePopup,
 }) {
+  const annotationService = createAnnotationServiceClient();
+  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
+
+  function refreshThreadsFromServiceInBackground() {
+    annotationService.listThreads()
+      .then((remoteThreads) => {
+        if (!Array.isArray(remoteThreads)) return;
+        store.replaceThreadsByType(
+          'comment',
+          remoteThreads.filter((thread) => store.getThreadType(thread) === 'comment'),
+        );
+        store.replaceThreadsByType(
+          'edit',
+          remoteThreads.filter((thread) => store.getThreadType(thread) === 'edit'),
+        );
+        renderThreadMarkers({ resolveTargets: true });
+        renderCommentsPanel();
+      })
+      .catch((error) => {
+        // eslint-disable-next-line no-console
+        console.warn('Could not refresh annotation threads after edit write', error);
+      });
+  }
+
+  async function persistEditThreadMessage(element, threadElementPath, text) {
+    if (!(element instanceof HTMLElement) || !threadElementPath || !text) return false;
+
+    let thread = store.getEditThreadByElement(element);
+    let didPersistToService = false;
+    let didHydrateThread = false;
+
+    try {
+      const result = thread
+        ? await annotationService.createReply(thread.id, text, { loadingMessage: 'Saving edit...' })
+        : await annotationService.createThread({
+          elementPath: threadElementPath,
+          body: text,
+          quotedText: null,
+          threadType: 'edit',
+        });
+
+      if (thread) {
+        if (result?.persisted) {
+          didPersistToService = true;
+        }
+        if (result?.thread) {
+          store.upsertThread(result.thread);
+          thread = store.getThreadById(result.thread.id) || result.thread;
+          didHydrateThread = true;
+        }
+      } else if (result) {
+        store.upsertThread(result);
+        thread = store.getThreadById(result.id) || result;
+        didPersistToService = true;
+        didHydrateThread = true;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not save edit thread to service', error);
+    }
+
+    if (!didPersistToService || !thread) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.syncEditError);
+      return false;
+    }
+
+    hideGlobalSnackbar();
+    annotationState.activeThreadId = thread.id;
+    annotationState.activeMessageId = '';
+    annotationState.activeEditId = '';
+    if (!didHydrateThread) {
+      refreshThreadsFromServiceInBackground();
+    }
+    return true;
+  }
+
   async function loadMediumEditor() {
     if (window.MediumEditor) return;
     if (annotationState.mediumEditorLoadPromise) {
@@ -70,7 +150,7 @@ export default function createInlineEditingController({
       });
   }
 
-  function trackInlineEditChange(element) {
+  async function trackInlineEditChange(element) {
     if (!(element instanceof HTMLElement) || !annotationUI.mainEl) return;
     const elementRef = store.ensureElementRef(element);
     const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
@@ -78,19 +158,17 @@ export default function createInlineEditingController({
 
     const currentHtml = element.innerHTML;
     const currentText = element.textContent || '';
-    if (
-      currentHtml === snapshot.originalHtml
-      && currentText.trim() === snapshot.originalText.trim()
-    ) return;
+    if (currentText.trim() === snapshot.originalText.trim()) return;
 
-    const elementPath = store.buildElementPath(element, annotationUI.mainEl);
+    const easyEditElementPath = store.buildElementPath(element, annotationUI.mainEl);
+    const threadElementPath = store.buildThreadElementPath(element, annotationUI.mainEl);
     const segments = store.getChangedSegments(snapshot.originalText, currentText);
-    const existing = store.getEasyEditByElement(elementRef, elementPath);
+    const existing = store.getEasyEditByElement(elementRef, easyEditElementPath);
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
       attrName: '',
-      elementPath,
+      elementPath: easyEditElementPath,
       elementRef,
       from: snapshot.originalText,
       to: currentText,
@@ -102,13 +180,13 @@ export default function createInlineEditingController({
     };
 
     store.upsertEasyEdit(editRecord);
-    store.recordEditMessage(
-      elementRef,
-      elementPath,
+    const didPersistThread = await persistEditThreadMessage(
+      element,
+      threadElementPath,
       store.getEditPanelMessage(editRecord),
     );
     store.saveAnnotationStore();
-    renderThreadMarkers();
+    renderThreadMarkers({ resolveTargets: didPersistThread });
     renderCommentsPanel();
 
     annotationUI.inlineElementSnapshot.set(elementRef, {
@@ -150,22 +228,23 @@ export default function createInlineEditingController({
     }
   }
 
-  function persistSingleImageAltChange(imageElement) {
+  async function persistSingleImageAltChange(imageElement) {
     if (!(imageElement instanceof HTMLImageElement) || !annotationUI.mainEl) return;
 
     const elementRef = store.ensureElementRef(imageElement);
-    const elementPath = store.buildElementPath(imageElement, annotationUI.mainEl);
+    const easyEditElementPath = store.buildElementPath(imageElement, annotationUI.mainEl);
+    const threadElementPath = store.buildThreadElementPath(imageElement, annotationUI.mainEl);
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
     if (originalAlt === currentAlt) return;
 
-    const existing = store.getEasyEditByElement(elementRef, elementPath);
+    const existing = store.getEasyEditByElement(elementRef, easyEditElementPath);
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'image-alt',
       attrName: 'alt',
-      elementPath,
+      elementPath: easyEditElementPath,
       elementRef,
       from: originalAlt,
       to: currentAlt,
@@ -177,7 +256,13 @@ export default function createInlineEditingController({
     };
     store.upsertEasyEdit(editRecord);
     annotationUI.inlineImageAltSnapshot.set(elementRef, currentAlt);
+    const didPersistThread = await persistEditThreadMessage(
+      imageElement,
+      threadElementPath,
+      store.getEditPanelMessage(editRecord),
+    );
     store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: didPersistThread });
     renderCommentsPanel();
   }
 
@@ -333,40 +418,68 @@ export default function createInlineEditingController({
     });
   }
 
-  function syncImageAltChanges() {
+  async function syncImageAltChanges() {
     if (!annotationUI.mainEl) return;
-    annotationUI.editableImages.forEach((imageElement) => {
-      if (!(imageElement instanceof HTMLImageElement)) return;
-      const elementRef = store.ensureElementRef(imageElement);
-      const elementPath = store.buildElementPath(imageElement, annotationUI.mainEl);
-      const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
-      const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
-      const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
-      if (originalAlt === currentAlt) return;
+    const pendingUpdates = annotationUI.editableImages
+      .filter((imageElement) => imageElement instanceof HTMLImageElement)
+      .map(async (imageElement) => {
+        const elementRef = store.ensureElementRef(imageElement);
+        const easyEditElementPath = store.buildElementPath(imageElement, annotationUI.mainEl);
+        const threadElementPath = store.buildThreadElementPath(imageElement, annotationUI.mainEl);
+        const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
+        const originalAlt = snapshotAlt !== undefined
+          ? `${snapshotAlt}`
+          : (imageElement.getAttribute('alt') || '');
+        const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
+        if (originalAlt === currentAlt) return;
 
-      const existing = store.getEasyEditByElement(elementRef, elementPath);
-      const editRecord = {
-        id: existing?.id || store.generateId('easy-edit'),
-        editType: 'image-alt',
-        attrName: 'alt',
-        elementPath,
-        elementRef,
-        from: originalAlt,
-        to: currentAlt,
-        fromHtml: '',
-        toHtml: '',
-        changedFrom: originalAlt,
-        changedTo: currentAlt,
-        updatedAt: new Date().toISOString(),
-      };
-      store.upsertEasyEdit(editRecord);
-      store.recordEditMessage(elementRef, elementPath, store.getEditPanelMessage(editRecord));
-      annotationUI.inlineImageAltSnapshot.set(elementRef, currentAlt);
+        const existing = store.getEasyEditByElement(elementRef, easyEditElementPath);
+        const editRecord = {
+          id: existing?.id || store.generateId('easy-edit'),
+          editType: 'image-alt',
+          attrName: 'alt',
+          elementPath: easyEditElementPath,
+          elementRef,
+          from: originalAlt,
+          to: currentAlt,
+          fromHtml: '',
+          toHtml: '',
+          changedFrom: originalAlt,
+          changedTo: currentAlt,
+          updatedAt: new Date().toISOString(),
+        };
+        store.upsertEasyEdit(editRecord);
+        await persistEditThreadMessage(
+          imageElement,
+          threadElementPath,
+          store.getEditPanelMessage(editRecord),
+        );
+        annotationUI.inlineImageAltSnapshot.set(elementRef, currentAlt);
+      });
+
+    await Promise.all(pendingUpdates);
+  }
+
+  function flushPendingInlineChangesInBackground(pendingTasks = []) {
+    if (!pendingTasks.length) return;
+
+    Promise.allSettled(pendingTasks).then(() => {
+      store.saveAnnotationStore();
+      renderThreadMarkers({ resolveTargets: true });
+      renderCommentsPanel();
     });
   }
 
   async function enableInlineEditMode() {
-    if (!annotationUI.mainEl || annotationUI.inlineMode) return;
+    if (!annotationUI.mainEl || annotationUI.inlineMode) return false;
+    if (!isInlineEditingAllowed()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.inlineEditRestrictedSnackbar);
+      return false;
+    }
+    if (!annotationService.isAvailable()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
+      return false;
+    }
     await loadMediumEditor();
     annotationUI.inlineMode = true;
     document.body.classList.add('annotation-inline-edit-mode');
@@ -386,7 +499,9 @@ export default function createInlineEditingController({
         originalText: element.textContent || '',
       });
       element.classList.add('annotation-inline-editable');
-      const blurHandler = () => trackInlineEditChange(element);
+      const blurHandler = () => {
+        trackInlineEditChange(element);
+      };
       annotationUI.inlineBlurHandlers.set(elementRef, blurHandler);
       element.addEventListener('blur', blurHandler, true);
     });
@@ -399,17 +514,18 @@ export default function createInlineEditingController({
 
     renderThreadMarkers();
     renderCommentsPanel();
+    return true;
   }
 
-  function disableInlineEditMode() {
+  async function disableInlineEditMode() {
     if (!annotationUI.inlineMode) return;
     annotationUI.inlineMode = false;
     document.body.classList.remove('annotation-inline-edit-mode');
 
-    annotationUI.editableElements.forEach((element) => {
-      trackInlineEditChange(element);
-    });
-    syncImageAltChanges();
+    const pendingInlineChangeTasks = [
+      ...annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
+      syncImageAltChanges(),
+    ];
 
     if (annotationUI.mediumEditorInstance) {
       annotationUI.mediumEditorInstance.destroy();
@@ -440,14 +556,15 @@ export default function createInlineEditingController({
     store.saveAnnotationStore();
     renderThreadMarkers();
     renderCommentsPanel();
+    flushPendingInlineChangesInBackground(pendingInlineChangeTasks);
   }
 
-  function syncInlineEditsBeforePersist() {
+  async function syncInlineEditsBeforePersist() {
     if (!annotationUI.inlineMode) return;
-    annotationUI.editableElements.forEach((element) => {
-      trackInlineEditChange(element);
-    });
-    syncImageAltChanges();
+    await Promise.all(
+      annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
+    );
+    await syncImageAltChanges();
     store.saveAnnotationStore();
   }
 

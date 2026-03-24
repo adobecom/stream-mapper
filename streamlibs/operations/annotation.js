@@ -7,8 +7,6 @@ import { createAnnotationStore } from './annotation/store.js';
 import createCommentsPanelController from './annotation/comments-panel.js';
 import createInlineEditingController from './annotation/inline-editing.js';
 
-const START_REVIEW_DA_PATH = 'adobecom/da-cc-sandbox/drafts/mathuria';
-
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 const store = createAnnotationStore({ annotationState, annotationUI });
@@ -76,41 +74,25 @@ async function initializePreview() {
   }
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
-  return mainEle.cloneNode(true);
-}
-
-function shouldAutoStartReview() {
-  const startReview = window.streamConfig?.startReview;
-  return startReview !== false && startReview !== 'false';
-}
-
-async function pushAnnotationHtmlToDA(mainEl) {
-  if (!(mainEl instanceof HTMLElement)) return;
-  const daCompatibleHtml = getDACompatibleHtml(mainEl.innerHTML);
-  await postData(`${START_REVIEW_DA_PATH}/${window.streamConfig.reviewId.toLowerCase()}`, daCompatibleHtml);
 }
 
 export async function annotationOperation() {
   document.body.classList.add('annotation-mode');
-  const originalHtml = await initializePreview();
+  await initializePreview();
   await miloLoadArea();
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  commentsPanel.setupAnnotationUI(mainEl);
+  await commentsPanel.setupAnnotationUI(mainEl);
   store.rebindEasyEditsToCurrentDom();
   store.applyEasyEditsToDom();
   store.saveAnnotationStore();
   commentsPanel.renderThreadMarkers();
   commentsPanel.renderCommentsPanel();
-
-  if (shouldAutoStartReview()) {
-    await pushAnnotationHtmlToDA(originalHtml);
-  }
 }
 
 export async function persistAnnotationChangesToDA() {
-  inlineEditing.syncInlineEditsBeforePersist();
+  await inlineEditing.syncInlineEditsBeforePersist();
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
   const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
   const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);

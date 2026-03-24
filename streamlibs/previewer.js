@@ -8,6 +8,7 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
+  fetchTargetHtmlFromStore,
 } from './store/store.js';
 import {
   getQueryParam,
@@ -28,6 +29,30 @@ import {
 } from './utils/operations.js';
 import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
 import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
+
+function parseBooleanFlag(value) {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return null;
+}
+
+function isCollabOwnerRole(role) {
+  const normalizedRole = `${role || ''}`
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+  if (!normalizedRole) return false;
+  return normalizedRole === 'owner'
+    || normalizedRole === 'collab owner'
+    || normalizedRole.endsWith(' owner');
+}
+
+function resolveInlineEditingAllowed(previewParams = {}) {
+  const explicitFlag = parseBooleanFlag(previewParams.inlineEditingAllowed);
+  if (explicitFlag !== null) return explicitFlag;
+  if (previewParams.collabRole) return isCollabOwnerRole(previewParams.collabRole);
+  return false;
+}
 
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
@@ -110,12 +135,16 @@ async function requestStreamConfigFromParent() {
       target: getQueryParam('target'),
       targetUrl: getQueryParam('targetUrl'),
       token: getQueryParam('token'),
+      profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
+      collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
       operation: getQueryParam('operation') || 'create',
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
       reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
       startReview: getQueryParam('startReview') || getQueryParam('startreview'),
+      inlineEditingAllowed: getQueryParam('inlineEditingAllowed'),
+      collabRole: getQueryParam('collabRole'),
     };
   }
 
@@ -175,6 +204,15 @@ async function setupMessageListener() {
     if (event.data.type === 'RESET') {
       window.location.reload();
     }
+    if (event.data.type === 'STREAM_GET_TARGET_HTML') {
+      const bodyHtml = fetchTargetHtmlFromStore() || '';
+      event.source?.postMessage({
+        type: 'STREAM_TARGET_HTML',
+        requestId: event.data.requestId,
+        storeId: getQueryParam('storeId'),
+        bodyHtml,
+      }, event.origin);
+    }
   });
 }
 
@@ -189,12 +227,20 @@ export default async function initPreviewer() {
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
     token: previewParams.token,
+    profileId: previewParams.profileId || previewParams.profile_id || null,
+    collabId: previewParams.collabId || previewParams.collab_id || null,
     operation: previewParams.operation || 'create',
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+    displayName: previewParams.displayName
+      || previewParams.userName
+      || previewParams.username
+      || null,
     reviewId: previewParams.reviewId || previewParams.reviewid || null,
     startReview: previewParams.startReview || previewParams.startreview || false,
+    inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
+    collabRole: previewParams.collabRole || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();

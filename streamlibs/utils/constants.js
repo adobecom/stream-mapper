@@ -213,3 +213,31 @@ export const LOADER_STEP_MESSAGES = {
 export function getBlocksCreationMessage(current, total) {
   return `Creating blocks ${current}/${total}`;
 }
+
+export const ANNOTATION_DEFAULT_USERNAME = 'stream';
+
+export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+
+export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 30000;
+
+export const ANNOTATION_MESSAGES = {
+  collabUnavailableTitle: 'Collaboration unavailable',
+  collabUnavailableDescription: 'This review does not have a collab ID yet, so comments and edits cannot load or sync.',
+  collabUnavailableSnackbar: 'Comments and edits are unavailable until a collab is attached.',
+  commentsUnavailableSnackbar: 'Comments are unavailable until a collab is attached.',
+  inlineEditRestrictedTitle: 'Edit access restricted',
+  inlineEditRestrictedDescription: 'Only collab owners can use inline editing in this review.',
+  inlineEditRestrictedSnackbar: 'Inline editing is only available to collab owners.',
+  noAssets: 'No assets yet.',
+  noComments: 'No comments yet. Click an element to add one.',
+  noEdits: 'No edits yet. Start editing text or image alt.',
+  postCommentError: "Couldn't post comment. Please try again.",
+  sendReplyError: "Couldn't send reply. Please try again.",
+  saveCommentError: "Couldn't save comment. Please try again.",
+  updateStatusError: "Couldn't update comment status. Please try again.",
+  syncEditError: "Couldn't sync edit thread. Please try again.",
+  editCommentAriaLabel: 'Edit comment',
+  saveCommentAction: 'Save',
+  cancelCommentAction: 'Cancel',
+  editCommentPlaceholder: 'Update your comment...',
+};
