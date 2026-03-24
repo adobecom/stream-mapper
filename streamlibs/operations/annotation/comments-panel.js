@@ -2,6 +2,7 @@ import {
   ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS,
   ANNOTATION_MESSAGES,
   ANNOTATION_DEFAULT_USERNAME,
+  ANNOTATION_REFRESH_EVENT,
 } from '../../utils/constants.js';
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
@@ -154,7 +155,7 @@ export default function createCommentsPanelController({
         event.preventDefault();
         event.stopPropagation();
         hideGlobalSnackbar();
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent(ANNOTATION_REFRESH_EVENT));
       };
       refreshButton.addEventListener('click', annotationState.canvasRefreshBarClickHandler);
     }
