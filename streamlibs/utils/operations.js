@@ -10,5 +10,7 @@ export {
 export { preflightOperation } from '../operations/preflight/preflight.js';
 export {
   annotationOperation,
+  refreshAnnotationFloatingUI,
   persistAnnotationChangesToDA,
+  saveAnnotationChanges,
 } from '../operations/annotation.js';

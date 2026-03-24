@@ -9,6 +9,9 @@ import {
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
   fetchTargetHtmlFromStore,
+  resetEditChangesInStore,
+  resetPreviewHtmlInStore,
+  resetTargetHtmlInStore,
 } from './store/store.js';
 import {
   getQueryParam,
@@ -18,6 +21,7 @@ import {
   miloLoadArea,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
+import { showGlobalSnackbar } from './utils/snackbar.js';
 import {
   createStreamOperation,
   editStreamOperation,
@@ -25,9 +29,16 @@ import {
   handleBackToEditor,
   preflightOperation,
   annotationOperation,
+  refreshAnnotationFloatingUI,
   persistAnnotationChangesToDA,
+  saveAnnotationChanges,
 } from './utils/operations.js';
-import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
+import {
+  ANNOTATION_REFRESH_EVENT,
+  ANNOTATION_MESSAGES,
+  LOADER_PROGRESS_STEPS,
+  LOADER_STEP_MESSAGES,
+} from './utils/constants.js';
 import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
 
 function parseBooleanFlag(value) {
@@ -190,6 +201,9 @@ async function setupMessageListener() {
     if (event.data.type === 'PUSH_TO_DA') {
       await persist();
     }
+    if (event.data.type === 'SAVE_ANNOTATION_CHANGES') {
+      await saveChanges();
+    }
     if (event.data.type === 'RUN_PREFLIGHT') {
       const url = new URL(window.location.href);
       url.searchParams.set('forceOperation', 'preflight');
@@ -214,10 +228,16 @@ async function setupMessageListener() {
       }, event.origin);
     }
   });
+
+  window.addEventListener(ANNOTATION_REFRESH_EVENT, async () => {
+    await refreshAnnotationCanvas();
+  });
 }
 
 export default async function initPreviewer() {
-  window.sessionStorage.clear();
+  resetTargetHtmlInStore();
+  resetPreviewHtmlInStore();
+  resetEditChangesInStore();
   initializeLoader();
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
@@ -233,10 +253,7 @@ export default async function initPreviewer() {
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
-    displayName: previewParams.displayName
-      || previewParams.userName
-      || previewParams.username
-      || null,
+    username: previewParams.username || null,
     reviewId: previewParams.reviewId || previewParams.reviewid || null,
     startReview: previewParams.startReview || previewParams.startreview || false,
     inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
@@ -262,6 +279,75 @@ export async function persist() {
     hideLoader();
     showDOMElements([document.querySelector('main')]);
     handleError(error, 'persisting content');
+    throw error;
+  }
+}
+
+export async function saveChanges() {
+  const isAnnotationOperation = window.streamConfig.operation === 'annotation';
+  try {
+    updateLoader({
+      message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
+      percentage: LOADER_PROGRESS_STEPS.SAVE_PREPARING,
+    });
+    hideDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      await saveAnnotationChanges((stage) => {
+        if (stage === 'htmlSaved') {
+          updateLoader({
+            message: LOADER_STEP_MESSAGES.SAVE_HTML_DONE,
+            percentage: LOADER_PROGRESS_STEPS.SAVE_HTML_DONE,
+          });
+        }
+        if (stage === 'editsSaved') {
+          updateLoader({
+            message: LOADER_STEP_MESSAGES.SAVE_METADATA_DONE,
+            percentage: LOADER_PROGRESS_STEPS.SAVE_METADATA_DONE,
+          });
+        }
+      });
+      updateLoader({
+        message: LOADER_STEP_MESSAGES.START_PAINTING,
+        percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+      });
+      await annotationOperation();
+    } else {
+      await persistOnTarget();
+    }
+    showDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      await refreshAnnotationFloatingUI();
+    }
+    hideLoader();
+  } catch (error) {
+    hideLoader();
+    showDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.saveEditsError);
+    } else {
+      handleError(error, 'saving changes');
+    }
+    throw error;
+  }
+}
+
+export async function refreshAnnotationCanvas() {
+  if (window.streamConfig.operation !== 'annotation') return;
+
+  try {
+    updateLoader({
+      message: LOADER_STEP_MESSAGES.START_PAINTING,
+      percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+    });
+    hideDOMElements([document.querySelector('main')]);
+    await annotationOperation();
+    showDOMElements([document.querySelector('main')]);
+    await refreshAnnotationFloatingUI();
+    hideLoader();
+  } catch (error) {
+    hideLoader();
+    showDOMElements([document.querySelector('main')]);
+    showGlobalSnackbar(ANNOTATION_MESSAGES.refreshEditsError);
     throw error;
   }
 }

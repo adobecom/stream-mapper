@@ -16,6 +16,18 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
+  function buildElementAnchorRecord(selector = '', elementProps = {}) {
+    const normalizedSelector = `${selector || ''}`.trim();
+    const normalizedElementProps = elementProps && typeof elementProps === 'object'
+      ? { ...elementProps }
+      : {};
+    if (!normalizedSelector && !Object.keys(normalizedElementProps).length) return null;
+    return {
+      selector: normalizedSelector,
+      ...normalizedElementProps,
+    };
+  }
+
   function isInlineAssetUrl(value) {
     const normalized = `${value || ''}`.trim().toLowerCase();
     return normalized.startsWith('data:') || normalized.startsWith('blob:');
@@ -116,6 +128,48 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     ].join('|');
   }
 
+  function getEditElementPathKey(elementPath, elementProps = {}) {
+    if (!Object.keys(elementProps || {}).length) {
+      return getCommentElementPathKey(elementPath);
+    }
+    return getCommentElementPathKey(buildElementAnchorRecord(elementPath, elementProps));
+  }
+
+  function normalizeEasyEdit(edit) {
+    const parsedElementPath = parseCommentElementPath(edit.elementPath);
+    const normalizedElementProps = (() => {
+      if (edit.elementProps && typeof edit.elementProps === 'object') {
+        return { ...edit.elementProps };
+      }
+      if (parsedElementPath && !parsedElementPath.legacy) {
+        const {
+          selector,
+          legacy,
+          ...rest
+        } = parsedElementPath;
+        return rest;
+      }
+      return {};
+    })();
+
+    return {
+      id: edit.id || generateId('easy-edit'),
+      editType: edit.editType || 'text',
+      attrName: edit.attrName || '',
+      elementPath: `${edit.elementPath || parsedElementPath?.selector || ''}`,
+      elementProps: normalizedElementProps,
+      elementRef: edit.elementRef || '',
+      from: `${edit.from || ''}`,
+      to: `${edit.to || ''}`,
+      fromHtml: `${edit.fromHtml || ''}`,
+      toHtml: `${edit.toHtml || ''}`,
+      changedFrom: `${edit.changedFrom || ''}`,
+      changedTo: `${edit.changedTo || ''}`,
+      updatedAt: edit.updatedAt || new Date().toISOString(),
+      authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
+    };
+  }
+
   function getReviewId() {
     const streamConfigReviewId = window.streamConfig?.reviewId;
     if (streamConfigReviewId !== null && streamConfigReviewId !== undefined && `${streamConfigReviewId}`.trim()) {
@@ -130,24 +184,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function parseAnnotationPayload(parsed) {
-    const easyEditsPayload = parsed?.easyEdits || parsed?.['easy-edits'];
+    const easyEditsPayload = parsed?.easy_edits;
     const easyEdits = Array.isArray(easyEditsPayload)
       ? easyEditsPayload
         .filter((edit) => edit && typeof edit === 'object')
-        .map((edit) => ({
-          id: edit.id || generateId('easy-edit'),
-          editType: edit.editType || 'text',
-          attrName: edit.attrName || '',
-          elementPath: edit.elementPath || '',
-          elementRef: edit.elementRef || '',
-          from: `${edit.from || ''}`,
-          to: `${edit.to || ''}`,
-          fromHtml: `${edit.fromHtml || ''}`,
-          toHtml: `${edit.toHtml || ''}`,
-          changedFrom: `${edit.changedFrom || ''}`,
-          changedTo: `${edit.changedTo || ''}`,
-          updatedAt: edit.updatedAt || new Date().toISOString(),
-        }))
+        .map((edit) => normalizeEasyEdit(edit))
       : [];
 
     return {
@@ -156,10 +197,59 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     };
   }
 
+  function truncateInlineEditText(text, max = 80) {
+    const value = `${text || ''}`.replace(/\s+/g, ' ').trim();
+    if (value.length <= max) return value || '""';
+    return `${value.slice(0, max)}...`;
+  }
+
+  function getEditPanelMessage(edit) {
+    if (edit.editType === 'image-alt') {
+      return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
+    }
+    return `changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
+  }
+
+  function buildEditThreadFromEasyEdit(edit) {
+    const normalizedEdit = normalizeEasyEdit(edit);
+    const authorUsername = normalizedEdit.authorUsername || DEFAULT_USERNAME;
+    return {
+      id: normalizedEdit.id,
+      threadType: 'edit',
+      elementRef: normalizedEdit.elementRef,
+      elementPath: normalizedEdit.elementPath,
+      elementProps: normalizedEdit.elementProps,
+      status: COMMENT_STATUSES[0],
+      username: authorUsername,
+      messages: [
+        {
+          id: `${normalizedEdit.id}-message`,
+          username: authorUsername,
+          text: getEditPanelMessage(normalizedEdit),
+          kind: 'comment',
+          createdAt: normalizedEdit.updatedAt || null,
+        },
+      ],
+    };
+  }
+
+  function rebuildEditThreadsFromEasyEdits() {
+    const nextEditThreads = annotationState.store.easyEdits
+      .filter((edit) => edit && typeof edit === 'object')
+      .map((edit) => buildEditThreadFromEasyEdit(edit));
+    const preservedThreads = annotationState.store.threads.filter(
+      (thread) => (thread?.threadType || 'comment') !== 'edit',
+    );
+    annotationState.store.threads = [
+      ...preservedThreads,
+      ...nextEditThreads,
+    ];
+  }
+
   function loadAnnotationStore() {
     try {
       const reviewId = getReviewId();
-      const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY);
+      const raw = window.sessionStorage.getItem(ANNOTATION_STORE_KEY);
       if (!raw) {
         annotationState.store = { threads: [], easyEdits: [] };
         return;
@@ -168,10 +258,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
       if (reviewId && typeof parsed === 'object' && !Array.isArray(parsed) && parsed[reviewId]) {
         annotationState.store = parseAnnotationPayload(parsed[reviewId]);
+        rebuildEditThreadsFromEasyEdits();
         return;
       }
 
       annotationState.store = parseAnnotationPayload(parsed);
+      rebuildEditThreadsFromEasyEdits();
     } catch (error) {
       annotationState.store = { threads: [], easyEdits: [] };
     }
@@ -179,13 +271,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function saveAnnotationStore() {
     const payload = {
-      easyEdits: annotationState.store.easyEdits,
-      'easy-edits': annotationState.store.easyEdits,
+      easy_edits: annotationState.store.easyEdits,
     };
     const reviewId = getReviewId();
     let existingMap = {};
     try {
-      existingMap = JSON.parse(window.localStorage.getItem(ANNOTATION_STORE_KEY) || '{}') || {};
+      existingMap = JSON.parse(window.sessionStorage.getItem(ANNOTATION_STORE_KEY) || '{}') || {};
       if (Array.isArray(existingMap) || typeof existingMap !== 'object') existingMap = {};
     } catch (error) {
       existingMap = {};
@@ -194,7 +285,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     existingMap[reviewId] = payload;
 
     const serialized = JSON.stringify(existingMap);
-    window.localStorage.setItem(ANNOTATION_STORE_KEY, serialized);
+    window.sessionStorage.setItem(ANNOTATION_STORE_KEY, serialized);
     window.streamAnnotationComments = existingMap;
   }
 
@@ -250,7 +341,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   function getStoredAnnotationPayload() {
     try {
       const reviewId = getReviewId();
-      const raw = window.localStorage.getItem(ANNOTATION_STORE_KEY);
+      const raw = window.sessionStorage.getItem(ANNOTATION_STORE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) || {};
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed[reviewId]) {
@@ -377,6 +468,25 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function buildThreadElementPath(element, root = annotationUI.mainEl) {
     return buildCommentElementPath(element, root);
+  }
+
+  function buildEditElementAnchor(element, root = annotationUI.mainEl) {
+    const descriptor = parseCommentElementPath(buildThreadElementPath(element, root));
+    if (!descriptor) {
+      return {
+        elementPath: '',
+        elementProps: {},
+      };
+    }
+    const {
+      selector,
+      legacy,
+      ...elementProps
+    } = descriptor;
+    return {
+      elementPath: selector || '',
+      elementProps,
+    };
   }
 
   function ensureElementRef(element) {
@@ -544,10 +654,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       && (!threadType || getThreadType(thread) === threadType));
   }
 
-  function getThreadByElementPath(elementPath, threadType = null) {
+  function getThreadByElementPath(elementPath, threadType = null, elementProps = {}) {
     return annotationState.store.threads.find((thread) => (
       (!threadType || getThreadType(thread) === threadType)
-        && getCommentElementPathKey(thread.elementPath) === getCommentElementPathKey(elementPath)
+        && getEditElementPathKey(thread.elementPath, thread.elementProps)
+          === getEditElementPathKey(elementPath, elementProps)
     ));
   }
 
@@ -555,8 +666,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return getThreadByElementPath(elementPath, 'comment');
   }
 
-  function getEditThreadByElementPath(elementPath) {
-    return getThreadByElementPath(elementPath, 'edit');
+  function getEditThreadByElementPath(elementPath, elementProps = {}) {
+    return getThreadByElementPath(elementPath, 'edit', elementProps);
   }
 
   function getCommentThreadByElement(element) {
@@ -572,8 +683,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function getEditThreadByElement(element) {
     if (!(element instanceof HTMLElement)) return null;
-    const exactPath = buildThreadElementPath(element, annotationUI.mainEl);
-    const exactThread = getEditThreadByElementPath(exactPath);
+    const exactAnchor = buildEditElementAnchor(element, annotationUI.mainEl);
+    const exactThread = getEditThreadByElementPath(
+      exactAnchor.elementPath,
+      exactAnchor.elementProps,
+    );
     if (exactThread) return exactThread;
 
     return annotationState.store.threads.find((thread) => (
@@ -641,26 +755,50 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     annotationState.selectedElementRef = '';
   }
 
-  function getEasyEditByElement(elementRef, elementPath) {
+  function getEasyEditByElement(elementRef, elementPath, elementProps = {}) {
+    const elementPathKey = getEditElementPathKey(elementPath, elementProps);
     return annotationState.store.easyEdits.find((edit) => (
       (elementRef && edit.elementRef === elementRef)
-      || (elementPath && edit.elementPath === elementPath)
+      || (
+        elementPathKey
+        && getEditElementPathKey(edit.elementPath, edit.elementProps) === elementPathKey
+      )
     ));
   }
 
   function upsertEasyEdit(editRecord) {
+    const normalizedEditRecord = normalizeEasyEdit(editRecord);
+    const normalizedEditPathKey = getEditElementPathKey(
+      normalizedEditRecord.elementPath,
+      normalizedEditRecord.elementProps,
+    );
     const index = annotationState.store.easyEdits.findIndex((edit) => (
-      edit.elementRef === editRecord.elementRef
-        || (edit.elementPath && edit.elementPath === editRecord.elementPath)
+      edit.elementRef === normalizedEditRecord.elementRef
+        || (
+          normalizedEditPathKey
+          && getEditElementPathKey(edit.elementPath, edit.elementProps) === normalizedEditPathKey
+        )
     ));
     if (index > -1) {
       annotationState.store.easyEdits[index] = {
         ...annotationState.store.easyEdits[index],
-        ...editRecord,
+        ...normalizedEditRecord,
       };
-      return;
+      rebuildEditThreadsFromEasyEdits();
+      return annotationState.store.easyEdits[index];
     }
-    annotationState.store.easyEdits.push(editRecord);
+    annotationState.store.easyEdits.push(normalizedEditRecord);
+    rebuildEditThreadsFromEasyEdits();
+    return normalizedEditRecord;
+  }
+
+  function replaceEasyEdits(nextEasyEdits = []) {
+    annotationState.store.easyEdits = Array.isArray(nextEasyEdits)
+      ? nextEasyEdits
+        .filter((edit) => edit && typeof edit === 'object')
+        .map((edit) => normalizeEasyEdit(edit))
+      : [];
+    rebuildEditThreadsFromEasyEdits();
   }
 
   function getChangedSegments(fromText, toText) {
@@ -700,19 +838,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     });
   }
 
-  function truncateInlineEditText(text, max = 80) {
-    const value = `${text || ''}`.replace(/\s+/g, ' ').trim();
-    if (value.length <= max) return value || '""';
-    return `${value.slice(0, max)}...`;
-  }
-
-  function getEditPanelMessage(edit) {
-    if (edit.editType === 'image-alt') {
-      return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
-    }
-    return `changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
-  }
-
   function pushThreadMessage(thread, text, kind = 'reply') {
     thread.messages = thread.messages || [];
     thread.messages.push({
@@ -723,8 +848,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     });
   }
 
-  function recordEditMessage(elementRef, elementPath, text) {
-    let thread = getEditThreadByElementPath(elementPath);
+  function recordEditMessage(elementRef, elementPath, text, elementProps = {}) {
+    let thread = getEditThreadByElementPath(elementPath, elementProps);
     if (!thread && elementRef) {
       thread = getThreadByElementRef(elementRef, 'edit');
     }
@@ -734,6 +859,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         threadType: 'edit',
         elementRef,
         elementPath,
+        elementProps,
         status: COMMENT_STATUSES[0],
         username: DEFAULT_USERNAME,
         messages: [],
@@ -751,13 +877,17 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function getElementForEdit(edit) {
     if (!annotationUI.mainEl) return null;
+    if (!edit.elementPath && !Object.keys(edit.elementProps || {}).length) {
+      return edit.elementRef ? getElementByRef(edit.elementRef) : null;
+    }
+    const anchorRecord = buildElementAnchorRecord(edit.elementPath, edit.elementProps);
+    const byPath = getElementByCommentPath(anchorRecord);
+    if (byPath instanceof HTMLElement) return byPath;
     if (edit.elementRef) {
       const byRef = getElementByRef(edit.elementRef);
       if (byRef) return byRef;
     }
-    if (!edit.elementPath) return null;
-    const byPath = annotationUI.mainEl.querySelector(edit.elementPath);
-    return byPath instanceof HTMLElement ? byPath : null;
+    return null;
   }
 
   function rebindEasyEditsToCurrentDom() {
@@ -766,10 +896,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       edit.elementRef = ensureElementRef(target);
-      if (!edit.elementPath) {
-        edit.elementPath = buildElementPath(target, annotationUI.mainEl);
+      if (!edit.elementPath || !Object.keys(edit.elementProps || {}).length) {
+        const editAnchor = buildEditElementAnchor(target, annotationUI.mainEl);
+        edit.elementPath = editAnchor.elementPath;
+        edit.elementProps = editAnchor.elementProps;
       }
     });
+    rebuildEditThreadsFromEasyEdits();
   }
 
   function applyEasyEditsToDom() {
@@ -806,6 +939,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     applyEasyEditsToHtmlString,
     buildElementPath,
     buildCommentElementPath,
+    buildEditElementAnchor,
     buildThreadElementPath,
     clearSelectedElement,
     ensureElementRef,
@@ -830,8 +964,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     normalizeCommentStatus,
     pushThreadMessage,
     recordEditMessage,
+    rebuildEditThreadsFromEasyEdits,
     rebindEasyEditsToCurrentDom,
     rebindThreadsToCurrentDom,
+    replaceEasyEdits,
     removeThread,
     removeThreadMessage,
     replaceThreadsByType,
