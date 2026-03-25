@@ -372,7 +372,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         if (child.tagName === currentTagName) siblings.push(child);
       }
       const index = siblings.indexOf(current);
-      segments.unshift(`${tag}:nth-of-type(${index + 1})`);
+      let selectorSegment = `${tag}:nth-of-type(${index + 1})`;
+      if (current.classList.contains('section')) {
+        selectorSegment = `.section:nth-of-type(${index + 1})`;
+      } else if (current.parentElement === root || current.parentElement?.classList.contains('section')) {
+        const blockClass = Array.from(current.classList || []).find(Boolean);
+        if (blockClass) {
+          selectorSegment = `.${blockClass}:nth-of-type(${index + 1})`;
+        }
+      }
+      segments.unshift(selectorSegment);
       current = current.parentElement;
     }
 
