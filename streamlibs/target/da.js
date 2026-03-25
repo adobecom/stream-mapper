@@ -46,9 +46,10 @@ function wrapHTMLForDA(html) {
   return `<body><header></header><main>${html}</main><footer></footer>`;
 }
 
-export async function postData(url, html) {
+export async function postData(url, html, options = {}) {
   const config = await getConfig();
   const wrappedHtml = wrapHTMLForDA(html);
+  const { suppressErrorPage = false } = options;
   try {
     const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.pushToDaUrl}`, {
       method: 'POST',
@@ -60,10 +61,14 @@ export async function postData(url, html) {
         htmlContent: wrappedHtml,
         url,
       }),
+    }, {
+      donotShowErrorPage: suppressErrorPage,
     });
     await response.json();
   } catch (error) {
-    handleError(error, 'posting to DA');
+    if (!suppressErrorPage) {
+      handleError(error, 'posting to DA');
+    }
     throw error;
   }
 }

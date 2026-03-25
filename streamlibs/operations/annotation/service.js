@@ -79,6 +79,83 @@ function normalizeThreadPayload(thread) {
   };
 }
 
+function normalizeThreadsPayload(data) {
+  let threadPayload = null;
+  if (Array.isArray(data?.threads)) {
+    threadPayload = data.threads;
+  } else if (Array.isArray(data)) {
+    threadPayload = data;
+  }
+
+  if (!Array.isArray(threadPayload)) return null;
+  return threadPayload.map(normalizeThreadPayload).filter((thread) => thread.id);
+}
+
+function normalizeEditRecord(edit) {
+  const normalizedAnchor = normalizeAnchorElementPath(edit?.elementPath);
+  let normalizedElementProps = {};
+  if (edit?.elementProps && typeof edit.elementProps === 'object') {
+    normalizedElementProps = { ...edit.elementProps };
+  } else if (normalizedAnchor && typeof normalizedAnchor === 'object') {
+    normalizedElementProps = Object.fromEntries(
+      Object.entries(normalizedAnchor).filter(([key]) => key !== 'selector'),
+    );
+  }
+
+  return {
+    id: edit?.id || '',
+    editType: edit?.editType || 'text',
+    attrName: edit?.attrName || '',
+    elementPath: `${edit?.elementPath || normalizedAnchor?.selector || ''}`,
+    elementProps: normalizedElementProps,
+    elementRef: edit?.elementRef || '',
+    from: `${edit?.from || ''}`,
+    to: `${edit?.to || ''}`,
+    fromHtml: `${edit?.fromHtml || ''}`,
+    toHtml: `${edit?.toHtml || ''}`,
+    changedFrom: `${edit?.changedFrom || ''}`,
+    changedTo: `${edit?.changedTo || ''}`,
+    updatedAt: edit?.updatedAt || null,
+    authorUsername: edit?.authorUsername || edit?.authorName || '',
+  };
+}
+
+function normalizeEditsSnapshot(data) {
+  // Service has returned both shapes in practice:
+  // { edits: { ...mergedSnapshot } } and { edits: [{ ...mergedSnapshot }] }.
+  const editsPayload = Array.isArray(data?.edits)
+    ? data.edits[0]
+    : data?.edits || null;
+
+  if (!editsPayload || typeof editsPayload !== 'object') {
+    return {
+      createdAt: null,
+      authorUsername: '',
+      editRecord: [],
+    };
+  }
+
+  const authorUsername = `${editsPayload?.authorUsername || ''}`.trim();
+  const editRecord = Array.isArray(editsPayload?.editRecord)
+    ? editsPayload.editRecord
+      .map((edit) => {
+        const editAuthorUsername = `${edit?.authorUsername || edit?.authorName || ''}`.trim();
+        return {
+          ...normalizeEditRecord(edit),
+          authorUsername: editAuthorUsername || authorUsername,
+        };
+      })
+      .filter((edit) => edit.id)
+    : [];
+
+  return {
+    createdAt: editsPayload?.createdAt || null,
+    updatedAt: editsPayload?.updatedAt || editsPayload?.createdAt || null,
+    authorUsername,
+    editRecord,
+  };
+}
+
 export default function createAnnotationServiceClient() {
   async function annotationServiceFetch(path, options = {}) {
     const resolvedServiceEndpoint = `${(await getConfig())?.streamMapper?.serviceEP || ''}`.trim();
@@ -140,6 +217,30 @@ export default function createAnnotationServiceClient() {
     const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/threads`);
     if (!Array.isArray(data)) return [];
     return data.map(normalizeThreadPayload).filter((thread) => thread.id);
+  }
+
+  async function getEditsSnapshot() {
+    const collabId = getAnnotationCollabId();
+    if (!collabId) return null;
+    try {
+      const data = await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/edits`);
+      return normalizeEditsSnapshot(data);
+    } catch (error) {
+      if (`${error?.message || ''}`.includes('404')) {
+        return {
+          createdAt: null,
+          updatedAt: null,
+          authorUsername: '',
+          editRecord: [],
+        };
+      }
+      throw error;
+    }
+  }
+
+  async function listEdits() {
+    const snapshot = await getEditsSnapshot();
+    return snapshot?.editRecord || [];
   }
 
   async function createThread({
@@ -235,12 +336,53 @@ export default function createAnnotationServiceClient() {
     });
   }
 
+  async function saveEdits(edits = []) {
+    return withSyncIndicator('Saving changes...', async () => {
+      const collabId = getAnnotationCollabId();
+      if (!collabId) {
+        return {
+          createdAt: null,
+          updatedAt: null,
+          authorUsername: '',
+          editRecord: [],
+        };
+      }
+      await annotationServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/edits`, {
+        method: 'POST',
+        body: JSON.stringify({
+          edits,
+        }),
+      });
+
+      try {
+        const latestEdits = await getEditsSnapshot();
+        if (latestEdits) {
+          return latestEdits;
+        }
+      } catch (error) {
+        // Ignore and fall back to local payload below.
+      }
+
+      return {
+        createdAt: null,
+        updatedAt: null,
+        authorUsername: '',
+        editRecord: edits.map(normalizeEditRecord).filter((edit) => edit.id),
+      };
+    });
+  }
+
   return {
     createReply,
     createThread,
+    getEditsSnapshot,
     getCurrentUserIdentity,
     isAvailable,
+    listEdits,
     listThreads,
+    normalizeEditsSnapshot,
+    normalizeThreadsPayload,
+    saveEdits,
     updateComment,
     updateThreadStatus,
   };

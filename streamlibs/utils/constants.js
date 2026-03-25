@@ -192,12 +192,17 @@ export const LOADER_MSG_LIST = [
 ];
 
 export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
+export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
+export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {
   START: 0,
   FIGMA_DESIGN_DONE: 10,
   BLOCKS_START: 10,
   BLOCKS_DONE: 90,
+  SAVE_PREPARING: 10,
+  SAVE_HTML_DONE: 55,
+  SAVE_METADATA_DONE: 85,
   START_PAINTING: 100,
 };
 
@@ -207,6 +212,10 @@ export const LOADER_STEP_MESSAGES = {
   FIGMA_DESIGN_LOADED: 'Figma design loaded',
   NO_COMPONENTS: 'No components found',
   NO_BLOCKS: 'No blocks to create',
+  SAVE_PREPARING: 'Preparing changes to save',
+  SAVE_HTML_DONE: 'Saved HTML changes',
+  SAVE_METADATA_DONE: 'Saved edit metadata',
+  SAVE_COMPLETE: 'Changes saved',
   START_PAINTING: 'Start painting',
 };
 
@@ -217,8 +226,6 @@ export function getBlocksCreationMessage(current, total) {
 export const ANNOTATION_DEFAULT_USERNAME = 'stream';
 
 export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
-
-export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 30000;
 
 export const ANNOTATION_MESSAGES = {
   collabUnavailableTitle: 'Collaboration unavailable',
@@ -231,6 +238,13 @@ export const ANNOTATION_MESSAGES = {
   noAssets: 'No assets yet.',
   noComments: 'No comments yet. Click an element to add one.',
   noEdits: 'No edits yet. Start editing text or image alt.',
+  refreshEditsTitle: 'New saved edits available',
+  refreshEditsDescription: 'Another user saved changes. Refresh the canvas to load the latest edits.',
+  refreshEditsInlineMessage: 'Changes detected. Please refresh.',
+  refreshEditsAction: 'Refresh canvas',
+  refreshEditsSnackbar: 'New saved edits are available. Refresh the canvas to load them.',
+  refreshEditsError: "Couldn't refresh edits. Please try again.",
+  saveEditsError: "Couldn't save changes. Please try again.",
   postCommentError: "Couldn't post comment. Please try again.",
   sendReplyError: "Couldn't send reply. Please try again.",
   saveCommentError: "Couldn't save comment. Please try again.",
