@@ -193,6 +193,7 @@ export const LOADER_MSG_LIST = [
 
 export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
 export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
+export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {
   START: 0,
@@ -225,8 +226,6 @@ export function getBlocksCreationMessage(current, total) {
 export const ANNOTATION_DEFAULT_USERNAME = 'stream';
 
 export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
-
-export const ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS = 10000;
 
 export const ANNOTATION_MESSAGES = {
   collabUnavailableTitle: 'Collaboration unavailable',

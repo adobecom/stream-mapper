@@ -79,6 +79,18 @@ function normalizeThreadPayload(thread) {
   };
 }
 
+function normalizeThreadsPayload(data) {
+  let threadPayload = null;
+  if (Array.isArray(data?.threads)) {
+    threadPayload = data.threads;
+  } else if (Array.isArray(data)) {
+    threadPayload = data;
+  }
+
+  if (!Array.isArray(threadPayload)) return null;
+  return threadPayload.map(normalizeThreadPayload).filter((thread) => thread.id);
+}
+
 function normalizeEditRecord(edit) {
   const normalizedAnchor = normalizeAnchorElementPath(edit?.elementPath);
   let normalizedElementProps = {};
@@ -104,17 +116,30 @@ function normalizeEditRecord(edit) {
     changedFrom: `${edit?.changedFrom || ''}`,
     changedTo: `${edit?.changedTo || ''}`,
     updatedAt: edit?.updatedAt || null,
-    authorUsername: edit?.authorUsername || '',
+    authorUsername: edit?.authorUsername || edit?.authorName || '',
   };
 }
 
 function normalizeEditsSnapshot(data) {
-  const editsPayload = data?.edits;
+  // Service has returned both shapes in practice:
+  // { edits: { ...mergedSnapshot } } and { edits: [{ ...mergedSnapshot }] }.
+  const editsPayload = Array.isArray(data?.edits)
+    ? data.edits[0]
+    : data?.edits || null;
+
+  if (!editsPayload || typeof editsPayload !== 'object') {
+    return {
+      createdAt: null,
+      authorUsername: '',
+      editRecord: [],
+    };
+  }
+
   const authorUsername = `${editsPayload?.authorUsername || ''}`.trim();
   const editRecord = Array.isArray(editsPayload?.editRecord)
     ? editsPayload.editRecord
       .map((edit) => {
-        const editAuthorUsername = `${edit?.authorUsername || ''}`.trim();
+        const editAuthorUsername = `${edit?.authorUsername || edit?.authorName || ''}`.trim();
         return {
           ...normalizeEditRecord(edit),
           authorUsername: editAuthorUsername || authorUsername,
@@ -125,6 +150,7 @@ function normalizeEditsSnapshot(data) {
 
   return {
     createdAt: editsPayload?.createdAt || null,
+    updatedAt: editsPayload?.updatedAt || editsPayload?.createdAt || null,
     authorUsername,
     editRecord,
   };
@@ -203,6 +229,7 @@ export default function createAnnotationServiceClient() {
       if (`${error?.message || ''}`.includes('404')) {
         return {
           createdAt: null,
+          updatedAt: null,
           authorUsername: '',
           editRecord: [],
         };
@@ -315,6 +342,7 @@ export default function createAnnotationServiceClient() {
       if (!collabId) {
         return {
           createdAt: null,
+          updatedAt: null,
           authorUsername: '',
           editRecord: [],
         };
@@ -337,6 +365,7 @@ export default function createAnnotationServiceClient() {
 
       return {
         createdAt: null,
+        updatedAt: null,
         authorUsername: '',
         editRecord: edits.map(normalizeEditRecord).filter((edit) => edit.id),
       };
@@ -351,6 +380,8 @@ export default function createAnnotationServiceClient() {
     isAvailable,
     listEdits,
     listThreads,
+    normalizeEditsSnapshot,
+    normalizeThreadsPayload,
     saveEdits,
     updateComment,
     updateThreadStatus,

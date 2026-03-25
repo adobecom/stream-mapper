@@ -1,11 +1,11 @@
 import {
-  ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS,
   ANNOTATION_MESSAGES,
   ANNOTATION_DEFAULT_USERNAME,
   ANNOTATION_REFRESH_EVENT,
 } from '../../utils/constants.js';
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
+import requestParentCollabRefresh from './collab-sync.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
 export default function createCommentsPanelController({
@@ -17,8 +17,6 @@ export default function createCommentsPanelController({
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
-  let refreshThreadsFromService = async () => {};
-  let refreshEditsFromService = async () => {};
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
@@ -29,20 +27,6 @@ export default function createCommentsPanelController({
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
-
-  function refreshThreadsFromServiceInBackground() {
-    refreshThreadsFromService().catch((error) => {
-      // eslint-disable-next-line no-console
-      console.warn('Could not refresh annotation threads after write', error);
-    });
-  }
-
-  function refreshEditsFromServiceInBackground() {
-    refreshEditsFromService().catch((error) => {
-      // eslint-disable-next-line no-console
-      console.warn('Could not poll annotation edits from service', error);
-    });
-  }
 
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
@@ -512,7 +496,10 @@ export default function createCommentsPanelController({
   }
 
   function hasPendingRemoteEdits() {
-    return Boolean(annotationState.pendingRemoteEditsSnapshot?.createdAt);
+    return Boolean(
+      annotationState.pendingRemoteEditsSnapshot?.updatedAt
+      || annotationState.pendingRemoteEditsSnapshot?.createdAt,
+    );
   }
 
   function renderRefreshAction() {
@@ -520,6 +507,143 @@ export default function createCommentsPanelController({
     const isVisible = hasPendingRemoteEdits();
     annotationUI.canvasRefreshBarEl.classList.toggle('is-visible', isVisible);
     annotationUI.canvasRefreshBarEl.setAttribute('aria-hidden', `${!isVisible}`);
+  }
+
+  function applyNormalizedCommentThreads(nextCommentThreads = []) {
+    const visibleThreadType = getVisibleThreadType();
+    const currentCommentThreads = annotationState.store.threads.filter(
+      (thread) => store.getThreadType(thread) === 'comment',
+    );
+    const didCommentsChange = getThreadsRenderSignature(currentCommentThreads)
+      !== getThreadsRenderSignature(nextCommentThreads);
+
+    if (!didCommentsChange) {
+      if (
+        pendingCommentsPanelRefresh
+        && visibleThreadType === 'comment'
+        && !shouldDeferCommentsPanelRefresh()
+      ) {
+        renderCommentsPanel();
+      }
+      return false;
+    }
+
+    store.replaceThreadsByType('comment', nextCommentThreads);
+    if (visibleThreadType !== 'comment') {
+      return true;
+    }
+
+    // eslint-disable-next-line no-use-before-define
+    clearThreadTargetCache();
+    // eslint-disable-next-line no-use-before-define
+    renderThreadMarkers({ resolveTargets: true });
+    if (shouldDeferCommentsPanelRefresh()) {
+      pendingCommentsPanelRefresh = true;
+      return true;
+    }
+
+    renderCommentsPanel();
+    return true;
+  }
+
+  function applySavedEditsSnapshot(snapshot) {
+    store.replaceEasyEdits(snapshot?.editRecord || []);
+    annotationState.latestSavedEditsUpdatedAt = snapshot?.updatedAt || snapshot?.createdAt || null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = true;
+    store.rebindEasyEditsToCurrentDom();
+    store.applyEasyEditsToDom();
+    store.saveAnnotationStore();
+    // eslint-disable-next-line no-use-before-define
+    clearThreadTargetCache();
+    // eslint-disable-next-line no-use-before-define
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+  }
+
+  function applyRemoteEditsSnapshot(remoteEditSnapshot, options = {}) {
+    const {
+      forceApply = false,
+    } = options;
+
+    const safeSnapshot = remoteEditSnapshot || {
+      createdAt: null,
+      updatedAt: null,
+      authorUsername: '',
+      editRecord: [],
+    };
+    const remoteUpdatedAtValue = getTimestampValue(
+      safeSnapshot.updatedAt || safeSnapshot.createdAt,
+    );
+    const currentUpdatedAtValue = getTimestampValue(annotationState.latestSavedEditsUpdatedAt);
+    const pendingUpdatedAtValue = getTimestampValue(
+      annotationState.pendingRemoteEditsSnapshot?.updatedAt
+      || annotationState.pendingRemoteEditsSnapshot?.createdAt,
+    );
+
+    if (!annotationState.hasLoadedInitialEditsSnapshot || forceApply) {
+      applySavedEditsSnapshot(safeSnapshot);
+      return true;
+    }
+
+    if (!remoteUpdatedAtValue) {
+      return false;
+    }
+
+    if (remoteUpdatedAtValue <= currentUpdatedAtValue) {
+      return false;
+    }
+
+    if (remoteUpdatedAtValue <= pendingUpdatedAtValue) {
+      return false;
+    }
+
+    annotationState.pendingRemoteEditsSnapshot = safeSnapshot;
+    renderCommentsPanel();
+    showGlobalSnackbar(ANNOTATION_MESSAGES.refreshEditsSnackbar, {
+      variant: 'warning',
+    });
+    return true;
+  }
+
+  function applyRemoteCollabSnapshot(snapshot = {}, options = {}) {
+    const {
+      includeEdits = true,
+    } = options;
+
+    annotationState.latestRemoteCollabSnapshot = snapshot;
+
+    if (snapshot?.collab) {
+      try {
+        const nextThreads = annotationService.normalizeThreadsPayload(snapshot.collab);
+        if (Array.isArray(nextThreads)) {
+          applyNormalizedCommentThreads(
+            nextThreads.filter((thread) => store.getThreadType(thread) === 'comment'),
+          );
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not apply remote comment snapshot', error);
+      }
+    }
+
+    if (includeEdits && snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'edits')) {
+      try {
+        const nextEditSnapshot = annotationService.normalizeEditsSnapshot(snapshot.edits);
+        applyRemoteEditsSnapshot(nextEditSnapshot);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not apply remote edits snapshot', error);
+      }
+    }
+  }
+
+  function applyPendingRemoteEditsSnapshot() {
+    if (!annotationState.pendingRemoteEditsSnapshot) return false;
+    applyRemoteEditsSnapshot(annotationState.pendingRemoteEditsSnapshot, {
+      forceApply: true,
+    });
+    return true;
   }
 
   renderCommentsPanel = function renderCommentsPanelImpl() {
@@ -1048,6 +1172,10 @@ export default function createCommentsPanelController({
       return;
     }
 
+    if (!didHydrateThread) {
+      store.pushThreadMessage(activeThread, value, 'reply');
+    }
+
     hideGlobalSnackbar();
     annotationState.activeThreadId = activeThread.id;
     annotationState.activeMessageId = commentId || getRootComment(activeThread)?.id || '';
@@ -1058,11 +1186,11 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollCommentsPanelToBottom();
-      return;
+    } else {
+      store.saveAnnotationStore();
+      renderCommentsPanel();
     }
-
-    renderCommentsPanel();
-    refreshThreadsFromServiceInBackground();
+    requestParentCollabRefresh('reply-created');
   }
 
   function removePopup() {
@@ -1115,9 +1243,7 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollThreadInPanel(threadId, commentId);
-      if (!result.thread) {
-        refreshThreadsFromServiceInBackground();
-      }
+      requestParentCollabRefresh('comment-updated');
     } catch (error) {
       showGlobalSnackbar(ANNOTATION_MESSAGES.saveCommentError);
       // eslint-disable-next-line no-console
@@ -1200,11 +1326,12 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollCommentsPanelToBottom();
-      return;
+    } else {
+      store.pushThreadMessage(thread, value, 'reply');
+      store.saveAnnotationStore();
+      renderCommentsPanel();
     }
-
-    renderCommentsPanel();
-    refreshThreadsFromServiceInBackground();
+    requestParentCollabRefresh(isReply ? 'reply-created' : 'comment-created');
   }
 
   function attachPopupEvents() {
@@ -1354,135 +1481,9 @@ export default function createCommentsPanelController({
     });
   }
 
-  refreshThreadsFromService = async function refreshThreadsFromServiceImpl() {
-    if (!isCommentsServiceAvailable()) {
-      renderCommentsPanel();
-      return;
-    }
-    try {
-      const visibleThreadType = getVisibleThreadType();
-      const remoteThreads = await annotationService.listThreads();
-      if (!Array.isArray(remoteThreads)) return;
-      const nextCommentThreads = remoteThreads.filter(
-        (thread) => store.getThreadType(thread) === 'comment',
-      );
-      const currentCommentThreads = annotationState.store.threads.filter(
-        (thread) => store.getThreadType(thread) === 'comment',
-      );
-      const didCommentsChange = getThreadsRenderSignature(currentCommentThreads)
-        !== getThreadsRenderSignature(nextCommentThreads);
-      if (!didCommentsChange) {
-        if (
-          pendingCommentsPanelRefresh
-          && visibleThreadType === 'comment'
-          && !shouldDeferCommentsPanelRefresh()
-        ) {
-          renderCommentsPanel();
-        }
-        return;
-      }
-      store.replaceThreadsByType(
-        'comment',
-        nextCommentThreads,
-      );
-      if (visibleThreadType !== 'comment') return;
-      clearThreadTargetCache();
-      renderThreadMarkers({ resolveTargets: true });
-      if (shouldDeferCommentsPanelRefresh()) {
-        pendingCommentsPanelRefresh = true;
-        return;
-      }
-      renderCommentsPanel();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Could not load annotation threads from service', error);
-    }
-  };
-
-  refreshEditsFromService = async function refreshEditsFromServiceImpl() {
-    if (!isCommentsServiceAvailable()) {
-      renderCommentsPanel();
-      return;
-    }
-
-    try {
-      const remoteEditSnapshot = await annotationService.getEditsSnapshot();
-      if (!remoteEditSnapshot) return;
-
-      const remoteCreatedAtValue = getTimestampValue(remoteEditSnapshot.createdAt);
-      const currentCreatedAtValue = getTimestampValue(annotationState.latestSavedEditsCreatedAt);
-      const pendingCreatedAtValue = getTimestampValue(
-        annotationState.pendingRemoteEditsSnapshot?.createdAt,
-      );
-
-      if (!remoteCreatedAtValue) {
-        return;
-      }
-
-      if (!annotationState.hasLoadedInitialEditsSnapshot) {
-        annotationState.latestSavedEditsCreatedAt = remoteEditSnapshot.createdAt || null;
-        annotationState.pendingRemoteEditsSnapshot = null;
-        annotationState.hasLoadedInitialEditsSnapshot = true;
-        renderRefreshAction();
-        return;
-      }
-
-      if (remoteCreatedAtValue <= currentCreatedAtValue) {
-        return;
-      }
-
-      if (remoteCreatedAtValue <= pendingCreatedAtValue) {
-        return;
-      }
-
-      annotationState.pendingRemoteEditsSnapshot = remoteEditSnapshot;
-      renderCommentsPanel();
-      showGlobalSnackbar(ANNOTATION_MESSAGES.refreshEditsSnackbar, {
-        variant: 'warning',
-      });
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Could not load annotation edits from service', error);
-    }
-  };
-
-  function stopThreadPolling() {
-    if (!annotationState.commentThreadPollId) return;
-    window.clearInterval(annotationState.commentThreadPollId);
-    annotationState.commentThreadPollId = null;
-  }
-
-  function stopEditPolling() {
-    if (!annotationState.editPollId) return;
-    window.clearInterval(annotationState.editPollId);
-    annotationState.editPollId = null;
-  }
-
-  function startThreadPolling() {
-    if (!isCommentsServiceAvailable()) return;
-    if (document.visibilityState !== 'visible') return;
-    if (annotationState.commentThreadPollId) return;
-
-    annotationState.commentThreadPollId = window.setInterval(() => {
-      refreshThreadsFromService();
-    }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
-  }
-
-  function startEditPolling() {
-    if (!isCommentsServiceAvailable()) return;
-    if (document.visibilityState !== 'visible') return;
-    if (annotationState.editPollId) return;
-
-    annotationState.editPollId = window.setInterval(() => {
-      refreshEditsFromService();
-    }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
-  }
-
   function teardownGlobalListeners() {
     hideGlobalSnackbar();
     closeCommentEditor();
-    stopThreadPolling();
-    stopEditPolling();
     pendingCommentsPanelRefresh = false;
     annotationState.pendingRemoteEditsSnapshot = null;
     annotationState.hasLoadedInitialEditsSnapshot = false;
@@ -1558,10 +1559,6 @@ export default function createCommentsPanelController({
       document.removeEventListener('click', annotationState.documentClickHandler);
       annotationState.documentClickHandler = null;
     }
-    if (annotationState.documentVisibilityHandler) {
-      document.removeEventListener('visibilitychange', annotationState.documentVisibilityHandler);
-      annotationState.documentVisibilityHandler = null;
-    }
     if (annotationState.windowResizeHandler) {
       window.removeEventListener('resize', annotationState.windowResizeHandler);
       annotationState.windowResizeHandler = null;
@@ -1579,8 +1576,6 @@ export default function createCommentsPanelController({
     store.saveAnnotationStore();
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
-    await refreshThreadsFromService();
-    startThreadPolling();
 
     annotationState.mainClickHandler = (event) => {
       if (!isCommentsViewActive()) return;
@@ -1764,6 +1759,7 @@ export default function createCommentsPanelController({
         store.saveAnnotationStore();
         renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
+        requestParentCollabRefresh('thread-status-updated');
       } catch (error) {
         showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusError);
         target.value = previousStatus;
@@ -1788,19 +1784,6 @@ export default function createCommentsPanelController({
       closePopupAndSelection();
     };
     document.addEventListener('click', annotationState.documentClickHandler);
-
-    annotationState.documentVisibilityHandler = () => {
-      if (document.visibilityState === 'visible') {
-        refreshThreadsFromServiceInBackground();
-        refreshEditsFromServiceInBackground();
-        startThreadPolling();
-        startEditPolling();
-        return;
-      }
-      stopThreadPolling();
-      stopEditPolling();
-    };
-    document.addEventListener('visibilitychange', annotationState.documentVisibilityHandler);
 
     annotationState.mainScrollHandler = scheduleFloatingUISync;
     annotationState.windowResizeHandler = scheduleFloatingUISync;
@@ -1898,11 +1881,12 @@ export default function createCommentsPanelController({
   }
 
   return {
+    applyPendingRemoteEditsSnapshot,
+    applyRemoteCollabSnapshot,
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,
     setInlineModeHandlers,
     setupAnnotationUI,
-    startEditPolling,
   };
 }

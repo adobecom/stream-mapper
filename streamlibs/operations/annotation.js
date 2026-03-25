@@ -7,6 +7,7 @@ import { createAnnotationStore } from './annotation/store.js';
 import createCommentsPanelController from './annotation/comments-panel.js';
 import createInlineEditingController from './annotation/inline-editing.js';
 import createAnnotationServiceClient from './annotation/service.js';
+import requestParentCollabRefresh from './annotation/collab-sync.js';
 
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
@@ -78,22 +79,6 @@ async function initializePreview() {
   document.body.prepend(headerEle);
 }
 
-async function hydrateAnnotationEditsFromService() {
-  if (!annotationService.isAvailable()) return;
-
-  try {
-    const persistedEditSnapshot = await annotationService.getEditsSnapshot();
-    if (!persistedEditSnapshot) return;
-    store.replaceEasyEdits(persistedEditSnapshot.editRecord);
-    annotationState.latestSavedEditsCreatedAt = persistedEditSnapshot.createdAt || null;
-    annotationState.pendingRemoteEditsSnapshot = null;
-    annotationState.hasLoadedInitialEditsSnapshot = true;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Could not load annotation edits from service', error);
-  }
-}
-
 async function buildPersistedAnnotationPayload() {
   await inlineEditing.syncInlineEditsBeforePersist();
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
@@ -116,7 +101,7 @@ export async function annotationOperation() {
   inlineEditing.resetInlineEditModeState();
   annotationUI.annotationMode = shouldRestoreInlineMode ? 'edit' : previousAnnotationMode;
   document.body.classList.add('annotation-mode');
-  annotationState.latestSavedEditsCreatedAt = null;
+  annotationState.latestSavedEditsUpdatedAt = null;
   annotationState.pendingRemoteEditsSnapshot = null;
   annotationState.hasLoadedInitialEditsSnapshot = false;
   await initializePreview();
@@ -125,7 +110,11 @@ export async function annotationOperation() {
   if (!mainEl) return;
 
   await commentsPanel.setupAnnotationUI(mainEl);
-  await hydrateAnnotationEditsFromService();
+  if (annotationState.latestRemoteCollabSnapshot) {
+    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
+      includeEdits: false,
+    });
+  }
   store.rebindEasyEditsToCurrentDom();
   store.applyEasyEditsToDom();
   store.saveAnnotationStore();
@@ -139,7 +128,6 @@ export async function annotationOperation() {
     commentsPanel.renderThreadMarkers({ resolveTargets: true });
     commentsPanel.renderCommentsPanel();
   }
-  commentsPanel.startEditPolling();
 }
 
 export async function persistAnnotationChangesToDA() {
@@ -160,13 +148,24 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
     const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
     if (persistedEditSnapshot) {
       store.replaceEasyEdits(persistedEditSnapshot.editRecord);
-      annotationState.latestSavedEditsCreatedAt = persistedEditSnapshot.createdAt || null;
+      annotationState.latestSavedEditsUpdatedAt = persistedEditSnapshot.updatedAt
+        || persistedEditSnapshot.createdAt
+        || null;
       annotationState.pendingRemoteEditsSnapshot = null;
       annotationState.hasLoadedInitialEditsSnapshot = true;
     }
   }
   reportProgress('editsSaved');
   store.saveAnnotationStore();
+  requestParentCollabRefresh('edits-saved');
+}
+
+export function applyRemoteCollabSnapshot(snapshot) {
+  commentsPanel.applyRemoteCollabSnapshot(snapshot);
+}
+
+export function preparePendingRemoteEditsRefresh() {
+  return commentsPanel.applyPendingRemoteEditsSnapshot();
 }
 
 export async function refreshAnnotationFloatingUI() {

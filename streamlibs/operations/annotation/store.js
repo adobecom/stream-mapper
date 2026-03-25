@@ -851,7 +851,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     thread.messages = thread.messages || [];
     thread.messages.push({
       id: generateId('message'),
-      username: DEFAULT_USERNAME,
+      username: window.streamConfig?.username || DEFAULT_USERNAME,
       text,
       kind,
     });

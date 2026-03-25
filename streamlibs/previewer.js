@@ -32,9 +32,12 @@ import {
   refreshAnnotationFloatingUI,
   persistAnnotationChangesToDA,
   saveAnnotationChanges,
+  applyRemoteCollabSnapshot,
+  preparePendingRemoteEditsRefresh,
 } from './utils/operations.js';
 import {
   ANNOTATION_REFRESH_EVENT,
+  ANNOTATION_READY_EVENT,
   ANNOTATION_MESSAGES,
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
@@ -95,6 +98,14 @@ async function postOperationProcessing(rawhtml) {
   hideLoader();
 }
 
+function notifyAnnotationReady() {
+  if (!window.parent || window.parent === window) return;
+  window.parent.postMessage({
+    type: ANNOTATION_READY_EVENT,
+    storeId: getQueryParam('storeId'),
+  }, '*');
+}
+
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
@@ -116,6 +127,7 @@ export async function initiatePreviewer(forceOperation = null) {
       updateLoader();
       await annotationOperation();
       hideLoader();
+      notifyAnnotationReady();
       break;
     default:
       break;
@@ -227,6 +239,10 @@ async function setupMessageListener() {
         bodyHtml,
       }, event.origin);
     }
+    if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
+      if (window.streamConfig.operation !== 'annotation') return;
+      applyRemoteCollabSnapshot(event.data.payload || {});
+    }
   });
 
   window.addEventListener(ANNOTATION_REFRESH_EVENT, async () => {
@@ -319,6 +335,9 @@ export async function saveChanges() {
       await refreshAnnotationFloatingUI();
     }
     hideLoader();
+    if (isAnnotationOperation) {
+      notifyAnnotationReady();
+    }
   } catch (error) {
     hideLoader();
     showDOMElements([document.querySelector('main')]);
@@ -340,10 +359,12 @@ export async function refreshAnnotationCanvas() {
       percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
     });
     hideDOMElements([document.querySelector('main')]);
+    preparePendingRemoteEditsRefresh();
     await annotationOperation();
     showDOMElements([document.querySelector('main')]);
     await refreshAnnotationFloatingUI();
     hideLoader();
+    notifyAnnotationReady();
   } catch (error) {
     hideLoader();
     showDOMElements([document.querySelector('main')]);
