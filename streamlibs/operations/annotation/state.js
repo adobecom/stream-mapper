@@ -9,6 +9,8 @@ export function createAnnotationState() {
     activeEditId: '',
     mediumEditorLoadPromise: null,
     latestSavedEditsUpdatedAt: null,
+    latestSelfSavedEditsHash: '',
+    latestSelfSavedEditsCount: 0,
     pendingRemoteEditsSnapshot: null,
     hasLoadedInitialEditsSnapshot: false,
     latestRemoteCollabSnapshot: null,

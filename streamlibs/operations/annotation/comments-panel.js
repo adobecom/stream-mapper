@@ -475,6 +475,97 @@ export default function createCommentsPanelController({
     return JSON.stringify(threads.map(getThreadRenderSnapshot));
   }
 
+  function createFnv1aHash() {
+    let hash = 0x811c9dc5;
+    return {
+      update(value = '') {
+        const input = `${value}`;
+        for (let index = 0; index < input.length; index += 1) {
+          // eslint-disable-next-line no-bitwise
+          hash ^= input.charCodeAt(index);
+          // eslint-disable-next-line no-bitwise
+          hash = Math.imul(hash, 0x01000193) >>> 0;
+        }
+      },
+      digest() {
+        return hash.toString(16).padStart(8, '0');
+      },
+    };
+  }
+
+  function getEasyEditComparisonSnapshot(edit) {
+    return {
+      id: edit?.id || '',
+      editType: edit?.editType || '',
+      attrName: edit?.attrName || '',
+      elementPath: edit?.elementPath || '',
+      elementProps: getDraftScopeKey(edit?.elementProps || {}),
+      from: edit?.from || '',
+      to: edit?.to || '',
+      fromHtml: edit?.fromHtml || '',
+      toHtml: edit?.toHtml || '',
+      changedFrom: edit?.changedFrom || '',
+      changedTo: edit?.changedTo || '',
+    };
+  }
+
+  function getEasyEditsComparisonHash(edits = []) {
+    const normalizedEdits = [...edits]
+      .map((edit) => {
+        const snapshot = getEasyEditComparisonSnapshot(edit);
+        const stableKey = `${snapshot.id}::${snapshot.elementPath}::${snapshot.attrName}`;
+        return `${stableKey}|${JSON.stringify(snapshot)}`;
+      })
+      .sort();
+
+    const hash = createFnv1aHash();
+    normalizedEdits.forEach((normalizedEdit) => {
+      hash.update(normalizedEdit);
+      hash.update('\u001f');
+    });
+
+    return hash.digest();
+  }
+
+  function getEasyEditsComparisonSize(edits = []) {
+    return Array.isArray(edits) ? edits.length : 0;
+  }
+
+  function getSelfSavedEditsFingerprint(edits = []) {
+    return {
+      count: getEasyEditsComparisonSize(edits),
+      hash: getEasyEditsComparisonHash(edits),
+    };
+  }
+
+  function setSelfSavedEditsFingerprint(edits = []) {
+    const fingerprint = getSelfSavedEditsFingerprint(edits);
+    annotationState.latestSelfSavedEditsHash = fingerprint.hash;
+    annotationState.latestSelfSavedEditsCount = fingerprint.count;
+  }
+
+  function clearSelfSavedEditsFingerprint() {
+    annotationState.latestSelfSavedEditsHash = '';
+    annotationState.latestSelfSavedEditsCount = 0;
+  }
+
+  function markSelfSavedEditsSnapshot(editRecord = []) {
+    setSelfSavedEditsFingerprint(editRecord);
+  }
+
+  function shouldSuppressSelfSaveRefresh(remoteEditRecord = []) {
+    if (!annotationState.latestSelfSavedEditsHash) return false;
+    if (
+      getEasyEditsComparisonSize(remoteEditRecord) !== annotationState.latestSelfSavedEditsCount
+    ) {
+      return false;
+    }
+    return (
+      getEasyEditsComparisonHash(remoteEditRecord)
+      === annotationState.latestSelfSavedEditsHash
+    );
+  }
+
   function syncPendingPanelStates() {
     pendingReplyComposerKeys.forEach((key) => {
       const [threadId = '', commentId = ''] = key.split('::');
@@ -596,6 +687,15 @@ export default function createCommentsPanelController({
 
     if (remoteUpdatedAtValue <= pendingUpdatedAtValue) {
       return false;
+    }
+
+    if (annotationState.latestSelfSavedEditsHash) {
+      const shouldSuppress = shouldSuppressSelfSaveRefresh(safeSnapshot.editRecord);
+      clearSelfSavedEditsFingerprint();
+      if (shouldSuppress) {
+        applySavedEditsSnapshot(safeSnapshot);
+        return false;
+      }
     }
 
     annotationState.pendingRemoteEditsSnapshot = safeSnapshot;
@@ -1485,6 +1585,7 @@ export default function createCommentsPanelController({
     hideGlobalSnackbar();
     closeCommentEditor();
     pendingCommentsPanelRefresh = false;
+    clearSelfSavedEditsFingerprint();
     annotationState.pendingRemoteEditsSnapshot = null;
     annotationState.hasLoadedInitialEditsSnapshot = false;
     panelReplyDrafts.clear();
@@ -1883,6 +1984,7 @@ export default function createCommentsPanelController({
   return {
     applyPendingRemoteEditsSnapshot,
     applyRemoteCollabSnapshot,
+    markSelfSavedEditsSnapshot,
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,

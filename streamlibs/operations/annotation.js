@@ -151,6 +151,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
       annotationState.latestSavedEditsUpdatedAt = persistedEditSnapshot.updatedAt
         || persistedEditSnapshot.createdAt
         || null;
+      commentsPanel.markSelfSavedEditsSnapshot(persistedEditSnapshot.editRecord);
       annotationState.pendingRemoteEditsSnapshot = null;
       annotationState.hasLoadedInitialEditsSnapshot = true;
     }
