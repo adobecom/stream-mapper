@@ -93,7 +93,10 @@ async function buildPersistedAnnotationPayload() {
   };
 }
 
-export async function annotationOperation() {
+export async function annotationOperation(options = {}) {
+  const {
+    preserveRemoteEditState = false,
+  } = options;
   const previousAnnotationMode = annotationUI.annotationMode || 'comments';
   const shouldRestoreInlineMode = annotationUI.inlineMode
     && window.streamConfig?.inlineEditingAllowed !== false;
@@ -101,15 +104,19 @@ export async function annotationOperation() {
   inlineEditing.resetInlineEditModeState();
   annotationUI.annotationMode = shouldRestoreInlineMode ? 'edit' : previousAnnotationMode;
   document.body.classList.add('annotation-mode');
-  annotationState.latestSavedEditsUpdatedAt = null;
-  annotationState.pendingRemoteEditsSnapshot = null;
-  annotationState.hasLoadedInitialEditsSnapshot = false;
+  if (!preserveRemoteEditState) {
+    annotationState.latestSavedEditsUpdatedAt = null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = false;
+  }
   await initializePreview();
   await miloLoadArea();
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  await commentsPanel.setupAnnotationUI(mainEl);
+  await commentsPanel.setupAnnotationUI(mainEl, {
+    preserveRemoteEditState,
+  });
   if (annotationState.latestRemoteCollabSnapshot) {
     commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
       includeEdits: false,
