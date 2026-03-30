@@ -188,6 +188,11 @@ export default function createCommentsPanelController({
     return Boolean(currentProfileId && authorProfileId && currentProfileId === authorProfileId);
   }
 
+  function isThreadStatusEditableByCurrentUser(thread) {
+    if (!thread) return false;
+    return isCommentEditableByCurrentUser(getRootComment(thread));
+  }
+
   function getCommentEditorKey(threadId, commentId) {
     return `${threadId || ''}::${commentId || ''}`;
   }
@@ -881,9 +886,15 @@ export default function createCommentsPanelController({
           const statusControls = document.createElement('div');
           statusControls.className = 'annotation-panel-status-controls';
           const statusSelect = document.createElement('select');
+          const canEditThreadStatus = isThreadStatusEditableByCurrentUser(thread);
           statusSelect.className = 'annotation-panel-status-select';
           statusSelect.dataset.threadId = thread.id;
           statusSelect.dataset.messageId = group.comment.id || '';
+          statusSelect.disabled = !canEditThreadStatus;
+          if (!canEditThreadStatus) {
+            statusSelect.title = ANNOTATION_MESSAGES.updateStatusRestricted;
+            statusSelect.setAttribute('aria-label', ANNOTATION_MESSAGES.updateStatusRestricted);
+          }
           COMMENT_STATUSES.forEach((status) => {
             const option = document.createElement('option');
             option.value = status;
@@ -1876,6 +1887,15 @@ export default function createCommentsPanelController({
       if (!threadId) return;
       const thread = store.getThreadById(threadId);
       if (!thread) return;
+      if (!isThreadStatusEditableByCurrentUser(thread)) {
+        target.value = thread.status;
+        target.disabled = true;
+        showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusRestricted);
+        window.setTimeout(() => {
+          target.disabled = false;
+        }, 0);
+        return;
+      }
       const previousStatus = thread.status;
       const nextStatus = target.value;
       target.value = previousStatus;

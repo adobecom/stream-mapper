@@ -249,6 +249,7 @@ export const ANNOTATION_MESSAGES = {
   sendReplyError: "Couldn't send reply. Please try again.",
   saveCommentError: "Couldn't save comment. Please try again.",
   updateStatusError: "Couldn't update comment status. Please try again.",
+  updateStatusRestricted: 'Only the thread author can update its status.',
   syncEditError: "Couldn't sync edit thread. Please try again.",
   editCommentAriaLabel: 'Edit comment',
   saveCommentAction: 'Save',
