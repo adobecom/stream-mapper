@@ -1,10 +1,11 @@
 import {
-  ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS,
   ANNOTATION_MESSAGES,
   ANNOTATION_DEFAULT_USERNAME,
+  ANNOTATION_REFRESH_EVENT,
 } from '../../utils/constants.js';
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
+import requestParentCollabRefresh from './collab-sync.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
 export default function createCommentsPanelController({
@@ -16,7 +17,6 @@ export default function createCommentsPanelController({
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
-  let refreshThreadsFromService = async () => {};
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
@@ -27,13 +27,6 @@ export default function createCommentsPanelController({
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
-
-  function refreshThreadsFromServiceInBackground() {
-    refreshThreadsFromService().catch((error) => {
-      // eslint-disable-next-line no-console
-      console.warn('Could not refresh annotation threads after write', error);
-    });
-  }
 
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
@@ -69,7 +62,9 @@ export default function createCommentsPanelController({
     panel.className = 'annotation-comments-panel';
     panel.innerHTML = `
       <div class="annotation-comments-panel-header">
-        <h3>Comments</h3>
+        <div class="annotation-comments-panel-heading">
+          <h3>Comments</h3>
+        </div>
         <div class="annotation-inline-edit-switcher">
           <div class="annotation-inline-radio-group" role="radiogroup" aria-label="Annotation mode">
             <input type="radio" id="annotation-inline-mode-comments" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="comments" checked />
@@ -93,14 +88,60 @@ export default function createCommentsPanelController({
     annotationUI.inlineCommentsToggleEl = panel.querySelector('#annotation-inline-mode-comments');
     annotationUI.inlineAssetsToggleEl = panel.querySelector('#annotation-inline-mode-assets');
 
+    if (annotationUI.annotationMode === 'assets') {
+      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = true;
+      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
+      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = false;
+    } else if (annotationUI.annotationMode === 'edit' || annotationUI.inlineMode) {
+      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = true;
+      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = false;
+      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+    } else {
+      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = true;
+      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
+      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+    }
+
     if (annotationUI.inlineToggleEl && !isInlineEditingAllowed()) {
       const editLabel = panel.querySelector('label[for="annotation-inline-mode-edit"]');
-      annotationUI.inlineToggleEl.disabled = true;
-      annotationUI.inlineToggleEl.setAttribute('aria-disabled', 'true');
       if (editLabel instanceof HTMLElement) {
         editLabel.title = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
         editLabel.setAttribute('aria-label', ANNOTATION_MESSAGES.inlineEditRestrictedDescription);
       }
+    }
+  }
+
+  function ensureCanvasRefreshBar() {
+    const existing = document.querySelector('.annotation-canvas-refresh-bar');
+    if (existing) existing.remove();
+
+    const refreshBar = document.createElement('div');
+    refreshBar.className = 'annotation-canvas-refresh-bar';
+    refreshBar.setAttribute('aria-hidden', 'true');
+    refreshBar.setAttribute('role', 'status');
+    refreshBar.setAttribute('aria-live', 'polite');
+    refreshBar.innerHTML = `
+      <div class="annotation-canvas-refresh-copy">
+        <span class="annotation-canvas-refresh-icon" aria-hidden="true">i</span>
+        <div class="annotation-canvas-refresh-text">
+          <strong>${ANNOTATION_MESSAGES.refreshEditsTitle}</strong>
+          <span>${ANNOTATION_MESSAGES.refreshEditsInlineMessage}</span>
+        </div>
+      </div>
+      <button type="button" class="annotation-canvas-refresh-btn">${ANNOTATION_MESSAGES.refreshEditsAction}</button>
+    `;
+    document.body.appendChild(refreshBar);
+    annotationUI.canvasRefreshBarEl = refreshBar;
+
+    const refreshButton = refreshBar.querySelector('.annotation-canvas-refresh-btn');
+    if (refreshButton instanceof HTMLButtonElement) {
+      annotationState.canvasRefreshBarClickHandler = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        hideGlobalSnackbar();
+        window.dispatchEvent(new CustomEvent(ANNOTATION_REFRESH_EVENT));
+      };
+      refreshButton.addEventListener('click', annotationState.canvasRefreshBarClickHandler);
     }
   }
 
@@ -247,12 +288,6 @@ export default function createCommentsPanelController({
     };
   }
 
-  function isProtectedPanelElement(element) {
-    return element instanceof HTMLElement
-      && Boolean(annotationUI.panelEl?.contains(element))
-      && element.matches('input, textarea, select, button');
-  }
-
   function isCommentsViewActive() {
     return annotationUI.annotationMode === 'comments' && !annotationUI.inlineMode;
   }
@@ -271,10 +306,8 @@ export default function createCommentsPanelController({
   }
 
   function shouldDeferCommentsPanelRefresh() {
-    const { activeElement } = document;
     return pendingReplyComposerKeys.size > 0
-      || pendingCommentEditIds.size > 0
-      || isProtectedPanelElement(activeElement);
+      || pendingCommentEditIds.size > 0;
   }
 
   flushPendingCommentsPanelRefresh = function flushPendingCommentsPanelRefreshImpl() {
@@ -442,6 +475,97 @@ export default function createCommentsPanelController({
     return JSON.stringify(threads.map(getThreadRenderSnapshot));
   }
 
+  function createFnv1aHash() {
+    let hash = 0x811c9dc5;
+    return {
+      update(value = '') {
+        const input = `${value}`;
+        for (let index = 0; index < input.length; index += 1) {
+          // eslint-disable-next-line no-bitwise
+          hash ^= input.charCodeAt(index);
+          // eslint-disable-next-line no-bitwise
+          hash = Math.imul(hash, 0x01000193) >>> 0;
+        }
+      },
+      digest() {
+        return hash.toString(16).padStart(8, '0');
+      },
+    };
+  }
+
+  function getEasyEditComparisonSnapshot(edit) {
+    return {
+      id: edit?.id || '',
+      editType: edit?.editType || '',
+      attrName: edit?.attrName || '',
+      elementPath: edit?.elementPath || '',
+      elementProps: getDraftScopeKey(edit?.elementProps || {}),
+      from: edit?.from || '',
+      to: edit?.to || '',
+      fromHtml: edit?.fromHtml || '',
+      toHtml: edit?.toHtml || '',
+      changedFrom: edit?.changedFrom || '',
+      changedTo: edit?.changedTo || '',
+    };
+  }
+
+  function getEasyEditsComparisonHash(edits = []) {
+    const normalizedEdits = [...edits]
+      .map((edit) => {
+        const snapshot = getEasyEditComparisonSnapshot(edit);
+        const stableKey = `${snapshot.id}::${snapshot.elementPath}::${snapshot.attrName}`;
+        return `${stableKey}|${JSON.stringify(snapshot)}`;
+      })
+      .sort();
+
+    const hash = createFnv1aHash();
+    normalizedEdits.forEach((normalizedEdit) => {
+      hash.update(normalizedEdit);
+      hash.update('\u001f');
+    });
+
+    return hash.digest();
+  }
+
+  function getEasyEditsComparisonSize(edits = []) {
+    return Array.isArray(edits) ? edits.length : 0;
+  }
+
+  function getSelfSavedEditsFingerprint(edits = []) {
+    return {
+      count: getEasyEditsComparisonSize(edits),
+      hash: getEasyEditsComparisonHash(edits),
+    };
+  }
+
+  function setSelfSavedEditsFingerprint(edits = []) {
+    const fingerprint = getSelfSavedEditsFingerprint(edits);
+    annotationState.latestSelfSavedEditsHash = fingerprint.hash;
+    annotationState.latestSelfSavedEditsCount = fingerprint.count;
+  }
+
+  function clearSelfSavedEditsFingerprint() {
+    annotationState.latestSelfSavedEditsHash = '';
+    annotationState.latestSelfSavedEditsCount = 0;
+  }
+
+  function markSelfSavedEditsSnapshot(editRecord = []) {
+    setSelfSavedEditsFingerprint(editRecord);
+  }
+
+  function shouldSuppressSelfSaveRefresh(remoteEditRecord = []) {
+    if (!annotationState.latestSelfSavedEditsHash) return false;
+    if (
+      getEasyEditsComparisonSize(remoteEditRecord) !== annotationState.latestSelfSavedEditsCount
+    ) {
+      return false;
+    }
+    return (
+      getEasyEditsComparisonHash(remoteEditRecord)
+      === annotationState.latestSelfSavedEditsHash
+    );
+  }
+
   function syncPendingPanelStates() {
     pendingReplyComposerKeys.forEach((key) => {
       const [threadId = '', commentId = ''] = key.split('::');
@@ -457,10 +581,176 @@ export default function createCommentsPanelController({
     return annotationUI.annotationMode === 'edit';
   }
 
+  function getTimestampValue(value) {
+    const timestamp = new Date(value || 0).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function hasPendingRemoteEdits() {
+    return Boolean(
+      annotationState.pendingRemoteEditsSnapshot?.updatedAt
+      || annotationState.pendingRemoteEditsSnapshot?.createdAt,
+    );
+  }
+
+  function renderRefreshAction() {
+    if (!(annotationUI.canvasRefreshBarEl instanceof HTMLElement)) return;
+    const isVisible = hasPendingRemoteEdits();
+    annotationUI.canvasRefreshBarEl.classList.toggle('is-visible', isVisible);
+    annotationUI.canvasRefreshBarEl.setAttribute('aria-hidden', `${!isVisible}`);
+  }
+
+  function applyNormalizedCommentThreads(nextCommentThreads = []) {
+    const visibleThreadType = getVisibleThreadType();
+    const currentCommentThreads = annotationState.store.threads.filter(
+      (thread) => store.getThreadType(thread) === 'comment',
+    );
+    const didCommentsChange = getThreadsRenderSignature(currentCommentThreads)
+      !== getThreadsRenderSignature(nextCommentThreads);
+
+    if (!didCommentsChange) {
+      if (
+        pendingCommentsPanelRefresh
+        && visibleThreadType === 'comment'
+        && !shouldDeferCommentsPanelRefresh()
+      ) {
+        renderCommentsPanel();
+      }
+      return false;
+    }
+
+    store.replaceThreadsByType('comment', nextCommentThreads);
+    if (visibleThreadType !== 'comment') {
+      return true;
+    }
+
+    // eslint-disable-next-line no-use-before-define
+    clearThreadTargetCache();
+    // eslint-disable-next-line no-use-before-define
+    renderThreadMarkers({ resolveTargets: true });
+    if (shouldDeferCommentsPanelRefresh()) {
+      pendingCommentsPanelRefresh = true;
+      return true;
+    }
+
+    renderCommentsPanel();
+    return true;
+  }
+
+  function applySavedEditsSnapshot(snapshot) {
+    store.replaceEasyEdits(snapshot?.editRecord || []);
+    annotationState.latestSavedEditsUpdatedAt = snapshot?.updatedAt || snapshot?.createdAt || null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = true;
+    store.rebindEasyEditsToCurrentDom();
+    store.applyEasyEditsToDom();
+    store.saveAnnotationStore();
+    // eslint-disable-next-line no-use-before-define
+    clearThreadTargetCache();
+    // eslint-disable-next-line no-use-before-define
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+  }
+
+  function applyRemoteEditsSnapshot(remoteEditSnapshot, options = {}) {
+    const {
+      forceApply = false,
+    } = options;
+
+    const safeSnapshot = remoteEditSnapshot || {
+      createdAt: null,
+      updatedAt: null,
+      authorUsername: '',
+      editRecord: [],
+    };
+    const remoteUpdatedAtValue = getTimestampValue(
+      safeSnapshot.updatedAt || safeSnapshot.createdAt,
+    );
+    const currentUpdatedAtValue = getTimestampValue(annotationState.latestSavedEditsUpdatedAt);
+    const pendingUpdatedAtValue = getTimestampValue(
+      annotationState.pendingRemoteEditsSnapshot?.updatedAt
+      || annotationState.pendingRemoteEditsSnapshot?.createdAt,
+    );
+
+    if (!annotationState.hasLoadedInitialEditsSnapshot || forceApply) {
+      applySavedEditsSnapshot(safeSnapshot);
+      return true;
+    }
+
+    if (!remoteUpdatedAtValue) {
+      return false;
+    }
+
+    if (remoteUpdatedAtValue <= currentUpdatedAtValue) {
+      return false;
+    }
+
+    if (remoteUpdatedAtValue <= pendingUpdatedAtValue) {
+      return false;
+    }
+
+    if (annotationState.latestSelfSavedEditsHash) {
+      const shouldSuppress = shouldSuppressSelfSaveRefresh(safeSnapshot.editRecord);
+      clearSelfSavedEditsFingerprint();
+      if (shouldSuppress) {
+        applySavedEditsSnapshot(safeSnapshot);
+        return false;
+      }
+    }
+
+    annotationState.pendingRemoteEditsSnapshot = safeSnapshot;
+    renderCommentsPanel();
+    showGlobalSnackbar(ANNOTATION_MESSAGES.refreshEditsSnackbar, {
+      variant: 'warning',
+    });
+    return true;
+  }
+
+  function applyRemoteCollabSnapshot(snapshot = {}, options = {}) {
+    const {
+      includeEdits = true,
+    } = options;
+
+    annotationState.latestRemoteCollabSnapshot = snapshot;
+
+    if (snapshot?.collab) {
+      try {
+        const nextThreads = annotationService.normalizeThreadsPayload(snapshot.collab);
+        if (Array.isArray(nextThreads)) {
+          applyNormalizedCommentThreads(
+            nextThreads.filter((thread) => store.getThreadType(thread) === 'comment'),
+          );
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not apply remote comment snapshot', error);
+      }
+    }
+
+    if (includeEdits && snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'edits')) {
+      try {
+        const nextEditSnapshot = annotationService.normalizeEditsSnapshot(snapshot.edits);
+        applyRemoteEditsSnapshot(nextEditSnapshot);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not apply remote edits snapshot', error);
+      }
+    }
+  }
+
+  function applyPendingRemoteEditsSnapshot() {
+    if (!annotationState.pendingRemoteEditsSnapshot) return false;
+    applyRemoteEditsSnapshot(annotationState.pendingRemoteEditsSnapshot, {
+      forceApply: true,
+    });
+    return true;
+  }
+
   renderCommentsPanel = function renderCommentsPanelImpl() {
     if (!annotationUI.panelListEl) return;
     pendingCommentsPanelRefresh = false;
     captureTransientDraftsFromDom();
+    renderRefreshAction();
 
     let preservedComposer = null;
     let preservedComposerKey = '';
@@ -982,6 +1272,10 @@ export default function createCommentsPanelController({
       return;
     }
 
+    if (!didHydrateThread) {
+      store.pushThreadMessage(activeThread, value, 'reply');
+    }
+
     hideGlobalSnackbar();
     annotationState.activeThreadId = activeThread.id;
     annotationState.activeMessageId = commentId || getRootComment(activeThread)?.id || '';
@@ -992,11 +1286,11 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollCommentsPanelToBottom();
-      return;
+    } else {
+      store.saveAnnotationStore();
+      renderCommentsPanel();
     }
-
-    renderCommentsPanel();
-    refreshThreadsFromServiceInBackground();
+    requestParentCollabRefresh('reply-created');
   }
 
   function removePopup() {
@@ -1049,9 +1343,7 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollThreadInPanel(threadId, commentId);
-      if (!result.thread) {
-        refreshThreadsFromServiceInBackground();
-      }
+      requestParentCollabRefresh('comment-updated');
     } catch (error) {
       showGlobalSnackbar(ANNOTATION_MESSAGES.saveCommentError);
       // eslint-disable-next-line no-console
@@ -1134,11 +1426,12 @@ export default function createCommentsPanelController({
       renderThreadMarkers({ resolveTargets: true });
       renderCommentsPanel();
       scrollCommentsPanelToBottom();
-      return;
+    } else {
+      store.pushThreadMessage(thread, value, 'reply');
+      store.saveAnnotationStore();
+      renderCommentsPanel();
     }
-
-    renderCommentsPanel();
-    refreshThreadsFromServiceInBackground();
+    requestParentCollabRefresh(isReply ? 'reply-created' : 'comment-created');
   }
 
   function attachPopupEvents() {
@@ -1288,81 +1581,13 @@ export default function createCommentsPanelController({
     });
   }
 
-  refreshThreadsFromService = async function refreshThreadsFromServiceImpl() {
-    if (!isCommentsServiceAvailable()) {
-      renderCommentsPanel();
-      return;
-    }
-    try {
-      const remoteThreads = await annotationService.listThreads();
-      if (!Array.isArray(remoteThreads)) return;
-      const nextCommentThreads = remoteThreads.filter(
-        (thread) => store.getThreadType(thread) === 'comment',
-      );
-      const nextEditThreads = remoteThreads.filter(
-        (thread) => store.getThreadType(thread) === 'edit',
-      );
-      const currentCommentThreads = annotationState.store.threads.filter(
-        (thread) => store.getThreadType(thread) === 'comment',
-      );
-      const currentEditThreads = annotationState.store.threads.filter(
-        (thread) => store.getThreadType(thread) === 'edit',
-      );
-      const didCommentsChange = getThreadsRenderSignature(currentCommentThreads)
-        !== getThreadsRenderSignature(nextCommentThreads);
-      const didEditsChange = getThreadsRenderSignature(currentEditThreads)
-        !== getThreadsRenderSignature(nextEditThreads);
-      if (!didCommentsChange && !didEditsChange) return;
-      store.replaceThreadsByType(
-        'comment',
-        nextCommentThreads,
-      );
-      store.replaceThreadsByType(
-        'edit',
-        nextEditThreads,
-      );
-      const visibleThreadType = getVisibleThreadType();
-      let didVisibleThreadsChange = false;
-      if (visibleThreadType === 'comment') {
-        didVisibleThreadsChange = didCommentsChange;
-      } else if (visibleThreadType === 'edit') {
-        didVisibleThreadsChange = didEditsChange;
-      }
-      if (!didVisibleThreadsChange) return;
-      clearThreadTargetCache();
-      renderThreadMarkers({ resolveTargets: true });
-      if (shouldDeferCommentsPanelRefresh()) {
-        pendingCommentsPanelRefresh = true;
-        return;
-      }
-      renderCommentsPanel();
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Could not load annotation threads from service', error);
-    }
-  };
-
-  function stopThreadPolling() {
-    if (!annotationState.commentThreadPollId) return;
-    window.clearInterval(annotationState.commentThreadPollId);
-    annotationState.commentThreadPollId = null;
-  }
-
-  function startThreadPolling() {
-    if (!isCommentsServiceAvailable()) return;
-    if (document.visibilityState !== 'visible') return;
-    if (annotationState.commentThreadPollId) return;
-
-    annotationState.commentThreadPollId = window.setInterval(() => {
-      refreshThreadsFromService();
-    }, ANNOTATION_COMMENT_THREAD_POLL_INTERVAL_MS);
-  }
-
   function teardownGlobalListeners() {
     hideGlobalSnackbar();
     closeCommentEditor();
-    stopThreadPolling();
     pendingCommentsPanelRefresh = false;
+    clearSelfSavedEditsFingerprint();
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = false;
     panelReplyDrafts.clear();
     popupDraft = '';
     popupDraftKey = '';
@@ -1385,6 +1610,17 @@ export default function createCommentsPanelController({
     if (annotationUI.panelEl && annotationState.panelClickHandler) {
       annotationUI.panelEl.removeEventListener('click', annotationState.panelClickHandler);
       annotationState.panelClickHandler = null;
+    }
+    if (annotationUI.canvasRefreshBarEl && annotationState.canvasRefreshBarClickHandler) {
+      const refreshButton = annotationUI.canvasRefreshBarEl.querySelector('.annotation-canvas-refresh-btn');
+      if (refreshButton instanceof HTMLButtonElement) {
+        refreshButton.removeEventListener('click', annotationState.canvasRefreshBarClickHandler);
+      }
+      annotationState.canvasRefreshBarClickHandler = null;
+    }
+    if (annotationUI.canvasRefreshBarEl) {
+      annotationUI.canvasRefreshBarEl.remove();
+      annotationUI.canvasRefreshBarEl = null;
     }
     if (annotationUI.panelEl && annotationState.panelInputHandler) {
       annotationUI.panelEl.removeEventListener('input', annotationState.panelInputHandler);
@@ -1424,10 +1660,6 @@ export default function createCommentsPanelController({
       document.removeEventListener('click', annotationState.documentClickHandler);
       annotationState.documentClickHandler = null;
     }
-    if (annotationState.documentVisibilityHandler) {
-      document.removeEventListener('visibilitychange', annotationState.documentVisibilityHandler);
-      annotationState.documentVisibilityHandler = null;
-    }
     if (annotationState.windowResizeHandler) {
       window.removeEventListener('resize', annotationState.windowResizeHandler);
       annotationState.windowResizeHandler = null;
@@ -1439,13 +1671,12 @@ export default function createCommentsPanelController({
     annotationUI.mainEl = mainEl;
     ensureFloatingLayer();
     ensureCommentsPanel();
+    ensureCanvasRefreshBar();
     store.loadAnnotationStore();
     store.rebindThreadsToCurrentDom();
     store.saveAnnotationStore();
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
-    await refreshThreadsFromService();
-    startThreadPolling();
 
     annotationState.mainClickHandler = (event) => {
       if (!isCommentsViewActive()) return;
@@ -1482,7 +1713,7 @@ export default function createCommentsPanelController({
     };
     annotationUI.layerEl.addEventListener('click', annotationState.layerClickHandler);
 
-    annotationState.panelClickHandler = (event) => {
+    annotationState.panelClickHandler = async (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
       if (target.closest('.annotation-inline-edit-switcher')) return;
@@ -1629,6 +1860,7 @@ export default function createCommentsPanelController({
         store.saveAnnotationStore();
         renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
+        requestParentCollabRefresh('thread-status-updated');
       } catch (error) {
         showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusError);
         target.value = previousStatus;
@@ -1654,16 +1886,6 @@ export default function createCommentsPanelController({
     };
     document.addEventListener('click', annotationState.documentClickHandler);
 
-    annotationState.documentVisibilityHandler = () => {
-      if (document.visibilityState === 'visible') {
-        refreshThreadsFromServiceInBackground();
-        startThreadPolling();
-        return;
-      }
-      stopThreadPolling();
-    };
-    document.addEventListener('visibilitychange', annotationState.documentVisibilityHandler);
-
     annotationState.mainScrollHandler = scheduleFloatingUISync;
     annotationState.windowResizeHandler = scheduleFloatingUISync;
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
@@ -1682,7 +1904,6 @@ export default function createCommentsPanelController({
             annotationUI.inlineCommentsToggleEl.checked = false;
           }
           if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
-          showGlobalSnackbar(ANNOTATION_MESSAGES.inlineEditRestrictedSnackbar);
           renderThreadMarkers({ resolveTargets: true });
           renderCommentsPanel();
           return;
@@ -1761,6 +1982,9 @@ export default function createCommentsPanelController({
   }
 
   return {
+    applyPendingRemoteEditsSnapshot,
+    applyRemoteCollabSnapshot,
+    markSelfSavedEditsSnapshot,
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,

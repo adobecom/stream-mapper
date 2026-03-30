@@ -8,7 +8,12 @@ export function createAnnotationState() {
     activeMessageId: '',
     activeEditId: '',
     mediumEditorLoadPromise: null,
-    commentThreadPollId: null,
+    latestSavedEditsUpdatedAt: null,
+    latestSelfSavedEditsHash: '',
+    latestSelfSavedEditsCount: 0,
+    pendingRemoteEditsSnapshot: null,
+    hasLoadedInitialEditsSnapshot: false,
+    latestRemoteCollabSnapshot: null,
     floatingUiFrameId: null,
     threadTargetCache: new Map(),
     mainClickHandler: null,
@@ -22,9 +27,9 @@ export function createAnnotationState() {
     inlineCommentsToggleChangeHandler: null,
     inlineAssetsToggleChangeHandler: null,
     documentClickHandler: null,
-    documentVisibilityHandler: null,
     windowResizeHandler: null,
     mainScrollHandler: null,
+    canvasRefreshBarClickHandler: null,
   };
 }
 
@@ -35,6 +40,7 @@ export function createAnnotationUI() {
     popupEl: null,
     panelEl: null,
     panelListEl: null,
+    canvasRefreshBarEl: null,
     inlineToggleEl: null,
     inlineCommentsToggleEl: null,
     inlineAssetsToggleEl: null,
