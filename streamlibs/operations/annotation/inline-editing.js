@@ -16,6 +16,40 @@ export default function createInlineEditingController({
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
 
+  function normalizeInlineFormattingHtml(html = '') {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    template.content.querySelectorAll('*').forEach((element) => {
+      element.classList.remove(
+        'annotation-inline-editable',
+        'annotation-inline-editable-image',
+      );
+      [
+        'contenteditable',
+        'spellcheck',
+        'data-medium-editor-element',
+        'medium-editor-index',
+        'data-medium-editor-editor-index',
+        'role',
+        'aria-multiline',
+        'data-placeholder',
+      ].forEach((attr) => element.removeAttribute(attr));
+    });
+
+    template.content.querySelectorAll('b, i').forEach((element) => {
+      const replacementTagName = element.tagName.toLowerCase() === 'b' ? 'strong' : 'em';
+      const replacement = document.createElement(replacementTagName);
+      Array.from(element.attributes).forEach((attr) => {
+        replacement.setAttribute(attr.name, attr.value);
+      });
+      replacement.innerHTML = element.innerHTML;
+      element.replaceWith(replacement);
+    });
+
+    return template.innerHTML;
+  }
+
   async function loadMediumEditor() {
     if (window.MediumEditor) return;
     if (annotationState.mediumEditorLoadPromise) {
@@ -58,13 +92,27 @@ export default function createInlineEditingController({
       'p', 'li', 'blockquote', 'figcaption',
       '[class*="heading"]', '[class*="title"]', '[class*="description"]',
     ];
-    return Array.from(annotationUI.mainEl.querySelectorAll(selectors.join(', ')))
+    const candidates = Array.from(annotationUI.mainEl.querySelectorAll(selectors.join(', ')))
       .filter((el) => {
         if (!(el instanceof HTMLElement)) return false;
         if (!el.textContent || !el.textContent.trim()) return false;
         if (el.closest('.annotation-comments-panel') || el.closest('.annotation-floating-popup')) return false;
         return true;
       });
+    const candidateSet = new Set(candidates);
+    const nonLeafCandidates = new Set();
+
+    candidates.forEach((candidate) => {
+      let parent = candidate.parentElement;
+      while (parent && parent !== annotationUI.mainEl) {
+        if (candidateSet.has(parent)) {
+          nonLeafCandidates.add(parent);
+        }
+        parent = parent.parentElement;
+      }
+    });
+
+    return candidates.filter((element) => !nonLeafCandidates.has(element));
   }
 
   function getInlineEditableImages() {
@@ -83,9 +131,11 @@ export default function createInlineEditingController({
     const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
     if (!snapshot) return;
 
-    const currentHtml = element.innerHTML;
+    const currentHtml = normalizeInlineFormattingHtml(element.innerHTML);
     const currentText = element.textContent || '';
-    if (currentText.trim() === snapshot.originalText.trim()) return;
+    const didTextChange = currentText.trim() !== snapshot.originalText.trim();
+    const didHtmlChange = currentHtml !== snapshot.originalHtml;
+    if (!didTextChange && !didHtmlChange) return;
 
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
     const easyEditElementPath = editAnchor.elementPath;
@@ -470,7 +520,7 @@ export default function createInlineEditingController({
     annotationUI.editableElements.forEach((element) => {
       const elementRef = store.ensureElementRef(element);
       annotationUI.inlineElementSnapshot.set(elementRef, {
-        originalHtml: element.innerHTML,
+        originalHtml: normalizeInlineFormattingHtml(element.innerHTML),
         originalText: element.textContent || '',
       });
       element.classList.add('annotation-inline-editable');
