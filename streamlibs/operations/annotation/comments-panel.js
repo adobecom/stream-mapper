@@ -180,6 +180,18 @@ export default function createCommentsPanelController({
     return annotationService.getCurrentUserIdentity();
   }
 
+  function isCurrentUserCollabOwner() {
+    const normalizedRole = `${window.streamConfig?.collabRole || ''}`
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ');
+    if (!normalizedRole) {
+      return window.streamConfig?.inlineEditingAllowed === true;
+    }
+    return normalizedRole === 'owner'
+      || normalizedRole === 'collab owner';
+  }
+
   function isCommentEditableByCurrentUser(message) {
     if (!message || annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
     const currentUser = getCurrentUserIdentity();
@@ -190,7 +202,8 @@ export default function createCommentsPanelController({
 
   function isThreadStatusEditableByCurrentUser(thread) {
     if (!thread) return false;
-    return isCommentEditableByCurrentUser(getRootComment(thread));
+    if (annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
+    return isCurrentUserCollabOwner();
   }
 
   function getCommentEditorKey(threadId, commentId) {
