@@ -42,7 +42,12 @@ import {
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
 } from './utils/constants.js';
-import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
+import {
+  initializeLoader,
+  updateLoader,
+  hideLoader,
+  notifyParentPreviewInteractive,
+} from './utils/loader.js';
 
 function parseBooleanFlag(value) {
   if (value === true || value === 'true') return true;
@@ -282,6 +287,7 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
+    notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (window.streamConfig.operation === 'annotation') {
