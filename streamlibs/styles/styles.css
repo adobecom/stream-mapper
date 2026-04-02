@@ -1715,6 +1715,13 @@ body.annotation-mode main::-webkit-scrollbar {
   min-width: 76px;
 }
 
+.annotation-panel-status-select:disabled {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
 .annotation-panel-message-list {
   display: flex;
   flex-direction: column;

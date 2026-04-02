@@ -180,12 +180,30 @@ export default function createCommentsPanelController({
     return annotationService.getCurrentUserIdentity();
   }
 
+  function isCurrentUserCollabOwner() {
+    const normalizedRole = `${window.streamConfig?.collabRole || ''}`
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ');
+    if (!normalizedRole) {
+      return window.streamConfig?.inlineEditingAllowed === true;
+    }
+    return normalizedRole === 'owner'
+      || normalizedRole === 'collab owner';
+  }
+
   function isCommentEditableByCurrentUser(message) {
     if (!message || annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
     const currentUser = getCurrentUserIdentity();
     const currentProfileId = `${currentUser?.profileId || ''}`.trim();
     const authorProfileId = `${message.authorProfileId ?? ''}`.trim();
     return Boolean(currentProfileId && authorProfileId && currentProfileId === authorProfileId);
+  }
+
+  function isThreadStatusEditableByCurrentUser(thread) {
+    if (!thread) return false;
+    if (annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
+    return isCurrentUserCollabOwner();
   }
 
   function getCommentEditorKey(threadId, commentId) {
@@ -493,13 +511,35 @@ export default function createCommentsPanelController({
     };
   }
 
+  function getStableStringValue(input) {
+    if (Array.isArray(input)) {
+      return input.map((item) => getStableStringValue(item));
+    }
+    if (input && typeof input === 'object') {
+      return Object.keys(input)
+        .sort()
+        .reduce((result, key) => {
+          result[key] = getStableStringValue(input[key]);
+          return result;
+        }, {});
+    }
+    return input;
+  }
+
+  function stringifyStableValue(value) {
+    try {
+      return JSON.stringify(getStableStringValue(value));
+    } catch {
+      return '';
+    }
+  }
+
   function getEasyEditComparisonSnapshot(edit) {
     return {
-      id: edit?.id || '',
       editType: edit?.editType || '',
       attrName: edit?.attrName || '',
       elementPath: edit?.elementPath || '',
-      elementProps: getDraftScopeKey(edit?.elementProps || {}),
+      elementProps: stringifyStableValue(edit?.elementProps || {}),
       from: edit?.from || '',
       to: edit?.to || '',
       fromHtml: edit?.fromHtml || '',
@@ -513,8 +553,8 @@ export default function createCommentsPanelController({
     const normalizedEdits = [...edits]
       .map((edit) => {
         const snapshot = getEasyEditComparisonSnapshot(edit);
-        const stableKey = `${snapshot.id}::${snapshot.elementPath}::${snapshot.attrName}`;
-        return `${stableKey}|${JSON.stringify(snapshot)}`;
+        const stableKey = `${snapshot.elementPath}::${snapshot.attrName}::${snapshot.editType}`;
+        return `${stableKey}|${stringifyStableValue(snapshot)}`;
       })
       .sort();
 
@@ -859,9 +899,15 @@ export default function createCommentsPanelController({
           const statusControls = document.createElement('div');
           statusControls.className = 'annotation-panel-status-controls';
           const statusSelect = document.createElement('select');
+          const canEditThreadStatus = isThreadStatusEditableByCurrentUser(thread);
           statusSelect.className = 'annotation-panel-status-select';
           statusSelect.dataset.threadId = thread.id;
           statusSelect.dataset.messageId = group.comment.id || '';
+          statusSelect.disabled = !canEditThreadStatus;
+          if (!canEditThreadStatus) {
+            statusSelect.title = ANNOTATION_MESSAGES.updateStatusRestricted;
+            statusSelect.setAttribute('aria-label', ANNOTATION_MESSAGES.updateStatusRestricted);
+          }
           COMMENT_STATUSES.forEach((status) => {
             const option = document.createElement('option');
             option.value = status;
@@ -1581,13 +1627,18 @@ export default function createCommentsPanelController({
     });
   }
 
-  function teardownGlobalListeners() {
+  function teardownGlobalListeners(options = {}) {
+    const {
+      preserveRemoteEditState = false,
+    } = options;
     hideGlobalSnackbar();
     closeCommentEditor();
     pendingCommentsPanelRefresh = false;
-    clearSelfSavedEditsFingerprint();
-    annotationState.pendingRemoteEditsSnapshot = null;
-    annotationState.hasLoadedInitialEditsSnapshot = false;
+    if (!preserveRemoteEditState) {
+      clearSelfSavedEditsFingerprint();
+      annotationState.pendingRemoteEditsSnapshot = null;
+      annotationState.hasLoadedInitialEditsSnapshot = false;
+    }
     panelReplyDrafts.clear();
     popupDraft = '';
     popupDraftKey = '';
@@ -1666,8 +1717,11 @@ export default function createCommentsPanelController({
     }
   }
 
-  async function setupAnnotationUI(mainEl) {
-    teardownGlobalListeners();
+  async function setupAnnotationUI(mainEl, options = {}) {
+    const {
+      preserveRemoteEditState = false,
+    } = options;
+    teardownGlobalListeners({ preserveRemoteEditState });
     annotationUI.mainEl = mainEl;
     ensureFloatingLayer();
     ensureCommentsPanel();
@@ -1846,6 +1900,15 @@ export default function createCommentsPanelController({
       if (!threadId) return;
       const thread = store.getThreadById(threadId);
       if (!thread) return;
+      if (!isThreadStatusEditableByCurrentUser(thread)) {
+        target.value = thread.status;
+        target.disabled = true;
+        showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusRestricted);
+        window.setTimeout(() => {
+          target.disabled = false;
+        }, 0);
+        return;
+      }
       const previousStatus = thread.status;
       const nextStatus = target.value;
       target.value = previousStatus;

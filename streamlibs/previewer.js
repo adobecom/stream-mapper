@@ -326,7 +326,9 @@ export async function saveChanges() {
         message: LOADER_STEP_MESSAGES.START_PAINTING,
         percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
       });
-      await annotationOperation();
+      await annotationOperation({
+        preserveRemoteEditState: true,
+      });
     } else {
       await persistOnTarget();
     }
@@ -360,7 +362,9 @@ export async function refreshAnnotationCanvas() {
     });
     hideDOMElements([document.querySelector('main')]);
     preparePendingRemoteEditsRefresh();
-    await annotationOperation();
+    await annotationOperation({
+      preserveRemoteEditState: true,
+    });
     showDOMElements([document.querySelector('main')]);
     await refreshAnnotationFloatingUI();
     hideLoader();

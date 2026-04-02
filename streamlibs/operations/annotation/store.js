@@ -207,6 +207,15 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     if (edit.editType === 'image-alt') {
       return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
     }
+    if (
+      edit.editType === 'text'
+      && edit.from === edit.to
+      && edit.fromHtml
+      && edit.toHtml
+      && edit.fromHtml !== edit.toHtml
+    ) {
+      return `updated formatting for "${truncateInlineEditText(edit.to || edit.from)}"`;
+    }
     return `changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
   }
 
@@ -775,6 +784,68 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     ));
   }
 
+  function getElementForEdit(edit) {
+    if (!annotationUI.mainEl) return null;
+    if (!edit.elementPath && !Object.keys(edit.elementProps || {}).length) {
+      return edit.elementRef ? getElementByRef(edit.elementRef) : null;
+    }
+    const anchorRecord = buildElementAnchorRecord(edit.elementPath, edit.elementProps);
+    const byPath = getElementByCommentPath(anchorRecord);
+    if (byPath instanceof HTMLElement) return byPath;
+    if (edit.elementRef) {
+      const byRef = getElementByRef(edit.elementRef);
+      if (byRef) return byRef;
+    }
+    return null;
+  }
+
+  function pruneNestedTextEasyEdits() {
+    const textEditTargets = annotationState.store.easyEdits.map((edit, index) => {
+      if (edit?.editType !== 'text') return null;
+      const target = getElementForEdit(edit);
+      if (!(target instanceof HTMLElement)) return null;
+      return { index, target };
+    }).filter(Boolean);
+
+    const targetToIndexes = new Map();
+    textEditTargets.forEach(({ index, target }) => {
+      const existingIndexes = targetToIndexes.get(target) || [];
+      existingIndexes.push(index);
+      targetToIndexes.set(target, existingIndexes);
+    });
+
+    const nestedAncestorIndexes = new Set();
+    textEditTargets.forEach(({ target }) => {
+      let parent = target.parentElement;
+      while (parent && parent !== annotationUI.mainEl) {
+        const ancestorIndexes = targetToIndexes.get(parent);
+        if (ancestorIndexes?.length) {
+          ancestorIndexes.forEach((index) => nestedAncestorIndexes.add(index));
+        }
+        parent = parent.parentElement;
+      }
+    });
+
+    const nextEasyEdits = annotationState.store.easyEdits.filter((edit, index) => (
+      edit?.editType !== 'text' || !nestedAncestorIndexes.has(index)
+    ));
+
+    if (nextEasyEdits.length === annotationState.store.easyEdits.length) return false;
+    annotationState.store.easyEdits = nextEasyEdits;
+    rebuildEditThreadsFromEasyEdits();
+    return true;
+  }
+
+  function resolveStoredEasyEdit(normalizedEditRecord) {
+    return annotationState.store.easyEdits.find((edit) => edit.id === normalizedEditRecord.id)
+      || getEasyEditByElement(
+        normalizedEditRecord.elementRef,
+        normalizedEditRecord.elementPath,
+        normalizedEditRecord.elementProps,
+      )
+      || null;
+  }
+
   function upsertEasyEdit(editRecord) {
     const normalizedEditRecord = normalizeEasyEdit(editRecord);
     const normalizedEditPathKey = getEditElementPathKey(
@@ -793,12 +864,14 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         ...annotationState.store.easyEdits[index],
         ...normalizedEditRecord,
       };
-      rebuildEditThreadsFromEasyEdits();
-      return annotationState.store.easyEdits[index];
+      const didPruneNestedEdits = pruneNestedTextEasyEdits();
+      if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
+      return resolveStoredEasyEdit(normalizedEditRecord);
     }
     annotationState.store.easyEdits.push(normalizedEditRecord);
-    rebuildEditThreadsFromEasyEdits();
-    return normalizedEditRecord;
+    const didPruneNestedEdits = pruneNestedTextEasyEdits();
+    if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
+    return resolveStoredEasyEdit(normalizedEditRecord);
   }
 
   function replaceEasyEdits(nextEasyEdits = []) {
@@ -807,7 +880,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         .filter((edit) => edit && typeof edit === 'object')
         .map((edit) => normalizeEasyEdit(edit))
       : [];
-    rebuildEditThreadsFromEasyEdits();
+    const didPruneNestedEdits = pruneNestedTextEasyEdits();
+    if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
   }
 
   function getChangedSegments(fromText, toText) {
@@ -882,21 +956,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     annotationState.activeThreadId = thread.id;
     annotationState.activeMessageId = '';
     annotationState.activeEditId = '';
-  }
-
-  function getElementForEdit(edit) {
-    if (!annotationUI.mainEl) return null;
-    if (!edit.elementPath && !Object.keys(edit.elementProps || {}).length) {
-      return edit.elementRef ? getElementByRef(edit.elementRef) : null;
-    }
-    const anchorRecord = buildElementAnchorRecord(edit.elementPath, edit.elementProps);
-    const byPath = getElementByCommentPath(anchorRecord);
-    if (byPath instanceof HTMLElement) return byPath;
-    if (edit.elementRef) {
-      const byRef = getElementByRef(edit.elementRef);
-      if (byRef) return byRef;
-    }
-    return null;
   }
 
   function rebindEasyEditsToCurrentDom() {
