@@ -232,6 +232,7 @@ export const ANNOTATION_MESSAGES = {
   collabUnavailableDescription: 'This review does not have a collab ID yet, so comments and edits cannot load or sync.',
   collabUnavailableSnackbar: 'Comments and edits are unavailable until a collab is attached.',
   commentsUnavailableSnackbar: 'Comments are unavailable until a collab is attached.',
+  closedThreadRestricted: 'Closed threads can no longer be updated.',
   inlineEditRestrictedTitle: 'Edit access restricted',
   inlineEditRestrictedDescription: 'Only collab owners can use inline editing in this review.',
   inlineEditRestrictedSnackbar: 'Inline editing is only available to collab owners.',
