@@ -131,7 +131,18 @@ async function fetchImageAsBase64(url, token) {
   });
 }
 
-async function transformImages() {
+function persistOriginalImageUrl(img, url) {
+  if (!url) return;
+  img.setAttribute('data-stream-original-src', url);
+  const picture = img.closest('picture');
+  if (!picture) return;
+  picture.setAttribute('data-stream-original-src', url);
+  picture.querySelectorAll('source').forEach((source) => {
+    source.setAttribute('data-stream-original-src', url);
+  });
+}
+
+export async function transformImages() {
   const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
   if (imgs.length === 0) return;
   const config = await getConfig();
@@ -142,6 +153,7 @@ async function transformImages() {
       if (!url) return;
       try {
         const dataUrl = await fetchImageAsBase64(url, config.streamMapper.daToken);
+        persistOriginalImageUrl(img, url);
         img.src = dataUrl;
         const picture = img.closest('picture');
         if (picture) {

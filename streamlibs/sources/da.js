@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 import { handleError, safeFetch } from '../utils/error-handler.js';
 
 function restoreImgToPicture(html) {
@@ -28,13 +27,13 @@ function restoreColonTextToSpan(html) {
 }
 
 export function getMiloCompatibleHtml(html) {
-  html = restoreColonTextToSpan(html);
-  html = restoreImgToPicture(html);
-  return html;
+  const htmlWithRestoredColonText = restoreColonTextToSpan(html);
+  return restoreImgToPicture(htmlWithRestoredColonText);
 }
 
-async function getDAContent() {
+async function getDAContent(path = false) {
   let url = window.streamConfig.targetUrl;
+  if (path) url = path;
   if (!url.startsWith('/')) url = `/${url}`;
   if (!url.endsWith('.html')) url += '.html';
   const options = {
@@ -57,8 +56,8 @@ async function getDAContent() {
 }
 
 // eslint-disable-next-line import/prefer-default-export
-export async function fetchDAContent() {
-  const doc = await getDAContent();
+export async function fetchDAContent(path = false) {
+  const doc = await getDAContent(path);
   const parser = new DOMParser();
   const html = parser.parseFromString(doc, 'text/html');
   return html.querySelector('main');
