@@ -911,8 +911,9 @@ export default function createCommentsPanelController({
           card.classList.add('is-active');
         }
 
+        let statusControls;
         if (showComments) {
-          const statusControls = document.createElement('div');
+          statusControls = document.createElement('div');
           statusControls.className = 'annotation-panel-status-controls';
           const statusSelect = document.createElement('select');
           const canEditThreadStatus = isThreadStatusEditableByCurrentUser(thread);
@@ -950,7 +951,6 @@ export default function createCommentsPanelController({
           `;
             statusControls.append(editThreadBtn);
           }
-          card.append(statusControls);
         }
 
         const username = document.createElement('p');
@@ -980,6 +980,7 @@ export default function createCommentsPanelController({
           text.textContent = group.comment.text || '';
           card.append(username, text);
         }
+        if (statusControls) card.append(statusControls);
 
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
@@ -1006,13 +1007,16 @@ export default function createCommentsPanelController({
               replyRow.append(editForm);
             }
           } else {
-            const replyText = document.createElement('p');
-            replyText.className = 'annotation-panel-reply-text';
-            const replyUsername = document.createElement('span');
+            const replyContent = document.createElement('div');
+            replyContent.className = 'annotation-panel-reply-content';
+            const replyUsername = document.createElement('p');
             replyUsername.className = 'annotation-panel-reply-user';
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
-            replyText.append(replyUsername, document.createTextNode(reply.text || ''));
-            replyRow.append(replyText);
+            const replyText = document.createElement('p');
+            replyText.className = 'annotation-panel-reply-text';
+            replyText.textContent = reply.text || '';
+            replyContent.append(replyUsername, replyText);
+            replyRow.append(replyContent);
           }
 
           if (showComments && canEditReply && !isEditingReply) {
