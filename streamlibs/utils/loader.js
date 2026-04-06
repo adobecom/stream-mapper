@@ -55,6 +55,15 @@ export function emitLoaderProgress(percentage, message) {
   }));
 }
 
+export function notifyParentPreviewInteractive(ready) {
+  try {
+    if (!window.parent || window.parent === window) return;
+    window.parent.postMessage({ type: 'STREAM_PREVIEW_INTERACTIVE', ready: !!ready }, '*');
+  } catch {
+    /* cross-origin or detached */
+  }
+}
+
 export function initializeLoader() {
   if (!isListenerAttached) {
     window.addEventListener(LOADER_PROGRESS_EVENT, onLoaderProgressEvent);
@@ -63,6 +72,7 @@ export function initializeLoader() {
   loaderPercentage = LOADER_PROGRESS_STEPS.START;
   loaderMessage = LOADER_STEP_MESSAGES.INITIAL;
   renderLoader();
+  notifyParentPreviewInteractive(false);
 }
 
 export function updateLoader({ percentage, message } = {}) {
@@ -73,9 +83,13 @@ export function updateLoader({ percentage, message } = {}) {
 
 export function hideLoader() {
   const { container } = getLoaderElements();
-  if (!container) return;
+  if (!container) {
+    notifyParentPreviewInteractive(true);
+    return;
+  }
   container.style.display = 'none';
   container.classList.remove('is-visible');
+  notifyParentPreviewInteractive(true);
 }
 
 export function createFigmaLoaderReporter() {
