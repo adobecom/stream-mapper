@@ -1692,16 +1692,20 @@ body.annotation-mode main::-webkit-scrollbar {
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
-  padding-right: 100px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .annotation-panel-status-controls {
-  position: absolute;
-  top: 7px;
-  right: 8px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
+  margin-top: 8px;
+}
+
+.annotation-panel-status-controls .annotation-panel-edit-btn {
+  margin-left: auto;
 }
 
 .annotation-panel-status-select {
@@ -1743,19 +1747,32 @@ body.annotation-mode main::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   gap: 0;
-  margin-top: 6px;
+}
+
+.annotation-panel-replies-list:not(:empty) {
+  margin-top: 10px;
+  padding: 8px 10px 0;
+  background: #f8fbff;
+  border: 1px solid #e0edff;
+  border-radius: 10px;
 }
 
 .annotation-panel-reply-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 6px 0;
+  padding: 8px 0;
+}
+
+.annotation-panel-reply-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .annotation-panel-reply-text {
   margin: 0;
-  flex: 1 1 auto;
   color: #374151;
   font-size: 11px;
   line-height: 1.4;
@@ -1763,9 +1780,11 @@ body.annotation-mode main::-webkit-scrollbar {
 }
 
 .annotation-panel-reply-user {
+  margin: 0;
   color: #1d4ed8;
+  font-size: 12px;
   font-weight: 700;
-  margin-right: 6px;
+  line-height: 1.35;
 }
 
 .annotation-panel-reply-row + .annotation-panel-reply-row {
