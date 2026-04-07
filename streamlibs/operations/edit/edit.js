@@ -25,14 +25,22 @@ const dragDropController = createEditDragDropController({
   attachSectionDeleteControls,
 });
 
+function getNormalizedFigmaBlocks(figmaBlocks = []) {
+  return figmaBlocks.flatMap((block) => (
+    Array.isArray(block) ? block : [block]
+  )).filter((block) => block?.nodeType === Node.ELEMENT_NODE);
+}
+
 function cacheOriginalBlocks(figmaResult, daMain) {
-  editState.originalFigmaBlocks = figmaResult.html.map((element) => element.cloneNode(true));
+  const figmaBlocks = getNormalizedFigmaBlocks(figmaResult?.html);
+  editState.originalFigmaBlocks = figmaBlocks.map((element) => element.cloneNode(true));
   editState.originalDABlocks = Array.from(daMain.querySelectorAll(':scope > div'))
     .map((element) => element.cloneNode(true));
 }
 
 function appendFigmaBlocks(main, figmaResult) {
-  figmaResult.html.forEach((html, index) => {
+  const figmaBlocks = getNormalizedFigmaBlocks(figmaResult?.html);
+  figmaBlocks.forEach((html, index) => {
     const blockIndex = getIdxFromId(html?.id);
     const isModified = hasModified(
       figmaResult?.blockMapping?.details?.components[blockIndex]?.tag,
