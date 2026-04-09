@@ -34,7 +34,15 @@ function replaceSpanWithColonText(html) {
 }
 // TODO: check span tag with icon and add in html
 
+function removePlaceholderBlocks(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  doc.querySelectorAll('.stream-placeholder').forEach((el) => el.remove());
+  return doc.body.innerHTML;
+}
+
 export function getDACompatibleHtml(html) {
+  html = removePlaceholderBlocks(html);
   html = replacePictureWithImg(html);
   html = replaceSpanWithColonText(html);
   html = html.replaceAll('\n', '');
