@@ -20,6 +20,7 @@ function isEmptyBlockContent(properties) {
 function createPlaceholder() {
   const div = document.createElement('div');
   div.classList.add('stream-placeholder');
+  div.dataset.placeholder = 'true';
   div.innerHTML = `<p><a href='${PLACEHOLDER_URL}'>${PLACEHOLDER_URL}</a></p>`;
   return div;
 }

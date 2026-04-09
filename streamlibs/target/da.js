@@ -37,7 +37,7 @@ function replaceSpanWithColonText(html) {
 function removePlaceholderBlocks(html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  doc.querySelectorAll('.stream-placeholder').forEach((el) => el.remove());
+  doc.querySelectorAll('.stream-placeholder, [data-placeholder]').forEach((el) => el.remove());
   return doc.body.innerHTML;
 }
 
