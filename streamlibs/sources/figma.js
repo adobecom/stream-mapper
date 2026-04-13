@@ -1,6 +1,30 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { createFigmaLoaderReporter } from '../utils/loader.js';
 
+const PLACEHOLDER_URL = 'https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder';
+const METADATA_KEYS = new Set(['colorTheme', 'miloTag','layout']);
+
+function isEmptyBlockContent(properties) {
+  if (!properties || typeof properties !== 'object') return true;
+  const entries = Object.entries(properties);
+  if (entries.length === 0) return true;
+  return entries.every(([key, value]) => {
+    if (METADATA_KEYS.has(key)) return true;
+    if (value === false || value === '' || value == null) return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') return Object.keys(value).length === 0;
+    return false;
+  });
+}
+
+function createPlaceholder() {
+  const div = document.createElement('div');
+  div.classList.add('stream-placeholder');
+  div.dataset.placeholder = 'true';
+  div.innerHTML = `<p><a href='${PLACEHOLDER_URL}'>${PLACEHOLDER_URL}</a></p>`;
+  return div;
+}
+
 async function fetchFigmaMapping(figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
@@ -106,6 +130,14 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl).finally(() => onDetailResponse()),
   ]);
+
+  const properties = figContent?.details?.properties;
+  if (figContent?.success && isEmptyBlockContent(properties)) {
+    const placeholder = createPlaceholder();
+    block.blockDomEl = placeholder;
+    return placeholder;
+  }
+
   let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
   blockContent = await mapFigmaContent(blockContent, block, figContent);
