@@ -259,7 +259,7 @@ export const ANNOTATION_MESSAGES = {
 };
 
 export const BROKEN_PLACEHOLDER_HTML = {
-  default: `<div class="broken-placeholder default-placeholder" data-placeholder="true">
+  default: `<div class="broken-placeholder default-placeholder">
       <div class="foreground">
           <div class="text">
               <h3>⚠️ Manual authoring required for this block.</h3>
