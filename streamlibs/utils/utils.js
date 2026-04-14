@@ -1,3 +1,5 @@
+import { BROKEN_PLACEHOLDER_HTML } from './constants.js';
+
 export const [setLibs, getLibs] = (() => {
   let libs;
   return [
@@ -169,9 +171,23 @@ export async function transformImages() {
   );
 }
 
+async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.default) {
+  const handler = async () => {
+    const brokenAreas = document.querySelectorAll('main div[data-failed="true"], main .text.broken-placeholder-fragment');
+    console.log(brokenAreas);
+    brokenAreas.forEach(async (brokenArea) => {
+      brokenArea.insertAdjacentHTML('afterend', placeholderHtml);
+      brokenArea.remove();
+    });
+    if (!document.querySelector('#page-load-ok-milo')) setTimeout(handler, 5000);
+  }
+  handler();
+}
+
 export async function miloLoadArea() {
   await transformImages();
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
   await loadArea();
+  handleBrokenBlocks();
 }

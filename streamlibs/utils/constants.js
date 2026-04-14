@@ -257,3 +257,16 @@ export const ANNOTATION_MESSAGES = {
   cancelCommentAction: 'Cancel',
   editCommentPlaceholder: 'Update your comment...',
 };
+
+export const BROKEN_PLACEHOLDER_HTML = {
+  default: `<div class="broken-placeholder default-placeholder">
+      <div class="foreground">
+          <div class="text">
+              <h3>⚠️ Manual authoring required for this block.</h3>
+              <p>Automated mapping is not supported for this area. Manual authoring is required.</p>
+          </div>
+          <div class="image">
+          </div>
+      </div>
+    </div>`,
+}
