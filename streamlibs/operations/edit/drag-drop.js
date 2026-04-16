@@ -118,7 +118,11 @@ export default function createEditDragDropController({
   };
 
   function enablePanelDragAndDrop(sourcePanel, targetPanel) {
-    sourcePanel.querySelectorAll('div[data-source="figma"]').forEach((block) => {
+    sourcePanel.querySelectorAll('div[data-source="figma"]:not([data-placeholder])').forEach((block) => {
+      if (block.querySelector('.broken-placeholder')) {
+        block.closest('.section').classList.add('do-not-drag');
+        return;
+      }
       block.classList.add('figma-panel-block');
       block.addEventListener('pointerdown', (event) => {
         if (event.button !== 0) return;

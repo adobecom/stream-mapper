@@ -192,7 +192,11 @@ export default function createCommentsPanelController({
       || normalizedRole === 'collab owner';
   }
 
-  function isCommentEditableByCurrentUser(message) {
+  function isThreadClosed(thread) {
+    return Boolean(thread) && store.normalizeCommentStatus(thread.status) === 'Closed';
+  }
+
+  function isCommentEditableByCurrentUser(thread, message) {
     if (!message || annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
     const currentUser = getCurrentUserIdentity();
     const currentProfileId = `${currentUser?.profileId || ''}`.trim();
@@ -792,6 +796,15 @@ export default function createCommentsPanelController({
     captureTransientDraftsFromDom();
     renderRefreshAction();
 
+    const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();
+    if (activePopupThreadId) {
+      const popupThread = store.getThreadById(activePopupThreadId);
+      if (isThreadClosed(popupThread)) {
+        closePopupAndSelection();
+        showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      }
+    }
+
     let preservedComposer = null;
     let preservedComposerKey = '';
     let preservedEditForm = null;
@@ -882,6 +895,9 @@ export default function createCommentsPanelController({
       const groups = buildCommentGroups(thread);
       groups.forEach((group, idx) => {
         const isLatestInThread = idx === groups.length - 1;
+        const isClosedThread = isThreadClosed(thread);
+        const canEditRootComment = !isClosedThread
+          && isCommentEditableByCurrentUser(thread, group.comment);
         const card = document.createElement('article');
         card.className = 'annotation-panel-comment';
         card.dataset.threadId = thread.id;
@@ -895,8 +911,9 @@ export default function createCommentsPanelController({
           card.classList.add('is-active');
         }
 
+        let statusControls;
         if (showComments) {
-          const statusControls = document.createElement('div');
+          statusControls = document.createElement('div');
           statusControls.className = 'annotation-panel-status-controls';
           const statusSelect = document.createElement('select');
           const canEditThreadStatus = isThreadStatusEditableByCurrentUser(thread);
@@ -905,8 +922,11 @@ export default function createCommentsPanelController({
           statusSelect.dataset.messageId = group.comment.id || '';
           statusSelect.disabled = !canEditThreadStatus;
           if (!canEditThreadStatus) {
-            statusSelect.title = ANNOTATION_MESSAGES.updateStatusRestricted;
-            statusSelect.setAttribute('aria-label', ANNOTATION_MESSAGES.updateStatusRestricted);
+            const restrictionMessage = isClosedThread
+              ? ANNOTATION_MESSAGES.closedThreadRestricted
+              : ANNOTATION_MESSAGES.updateStatusRestricted;
+            statusSelect.title = restrictionMessage;
+            statusSelect.setAttribute('aria-label', restrictionMessage);
           }
           COMMENT_STATUSES.forEach((status) => {
             const option = document.createElement('option');
@@ -916,7 +936,7 @@ export default function createCommentsPanelController({
             statusSelect.appendChild(option);
           });
           statusControls.append(statusSelect);
-          if (isCommentEditableByCurrentUser(group.comment)) {
+          if (canEditRootComment) {
             const editThreadBtn = document.createElement('button');
             editThreadBtn.type = 'button';
             editThreadBtn.className = 'annotation-panel-edit-btn';
@@ -931,7 +951,6 @@ export default function createCommentsPanelController({
           `;
             statusControls.append(editThreadBtn);
           }
-          card.append(statusControls);
         }
 
         const username = document.createElement('p');
@@ -941,7 +960,7 @@ export default function createCommentsPanelController({
           || ANNOTATION_DEFAULT_USERNAME;
 
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
-        const isEditingRootComment = isEditingComment(thread.id, group.comment.id || '');
+        const isEditingRootComment = canEditRootComment && isEditingComment(thread.id, group.comment.id || '');
         if (isEditingRootComment) {
           if (preservedEditForm && !preservedIsReply && preservedEditKey === rootCommentKey) {
             card.append(username, preservedEditForm);
@@ -961,6 +980,7 @@ export default function createCommentsPanelController({
           text.textContent = group.comment.text || '';
           card.append(username, text);
         }
+        if (statusControls) card.append(statusControls);
 
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
@@ -969,7 +989,9 @@ export default function createCommentsPanelController({
           replyRow.className = 'annotation-panel-reply-row';
 
           const replyKey = `${thread.id}::${reply.id || ''}`;
-          const isEditingReply = isEditingComment(thread.id, reply.id || '');
+          const canEditReply = !isClosedThread
+            && isCommentEditableByCurrentUser(thread, reply);
+          const isEditingReply = canEditReply && isEditingComment(thread.id, reply.id || '');
           if (isEditingReply) {
             if (preservedEditForm && preservedIsReply && preservedEditKey === replyKey) {
               replyRow.append(preservedEditForm);
@@ -985,16 +1007,19 @@ export default function createCommentsPanelController({
               replyRow.append(editForm);
             }
           } else {
-            const replyText = document.createElement('p');
-            replyText.className = 'annotation-panel-reply-text';
-            const replyUsername = document.createElement('span');
+            const replyContent = document.createElement('div');
+            replyContent.className = 'annotation-panel-reply-content';
+            const replyUsername = document.createElement('p');
             replyUsername.className = 'annotation-panel-reply-user';
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
-            replyText.append(replyUsername, document.createTextNode(reply.text || ''));
-            replyRow.append(replyText);
+            const replyText = document.createElement('p');
+            replyText.className = 'annotation-panel-reply-text';
+            replyText.textContent = reply.text || '';
+            replyContent.append(replyUsername, replyText);
+            replyRow.append(replyContent);
           }
 
-          if (showComments && isCommentEditableByCurrentUser(reply) && !isEditingReply) {
+          if (showComments && canEditReply && !isEditingReply) {
             const replyEditBtn = document.createElement('button');
             replyEditBtn.type = 'button';
             replyEditBtn.className = 'annotation-panel-edit-btn annotation-panel-edit-btn-reply';
@@ -1014,7 +1039,7 @@ export default function createCommentsPanelController({
 
         card.append(repliesWrap);
 
-        if (showComments) {
+        if (showComments && !isClosedThread) {
           const composerKey = `${thread.id}::${group.comment.id || ''}`;
           if (preservedComposer && preservedComposerKey === composerKey) {
             card.append(preservedComposer);
@@ -1292,6 +1317,10 @@ export default function createCommentsPanelController({
     if (!value) return;
     const thread = store.getThreadById(threadId);
     if (!thread) return;
+    if (isThreadClosed(thread)) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      return;
+    }
     let activeThread = thread;
     let didPersistToService = false;
     let didHydrateThread = false;
@@ -1361,8 +1390,13 @@ export default function createCommentsPanelController({
     if (pendingCommentEditIds.has(editKey)) return;
 
     const thread = store.getThreadById(threadId);
-    const message = thread?.messages?.find((item) => item.id === commentId);
-    if (!thread || !message || !isCommentEditableByCurrentUser(message)) return;
+    if (!thread) return;
+    const message = thread.messages?.find((item) => item.id === commentId);
+    if (isThreadClosed(thread)) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      return;
+    }
+    if (!message || !isCommentEditableByCurrentUser(thread, message)) return;
 
     const nextValue = `${rawValue || ''}`.trim();
     const previousValue = `${message.text || ''}`.trim();
@@ -1420,6 +1454,10 @@ export default function createCommentsPanelController({
 
     let thread = store.getCommentThreadByElement(annotationState.selectedElement);
     const isReply = Boolean(thread);
+    if (isReply && isThreadClosed(thread)) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      return;
+    }
     let didPersistToService = false;
     let didHydrateThread = false;
     setPopupSubmitPending(true);
@@ -1548,6 +1586,12 @@ export default function createCommentsPanelController({
     setSelectedElement(element);
     syncPopupDraftScope(nextElementPath);
     const thread = store.getCommentThreadByElement(annotationState.selectedElement);
+    if (thread && isThreadClosed(thread)) {
+      store.clearSelectedElement();
+      removePopup();
+      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      return;
+    }
     annotationState.activeThreadId = thread?.id || '';
     annotationState.activeMessageId = '';
     renderCommentsPanel();
@@ -1791,6 +1835,11 @@ export default function createCommentsPanelController({
         if (!(replyBtn instanceof HTMLButtonElement)) return;
         const { threadId, commentId } = replyBtn.dataset;
         if (!threadId) return;
+        const thread = store.getThreadById(threadId);
+        if (isThreadClosed(thread)) {
+          showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+          return;
+        }
         const input = annotationUI.panelEl.querySelector(
           `.annotation-panel-reply-input[data-thread-id="${threadId}"][data-comment-id="${commentId}"]`,
         );
@@ -1825,7 +1874,11 @@ export default function createCommentsPanelController({
         if (!threadId || !commentId) return;
         const thread = store.getThreadById(threadId);
         const message = thread?.messages?.find((item) => item.id === commentId);
-        if (!message || !isCommentEditableByCurrentUser(message)) return;
+        if (isThreadClosed(thread)) {
+          showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+          return;
+        }
+        if (!message || !isCommentEditableByCurrentUser(thread, message)) return;
         if (!openCommentEditor(threadId, commentId, message.text || '')) return;
         renderCommentsPanel();
         focusCommentEditor(threadId, commentId);
@@ -1843,6 +1896,12 @@ export default function createCommentsPanelController({
       annotationState.activeMessageId = card.dataset.messageId || '';
       const targetEl = store.getElementForThread(thread);
       if (!targetEl) return;
+      if (isThreadClosed(thread)) {
+        annotationState.activeThreadId = thread.id;
+        renderCommentsPanel();
+        targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
       openPopupForElement(targetEl, true);
     };
     annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);

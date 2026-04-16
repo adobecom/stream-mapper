@@ -42,7 +42,12 @@ import {
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
 } from './utils/constants.js';
-import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
+import {
+  initializeLoader,
+  updateLoader,
+  hideLoader,
+  notifyParentPreviewInteractive,
+} from './utils/loader.js';
 
 function parseBooleanFlag(value) {
   if (value === true || value === 'true') return true;
@@ -157,6 +162,7 @@ async function requestStreamConfigFromParent() {
       contentUrl: getQueryParam('contentUrl'),
       target: getQueryParam('target'),
       targetUrl: getQueryParam('targetUrl'),
+      pageUrl: getQueryParam('pageUrl') || getQueryParam('page_url'),
       token: getQueryParam('token'),
       profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
       collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
@@ -241,6 +247,8 @@ async function setupMessageListener() {
     }
     if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
       if (window.streamConfig.operation !== 'annotation') return;
+      const collabPageUrl = event.data?.payload?.collab?.pageUrl;
+      if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
       applyRemoteCollabSnapshot(event.data.payload || {});
     }
   });
@@ -262,6 +270,10 @@ export default async function initPreviewer() {
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
+    pageUrl: previewParams.pageUrl
+      || previewParams.page_url
+      || previewParams.collab?.pageUrl
+      || null,
     token: previewParams.token,
     profileId: previewParams.profileId || previewParams.profile_id || null,
     collabId: previewParams.collabId || previewParams.collab_id || null,
@@ -282,6 +294,7 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
+    notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (window.streamConfig.operation === 'annotation') {

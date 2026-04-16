@@ -1,6 +1,6 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
-import { transformImages, getLibs } from '../utils/utils.js';
+import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -54,13 +54,6 @@ async function getDADom() {
     return html;
   }
   return null;
-}
-
-async function miloLoadArea() {
-  await transformImages();
-  window['page-load-ok-milo']?.remove();
-  const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
-  await loadArea();
 }
 
 async function initializePreview() {
