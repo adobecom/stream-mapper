@@ -50,6 +50,7 @@ import {
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
 import { fetchDAContent } from './sources/da.js';
+import { setupBlockActionModal } from './utils/block-action-modal.js';
 
 function parseBooleanFlag(value) {
   if (value === true || value === 'true') return true;
@@ -291,6 +292,7 @@ export default async function initPreviewer() {
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
+  setupBlockActionModal();
   await setupMessageListener();
 }
 
