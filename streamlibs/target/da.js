@@ -59,7 +59,7 @@ export async function postData(url, html, options = {}) {
   const wrappedHtml = wrapHTMLForDA(html);
   const { suppressErrorPage = false } = options;
   const { pageUrl } = window.streamConfig || {};
-  const payloadUrl = pageUrl || url;
+  const payloadUrl = url || pageUrl;
   try {
     const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.pushToDaUrl}`, {
       method: 'POST',
