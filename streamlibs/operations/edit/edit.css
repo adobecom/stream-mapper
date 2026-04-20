@@ -256,3 +256,8 @@ div.da-panel.hidden,
 div.figma-panel.hidden {
   display: none;
 }
+
+.figma-panel .section:not(:has(div)),
+.da-panel .section:not(:has(div)) {
+    display: none;
+}

@@ -2345,3 +2345,8 @@ body.annotation-inline-edit-mode .annotation-selected-element {
 .broken-placeholder p {
     font-size: 14px;
 }
+
+.figma-panel .section:not(:has(div)),
+.da-panel .section:not(:has(div)) {
+    display: none;
+}
