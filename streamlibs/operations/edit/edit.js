@@ -55,6 +55,8 @@ function appendFigmaBlocks(main, figmaResult) {
 
 function appendDABlocks(main, daMain) {
   normalizeDAImages(daMain);
+  const breadcrumbs = daMain.querySelector('.breadcrumbs');
+  if (breadcrumbs) breadcrumbs.remove();
   daMain.querySelectorAll(':scope > div').forEach((div, index) => {
     div.dataset.source = 'da';
     div.dataset.sectionIndex = index;

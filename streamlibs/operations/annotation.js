@@ -132,7 +132,7 @@ export async function annotationOperation(options = {}) {
 
 export async function persistAnnotationChangesToDA() {
   const { daCompatibleHtml } = await buildPersistedAnnotationPayload();
-  await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
+  await postData(window.streamConfig.pageUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
 }

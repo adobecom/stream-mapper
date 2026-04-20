@@ -1,7 +1,9 @@
 /* eslint-disable no-console */
 /* eslint-disable no-use-before-define */
 import {
+  getDACompatibleHtml,
   persistOnTarget,
+  postData,
   targetCompatibleHtml,
 } from './target/da.js';
 import {
@@ -30,7 +32,6 @@ import {
   preflightOperation,
   annotationOperation,
   refreshAnnotationFloatingUI,
-  persistAnnotationChangesToDA,
   saveAnnotationChanges,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
@@ -48,6 +49,7 @@ import {
   hideLoader,
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
+import { fetchDAContent } from './sources/da.js';
 
 function parseBooleanFlag(value) {
   if (value === true || value === 'true') return true;
@@ -298,7 +300,12 @@ export async function persist() {
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (window.streamConfig.operation === 'annotation') {
-      await persistAnnotationChangesToDA();
+      const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);
+      const originalHtml = htmlMainEl?.innerHTML || '';
+      const daCompatibleHtml = getDACompatibleHtml(originalHtml);
+      await postData(window.streamConfig.pageUrl, daCompatibleHtml, {
+        suppressErrorPage: true,
+      });
     } else {
       await persistOnTarget();
     }
