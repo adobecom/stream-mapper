@@ -147,9 +147,12 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
 
 async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
-  const htmlParts = await Promise.all(
-    blocks.map((block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse())),
-  );
+  const htmlParts = [];
+  for (const block of blocks) {
+    // eslint-disable-next-line no-await-in-loop
+    const part = await processBlock(block, figmaUrl, () => tracker.markDetailResponse());
+    htmlParts.push(part);
+  }
   return htmlParts.filter(Boolean);
 }
 
