@@ -25,22 +25,46 @@ function createPlaceholder() {
   return div;
 }
 
+const FIGMA_SERVICE_MAX_RETRIES = 2;
+const FIGMA_SERVICE_RETRY_BASE_DELAY_MS = 500;
+
+async function fetchJsonWithRetry(url, options, retries = FIGMA_SERVICE_MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const response = await fetch(url, options);
+    if (response.ok) {
+      // eslint-disable-next-line no-await-in-loop
+      return await response.json();
+    }
+    if (response.status !== 503 || attempt === retries) {
+      throw new Error(`HTTP error! Status: ${url} ${response.status}`);
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => {
+      setTimeout(resolve, FIGMA_SERVICE_RETRY_BASE_DELAY_MS * (attempt + 1));
+    });
+  }
+  return {};
+}
+
 async function fetchFigmaMapping(figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
     const pagePath = window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl.slice(1) : window.streamConfig.targetUrl;
-    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken,
+    return await fetchJsonWithRetry(
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: config.streamMapper.figmaAuthToken,
+        },
+        body: JSON.stringify({
+          figmaUrl,
+          pagePath,
+        }),
       },
-      body: JSON.stringify({
-        figmaUrl,
-        pagePath,
-      }),
-    });
-    return await response.json();
+    );
   } catch (error) {
     handleError(error, 'getting figma mapping');
     throw error;
@@ -90,15 +114,17 @@ async function fetchContent(contentUrl) {
 async function fetchBlockContent(figId, id, figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
-    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken,
+    return await fetchJsonWithRetry(
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: config.streamMapper.figmaAuthToken,
+        },
+        body: JSON.stringify({ figmaUrl, figId, id }),
       },
-      body: JSON.stringify({ figmaUrl, figId, id }),
-    });
-    return await response.json();
+    );
   } catch (error) {
     handleError(error, 'getting block content');
     return {};
