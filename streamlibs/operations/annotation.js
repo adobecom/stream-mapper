@@ -173,7 +173,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   container.innerHTML = `<main>${html}</main>`;
 
   for (const asset of assetReplacements) {
-    // Strategy 1: DOM-based element matching (CSS selector / structural anchors / originalSrc)
     const element = findAssetElement(
       container, asset.elementPath, asset.elementProps, asset.originalSrc,
     );
@@ -182,11 +181,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
       continue;
     }
 
-    // Strategy 2: Direct filename scan across all images in the document.
-    // Handles the common case where the CSS selector was built from the
-    // milo-decorated DOM and doesn't match the raw DA HTML structure.
-    // Try both the original filename and the draft DA filename — the cached
-    // HTML may already contain the draft asset URL from a previous save.
     const filenameCandidates = [
       extractFilename(asset.originalSrc),
       extractFilename(asset.daUrl),
@@ -206,8 +200,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
       }
     }
 
-    // Strategy 3: Full URL match against daUrl — catches images whose
-    // src is the full draft DA URL rather than just a matching filename.
     if (!matched && asset.daUrl) {
       const allImages = container.querySelectorAll('img');
       for (const img of allImages) {
@@ -242,9 +234,6 @@ export async function annotationOperation(options = {}) {
     annotationState.hasLoadedInitialEditsSnapshot = false;
   }
   await initializePreview();
-  // Cache raw DA HTML only on first load — this is the clean base for all Save/Push operations.
-  // Subsequent calls (after Save Changes) must NOT overwrite it, because the draft page
-  // now contains baked-in edits that would cause double-application of easyEdits.
   if (!cachedCleanHtml) {
     const preDecorMainEl = document.querySelector('main');
     cachedCleanHtml = preDecorMainEl?.innerHTML || '';
@@ -301,9 +290,6 @@ export async function persistAnnotationChangesToDA() {
         elementPath: asset.elementPath,
         elementProps: asset.elementProps,
         originalSrc: asset.originalSrc,
-        // Include daUrl so the replacement can also match images that were
-        // already replaced with draft URLs in a previously-saved version of
-        // the cached HTML (the filename differs from originalSrc).
         daUrl: asset.daUrl,
         targetUrl: finalUrl,
       });

@@ -1,13 +1,3 @@
-/**
- * Assets panel controller.
- * Renders the Assets tab content: asset list with from/to display,
- * element selection mode (auto-enabled on Assets tab), base64 preview,
- * and visual indicators on replaced images.
- *
- * Upload flow: files are kept locally until Save Changes, at which point
- * they are bulk-uploaded to the backend and batch-decided.
- */
-
 const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
 const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
 
@@ -17,9 +7,7 @@ export default function createAssetsPanelController({
   store,
   assetService,
 }) {
-  /** Hidden file input reused for all uploads */
   let fileInputEl = null;
-  /** The element the user clicked to trigger the upload */
   let pendingUploadTarget = null;
 
   function getFileInput() {
@@ -34,8 +22,6 @@ export default function createAssetsPanelController({
     return fileInputEl;
   }
 
-  // ── Role check ──────────────────────────────────────────────────────
-
   function isCurrentUserCollabOwner() {
     const normalizedRole = `${window.streamConfig?.collabRole || ''}`
       .trim()
@@ -47,20 +33,16 @@ export default function createAssetsPanelController({
     return normalizedRole === 'owner' || normalizedRole === 'collab owner';
   }
 
-  // ── Asset list rendering ─────────────────────────────────────────────
-
   function renderAssetsPanel() {
     if (!annotationUI.panelListEl) return;
     annotationUI.panelListEl.innerHTML = '';
 
     const isOwner = isCurrentUserCollabOwner();
 
-    // If owner: auto-enter select mode when Assets tab is active
     if (isOwner && annotationUI.annotationMode === 'assets') {
       if (!annotationUI.assetSelectMode) enterSelectMode();
     }
 
-    // Select mode hint (only for owners)
     if (isOwner && annotationUI.assetSelectMode) {
       const hint = document.createElement('p');
       hint.className = 'annotation-assets-select-hint';
@@ -68,7 +50,6 @@ export default function createAssetsPanelController({
       annotationUI.panelListEl.appendChild(hint);
     }
 
-    // Combine local (unsaved) and remote assets for display
     const localAssets = annotationState.store.localAssets || [];
     const remoteAssets = annotationState.store.assets || [];
 
@@ -83,12 +64,10 @@ export default function createAssetsPanelController({
     const list = document.createElement('div');
     list.className = 'annotation-assets-list';
 
-    // Local assets first (unsaved)
     for (const localAsset of localAssets) {
       list.appendChild(buildLocalAssetCard(localAsset));
     }
 
-    // Remote assets (newest first)
     const sorted = [...remoteAssets].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
@@ -98,37 +77,29 @@ export default function createAssetsPanelController({
 
     annotationUI.panelListEl.appendChild(list);
 
-    // Refresh asset markers on the page
     renderAssetMarkers();
   }
 
-  /**
-   * Build a card for a local (unsaved) asset — styled like edit logs.
-   */
   function buildLocalAssetCard(localAsset) {
     const card = document.createElement('article');
     card.className = 'annotation-panel-comment annotation-asset-card-local';
     card.dataset.localAssetId = localAsset.localId;
 
-    // Username
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
     username.textContent = window.streamConfig?.username || 'You';
     card.appendChild(username);
 
-    // Change description
     const text = document.createElement('p');
     text.className = 'annotation-panel-comment-text';
     text.textContent = `replaced image "${truncateSrc(localAsset.originalSrc)}" → "${localAsset.filename}"`;
     card.appendChild(text);
 
-    // Status badge
     const statusBadge = document.createElement('span');
     statusBadge.className = 'annotation-asset-status annotation-asset-status-unsaved';
     statusBadge.textContent = 'unsaved';
     card.appendChild(statusBadge);
 
-    // Actions — delete local asset
     const actions = document.createElement('div');
     actions.className = 'annotation-asset-actions';
     const deleteBtn = document.createElement('button');
@@ -141,9 +112,6 @@ export default function createAssetsPanelController({
     return card;
   }
 
-  /**
-   * Build a card for a remote (saved) asset — styled like edit logs.
-   */
   function buildRemoteAssetCard(asset) {
     const card = document.createElement('article');
     card.className = 'annotation-panel-comment';
@@ -151,13 +119,11 @@ export default function createAssetsPanelController({
 
     const isApplied = annotationUI.appliedAssets.has(asset.id);
 
-    // Username
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
     username.textContent = window.streamConfig?.username || 'Collaborator';
     card.appendChild(username);
 
-    // Change description
     const text = document.createElement('p');
     text.className = 'annotation-panel-comment-text';
     const fromLabel = truncateSrc(asset.originalSrc || '(none)');
@@ -165,7 +131,6 @@ export default function createAssetsPanelController({
     text.textContent = `replaced image "${fromLabel}" → "${toLabel}"`;
     card.appendChild(text);
 
-    // Status badge
     const statusBadge = document.createElement('span');
     statusBadge.className = `annotation-asset-status annotation-asset-status-${asset.status}`;
     statusBadge.textContent = asset.status;
@@ -175,7 +140,6 @@ export default function createAssetsPanelController({
     }
     card.appendChild(statusBadge);
 
-    // Actions
     const actions = document.createElement('div');
     actions.className = 'annotation-asset-actions';
 
@@ -207,8 +171,6 @@ export default function createAssetsPanelController({
     return `...${src.slice(-47)}`;
   }
 
-  // ── Select-element mode ──────────────────────────────────────────────
-
   function enterSelectMode() {
     if (!isCurrentUserCollabOwner()) return;
 
@@ -218,22 +180,15 @@ export default function createAssetsPanelController({
     annotationUI.assetSelectHandler = (event) => {
       const img = event.target.closest('img');
       if (!img) return;
-      // Ignore clicks on annotation UI elements
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
 
       event.preventDefault();
       event.stopPropagation();
 
-      console.info('[assets-panel] Image clicked for upload:', img.src?.substring(0, 80));
       pendingUploadTarget = img;
-
-      // Open file picker synchronously within the user gesture
-      // Don't exit select mode — we stay in it while on Assets tab
-      console.info('[assets-panel] Opening file picker...');
       getFileInput().click();
     };
 
-    // Use capture to intercept before other handlers
     if (annotationUI.mainEl) {
       annotationUI.mainEl.addEventListener('click', annotationUI.assetSelectHandler, true);
     }
@@ -249,8 +204,6 @@ export default function createAssetsPanelController({
     }
   }
 
-  // ── File upload (local only — deferred to Save Changes) ─────────────
-
   async function handleFileSelected(event) {
     const file = event.target.files?.[0];
     event.target.value = ''; // reset for re-use
@@ -259,7 +212,6 @@ export default function createAssetsPanelController({
     const targetImg = pendingUploadTarget;
     pendingUploadTarget = null;
 
-    // Build element anchor for the image (or its picture parent)
     const anchorTarget = targetImg.closest('picture') || targetImg;
     const { elementPath, elementProps } = store.buildEditElementAnchor(anchorTarget);
     const elementRef = store.ensureElementRef(anchorTarget);
@@ -269,22 +221,16 @@ export default function createAssetsPanelController({
       return;
     }
 
-    // Capture original src before any replacement
-    // Use dataset.originalSrc (set by prior preview) or elementProps.src (structural anchor)
-    // to avoid capturing a base64 data URL from a previous preview
     const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
-    // Read file as base64 locally
     const base64Data = await readFileAsDataUrl(file);
     if (!base64Data) {
       console.warn('[assets-panel] Could not read file as data URL');
       return;
     }
 
-    // Generate a local ID for tracking
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    // Store locally — file stays in browser until Save Changes
     const localAsset = {
       localId,
       file, // raw File object — sent to BE on Save Changes
@@ -300,7 +246,6 @@ export default function createAssetsPanelController({
       createdAt: new Date().toISOString(),
     };
 
-    // Remove any existing asset for the same element (new upload supersedes it)
     const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
     annotationState.store.localAssets = annotationState.store.localAssets
       .filter((a) => a.elementPath !== elementPath);
@@ -315,15 +260,11 @@ export default function createAssetsPanelController({
     }
 
     annotationState.store.localAssets.push(localAsset);
-    console.info('[assets-panel] Asset stored locally:', localId, file.name);
 
-    // Apply preview immediately using local base64
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
     renderAssetsPanel();
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────
 
   function readFileAsDataUrl(file) {
     return new Promise((resolve) => {
@@ -334,41 +275,30 @@ export default function createAssetsPanelController({
     });
   }
 
-  /**
-   * Remove a local (unsaved) asset and revert its page preview.
-   */
   function removeLocalAsset(localId) {
     const idx = annotationState.store.localAssets.findIndex((a) => a.localId === localId);
     if (idx === -1) return;
 
     const localAsset = annotationState.store.localAssets[idx];
-    // Revert image preview
     if (localAsset.targetImg) {
       revertAssetPreview(localAsset.targetImg);
     }
-    // Remove applied tracking
     annotationUI.appliedAssets.delete(localId);
 
     annotationState.store.localAssets.splice(idx, 1);
     renderAssetsPanel();
   }
 
-  /**
-   * Swap an img element's src with base64 data and track the asset as applied.
-   */
   function applyAssetPreviewToImg(targetImg, base64Data, asset) {
     if (!targetImg || !base64Data) return;
 
-    // Store original src for potential revert
     if (!targetImg.dataset.originalSrc) {
       targetImg.dataset.originalSrc = targetImg.src;
     }
 
-    // Swap image
     targetImg.src = base64Data;
     if (targetImg.srcset) targetImg.srcset = base64Data;
 
-    // Also update any sibling <source> elements
     const pictureEl = targetImg.closest('picture');
     if (pictureEl) {
       pictureEl.querySelectorAll('source').forEach((source) => {
@@ -379,7 +309,6 @@ export default function createAssetsPanelController({
       });
     }
 
-    // Track as applied — use localId for local assets, id for remote
     const trackingId = asset.localId || asset.id;
     annotationUI.appliedAssets.set(trackingId, {
       assetId: trackingId,
@@ -387,17 +316,13 @@ export default function createAssetsPanelController({
       targetImg,
     });
 
-    // Add visual indicator
     addPendingIndicator(targetImg);
   }
-
-  // ── Apply remote asset preview (base64 swap) ────────────────────────
 
   async function applyAssetToPage(asset, targetImgOverride) {
     if (!isCurrentUserCollabOwner()) return;
 
     try {
-      // Fetch base64 content
       let base64Data = asset._base64Data;
       if (!base64Data) {
         const content = await assetService.getAssetContent(asset.id);
@@ -409,7 +334,6 @@ export default function createAssetsPanelController({
         asset._base64Data = base64Data;
       }
 
-      // Find the target element on the page
       let targetImg = targetImgOverride;
       if (!targetImg && annotationUI.mainEl) {
         const element = annotationUI.mainEl.querySelector(asset.elementPath);
@@ -434,18 +358,14 @@ export default function createAssetsPanelController({
     }
   }
 
-  // ── Asset markers on floating layer ──────────────────────────────────
-
   function renderAssetMarkers() {
     if (!annotationUI.layerEl || !annotationUI.mainEl) return;
 
-    // Clear existing asset markers
     annotationUI.layerEl.querySelectorAll('.annotation-asset-marker')
       .forEach((m) => m.remove());
 
     if (annotationUI.annotationMode !== 'assets') return;
 
-    // Deduplicate by elementPath — local assets take priority over remote
     const assetsByPath = new Map();
     for (const asset of (annotationState.store.assets || [])) {
       if (asset.elementPath) assetsByPath.set(asset.elementPath, asset);
@@ -469,7 +389,6 @@ export default function createAssetsPanelController({
       const rect = targetEl.getBoundingClientRect();
       if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
-      // Position marker at top-right of element
       let top = Math.max(0, Math.round(rect.top - 8));
       let left = Math.max(MIN_LEFT, Math.round(rect.right - 8));
       let slotKey = `${top}:${left}`;
@@ -495,25 +414,19 @@ export default function createAssetsPanelController({
     });
   }
 
-  // ── Visual indicator ─────────────────────────────────────────────────
-
   function addPendingIndicator(imgEl) {
-    // Remove existing indicator if any
     removePendingIndicator(imgEl);
 
     const container = imgEl.closest('picture') || imgEl.parentElement;
     if (!container) return;
 
-    // Ensure relative positioning for the badge
     const computedPosition = getComputedStyle(container).position;
     if (computedPosition === 'static') {
       container.style.position = 'relative';
     }
 
-    // Add dashed border
     imgEl.classList.add(ASSET_INDICATOR_CLASS);
 
-    // Add "Pending" badge
     const badge = document.createElement('span');
     badge.className = ASSET_INDICATOR_BADGE_CLASS;
     badge.textContent = 'Pending';
@@ -537,20 +450,16 @@ export default function createAssetsPanelController({
     });
   }
 
-  // ── Delete remote asset ─────────────────────────────────────────────
-
   async function handleDeleteAsset(asset) {
     try {
       await assetService.deleteAsset(asset.id);
 
-      // Revert image if applied
       const applied = annotationUI.appliedAssets.get(asset.id);
       if (applied?.targetImg) {
         revertAssetPreview(applied.targetImg);
         annotationUI.appliedAssets.delete(asset.id);
       }
 
-      // Remove from local state
       annotationState.store.assets = annotationState.store.assets.filter((a) => a.id !== asset.id);
       renderAssetsPanel();
     } catch (err) {
@@ -579,12 +488,6 @@ export default function createAssetsPanelController({
     removePendingIndicator(imgEl);
   }
 
-  // ── Bulk upload on Save Changes ──────────────────────────────────────
-
-  /**
-   * Upload all local assets to the backend and return their server-created IDs.
-   * Called from the Save Changes flow before batch decide.
-   */
   async function uploadLocalAssets() {
     const localAssets = annotationState.store.localAssets || [];
     if (localAssets.length === 0) return [];
@@ -606,13 +509,9 @@ export default function createAssetsPanelController({
           continue;
         }
 
-        console.info('[assets-panel] Local asset uploaded:', localAsset.localId, '→', asset.id);
-
-        // Move from local tracking to remote tracking
         asset._base64Data = localAsset.base64Data;
         annotationState.store.assets.push(asset);
 
-        // Update applied tracking: swap local ID for server ID
         const applied = annotationUI.appliedAssets.get(localAsset.localId);
         if (applied) {
           annotationUI.appliedAssets.delete(localAsset.localId);
@@ -629,31 +528,19 @@ export default function createAssetsPanelController({
       }
     }
 
-    // Clear local assets — they've been uploaded
     annotationState.store.localAssets = [];
 
     return uploadedIds;
   }
 
-  // ── Public API ───────────────────────────────────────────────────────
-
-  /**
-   * Returns IDs of remote assets that have been applied (previewed) on the page.
-   * Only these should be accepted on Save Changes.
-   * Local asset IDs are excluded (they are uploaded first via uploadLocalAssets).
-   */
   function getAppliedAssetIds() {
     return Array.from(annotationUI.appliedAssets.keys())
       .filter((id) => !String(id).startsWith('local-'));
   }
 
-  /**
-   * Update local asset state from remote snapshot (edits API polling).
-   */
   function updateAssetsFromSnapshot(remoteAssets) {
     if (!Array.isArray(remoteAssets)) return;
 
-    // Merge: keep local _base64Data cache, update status/metadata from remote
     const localMap = new Map(annotationState.store.assets.map((a) => [a.id, a]));
     const merged = remoteAssets.map((remote) => {
       const local = localMap.get(remote.id);
@@ -664,9 +551,8 @@ export default function createAssetsPanelController({
     });
     annotationState.store.assets = merged;
 
-    // Remove applied tracking for assets that are no longer pending
     for (const [assetId, applied] of annotationUI.appliedAssets) {
-      if (String(assetId).startsWith('local-')) continue; // skip local assets
+      if (String(assetId).startsWith('local-')) continue;
       const asset = merged.find((a) => a.id === assetId);
       if (!asset || asset.status !== 'pending') {
         if (applied.targetImg) removePendingIndicator(applied.targetImg);
@@ -675,9 +561,6 @@ export default function createAssetsPanelController({
     }
   }
 
-  /**
-   * Clear applied state after Save Changes succeeds (assets are now accepted).
-   */
   function clearAppliedAssets() {
     removeAllPendingIndicators();
     annotationUI.appliedAssets.clear();

@@ -23,7 +23,6 @@ export default function createAssetServiceClient() {
     const token = normalizeToken(window.streamConfig?.token);
     if (token) headers.Authorization = token;
 
-    // Don't set Content-Type for FormData — browser sets it with boundary
     if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
@@ -52,16 +51,6 @@ export default function createAssetServiceClient() {
     }
   }
 
-  /**
-   * Upload an asset file for a specific page element.
-   * @param {File} file - The image file to upload
-   * @param {string} elementPath - CSS selector path
-   * @param {string} elementRef - Session-scoped element ref (data-annotation-ref)
-   * @param {Object} elementProps - Structural anchors (sectionDaaLh, blockDaaLh, etc.)
-   * @param {string} [commentId] - Optional comment ID to link to
-   * @param {string} [originalSrc] - Original image src before replacement
-   * @returns {Promise<Object>} The created asset object
-   */
   async function uploadAsset(file, elementPath, elementRef, elementProps, commentId, originalSrc) {
     return withSyncIndicator('Uploading asset...', async () => {
       const collabId = getAnnotationCollabId();
@@ -82,21 +71,10 @@ export default function createAssetServiceClient() {
     });
   }
 
-  /**
-   * Get asset content as base64 data URI for preview.
-   * @param {string} assetId
-   * @returns {Promise<{assetId: string, mimeType: string, encoding: string, data: string}>}
-   */
   async function getAssetContent(assetId) {
     return assetServiceFetch(`/api/assets/${encodeURIComponent(assetId)}/content`);
   }
 
-  /**
-   * Batch decide: accept or reject multiple assets at once.
-   * Used by Save Changes to accept all applied assets in one call.
-   * @param {string[]} assetIds
-   * @param {'accepted'|'rejected'} decision
-   */
   async function batchDecideAssets(assetIds, decision) {
     return withSyncIndicator('Saving asset changes...', async () => {
       const collabId = getAnnotationCollabId();
@@ -108,10 +86,6 @@ export default function createAssetServiceClient() {
     });
   }
 
-  /**
-   * Batch promote: promote all accepted assets to production DA.
-   * Used by Push to DA flow.
-   */
   async function batchPromote() {
     return withSyncIndicator('Promoting assets to DA...', async () => {
       const collabId = getAnnotationCollabId();
@@ -122,10 +96,6 @@ export default function createAssetServiceClient() {
     });
   }
 
-  /**
-   * Delete a pending asset.
-   * @param {string} assetId
-   */
   async function deleteAsset(assetId) {
     return assetServiceFetch(`/api/assets/${encodeURIComponent(assetId)}`, {
       method: 'DELETE',
