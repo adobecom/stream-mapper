@@ -2,7 +2,7 @@ import { handleError, safeFetch } from '../utils/error-handler.js';
 import { createFigmaLoaderReporter } from '../utils/loader.js';
 
 const PLACEHOLDER_URL = 'https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder';
-const METADATA_KEYS = new Set(['colorTheme', 'miloTag','layout']);
+const METADATA_KEYS = new Set(['colorTheme', 'miloTag', 'layout']);
 
 function isEmptyBlockContent(properties) {
   if (!properties || typeof properties !== 'object') return true;
@@ -33,7 +33,7 @@ async function fetchJsonWithRetry(url, options, retries = FIGMA_SERVICE_MAX_RETR
     // eslint-disable-next-line no-await-in-loop
     const response = await fetch(url, options);
     if (response.ok) {
-      // eslint-disable-next-line no-await-in-loop
+      // eslint-disable-next-line no-await-in-loop, no-return-await
       return await response.json();
     }
     if (response.status !== 503 || attempt === retries) {
@@ -174,6 +174,7 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
 async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
   const htmlParts = [];
+  // eslint-disable-next-line no-restricted-syntax
   for (const block of blocks) {
     // eslint-disable-next-line no-await-in-loop
     const part = await processBlock(block, figmaUrl, () => tracker.markDetailResponse());
