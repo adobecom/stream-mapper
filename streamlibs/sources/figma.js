@@ -68,13 +68,20 @@ async function fetchJsonWithRetry(url, options) {
       // eslint-disable-next-line no-await-in-loop, no-return-await
       return await response.json();
     }
-    if (response.status !== 503 || attempt === maxRetries) {
-      throw new Error(`HTTP error! Status: ${url} ${response.status}`);
+    if (response.status === 503) {
+      lastError = new Error(`HTTP 503 from ${url}`);
+      lastError.is503Exhausted = attempt === maxRetries;
+      if (attempt === maxRetries) {
+        handleError(lastError, ' experiencing high server load. Please try again later');
+        throw lastError;
+      }
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
     }
-    lastError = new Error(`HTTP 503 from ${url}`);
-    const delay = getRetryDelay(retryDelaysMs, attempt);
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => { setTimeout(resolve, delay); });
+    throw new Error(`HTTP error! Status: ${url} ${response.status}`);
   }
   if (lastError) throw lastError;
   return {};
@@ -99,7 +106,7 @@ async function fetchFigmaMapping(figmaUrl) {
       },
     );
   } catch (error) {
-    handleError(error, 'getting figma mapping');
+    if (!error?.is503Exhausted) handleError(error, 'getting figma mapping');
     throw error;
   }
 }
@@ -159,6 +166,7 @@ async function fetchBlockContent(figId, id, figmaUrl) {
       },
     );
   } catch (error) {
+    if (error?.is503Exhausted) throw error;
     handleError(error, 'getting block content');
     return {};
   }
@@ -207,17 +215,26 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
 async function runWithConcurrency(items, concurrency, worker) {
   const results = new Array(items.length);
   let cursor = 0;
+  let stopped = false;
+  let firstError = null;
   const limit = Math.max(1, concurrency);
   async function runner() {
-    while (cursor < items.length) {
+    while (cursor < items.length && !stopped) {
       const current = cursor;
       cursor += 1;
-      // eslint-disable-next-line no-await-in-loop
-      results[current] = await worker(items[current], current);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        results[current] = await worker(items[current], current);
+      } catch (error) {
+        stopped = true;
+        if (!firstError) firstError = error;
+        return;
+      }
     }
   }
   const runnerCount = Math.min(limit, items.length);
   await Promise.all(Array.from({ length: runnerCount }, () => runner()));
+  if (firstError) throw firstError;
   return results;
 }
 
