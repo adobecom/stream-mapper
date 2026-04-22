@@ -37,7 +37,7 @@ const CONFIG = {
   },
   figmaServiceRetry: {
     retryCount: 3,
-    retryDelaysMs: [2000, 4000, 8000],
+    retryDelaysMs: [1000, 2000, 8000],
     blockContentConcurrency: 3,
   },
   prod: {

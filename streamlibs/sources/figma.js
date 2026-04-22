@@ -49,9 +49,21 @@ function getRetryDelay(delays, attempt) {
 async function fetchJsonWithRetry(url, options) {
   const { retryCount, retryDelaysMs } = await getFigmaRetryConfig();
   const maxRetries = Number.isInteger(retryCount) && retryCount >= 0 ? retryCount : 0;
+  let lastError;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const response = await fetch(url, options);
+    let response;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      response = await fetch(url, options);
+    } catch (networkError) {
+      lastError = networkError;
+      if (attempt === maxRetries) throw networkError;
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     if (response.ok) {
       // eslint-disable-next-line no-await-in-loop, no-return-await
       return await response.json();
@@ -59,10 +71,12 @@ async function fetchJsonWithRetry(url, options) {
     if (response.status !== 503 || attempt === maxRetries) {
       throw new Error(`HTTP error! Status: ${url} ${response.status}`);
     }
+    lastError = new Error(`HTTP 503 from ${url}`);
     const delay = getRetryDelay(retryDelaysMs, attempt);
     // eslint-disable-next-line no-await-in-loop
     await new Promise((resolve) => { setTimeout(resolve, delay); });
   }
+  if (lastError) throw lastError;
   return {};
 }
 
