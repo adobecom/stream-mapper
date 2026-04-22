@@ -25,19 +25,9 @@ function createPlaceholder() {
   return div;
 }
 
-const DEFAULT_FIGMA_RETRY_CONFIG = {
-  retryCount: 3,
-  retryDelaysMs: [2000, 4000, 8000],
-  blockContentConcurrency: 3,
-};
-
 async function getFigmaRetryConfig() {
-  try {
-    const config = await import('../utils/utils.js').then((m) => m.getConfig());
-    return { ...DEFAULT_FIGMA_RETRY_CONFIG, ...(config?.figmaServiceRetry || {}) };
-  } catch (e) {
-    return DEFAULT_FIGMA_RETRY_CONFIG;
-  }
+  const config = await import('../utils/utils.js').then((m) => m.getConfig());
+  return config.figmaServiceRetry;
 }
 
 function getRetryDelay(delays, attempt) {
