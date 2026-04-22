@@ -25,25 +25,55 @@ function createPlaceholder() {
   return div;
 }
 
-const FIGMA_SERVICE_MAX_RETRIES = 2;
-const FIGMA_SERVICE_RETRY_BASE_DELAY_MS = 500;
+async function getFigmaRetryConfig() {
+  const config = await import('../utils/utils.js').then((m) => m.getConfig());
+  return config.figmaServiceRetry;
+}
 
-async function fetchJsonWithRetry(url, options, retries = FIGMA_SERVICE_MAX_RETRIES) {
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const response = await fetch(url, options);
+function getRetryDelay(delays, attempt) {
+  if (!Array.isArray(delays) || delays.length === 0) return 0;
+  const idx = Math.min(attempt, delays.length - 1);
+  return delays[idx];
+}
+
+async function fetchJsonWithRetry(url, options) {
+  const { retryCount, retryDelaysMs } = await getFigmaRetryConfig();
+  const maxRetries = Number.isInteger(retryCount) && retryCount >= 0 ? retryCount : 0;
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    let response;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      response = await fetch(url, options);
+    } catch (networkError) {
+      lastError = networkError;
+      if (attempt === maxRetries) throw networkError;
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     if (response.ok) {
       // eslint-disable-next-line no-await-in-loop, no-return-await
       return await response.json();
     }
-    if (response.status !== 503 || attempt === retries) {
-      throw new Error(`HTTP error! Status: ${url} ${response.status}`);
+    if (response.status === 503) {
+      lastError = new Error(`HTTP 503 from ${url}`);
+      lastError.is503Exhausted = attempt === maxRetries;
+      if (attempt === maxRetries) {
+        handleError(lastError, 'We are experiencing high server load. Please try again later', '');
+        throw lastError;
+      }
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
     }
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => {
-      setTimeout(resolve, FIGMA_SERVICE_RETRY_BASE_DELAY_MS * (attempt + 1));
-    });
+    throw new Error(`HTTP error! Status: ${url} ${response.status}`);
   }
+  if (lastError) throw lastError;
   return {};
 }
 
@@ -66,7 +96,7 @@ async function fetchFigmaMapping(figmaUrl) {
       },
     );
   } catch (error) {
-    handleError(error, 'getting figma mapping');
+    if (!error?.is503Exhausted) handleError(error, 'getting figma mapping');
     throw error;
   }
 }
@@ -126,6 +156,7 @@ async function fetchBlockContent(figId, id, figmaUrl) {
       },
     );
   } catch (error) {
+    if (error?.is503Exhausted) throw error;
     handleError(error, 'getting block content');
     return {};
   }
@@ -171,15 +202,40 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   return blockContent || '';
 }
 
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  let stopped = false;
+  let firstError = null;
+  const limit = Math.max(1, concurrency);
+  async function runner() {
+    while (cursor < items.length && !stopped) {
+      const current = cursor;
+      cursor += 1;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        results[current] = await worker(items[current], current);
+      } catch (error) {
+        stopped = true;
+        if (!firstError) firstError = error;
+        return;
+      }
+    }
+  }
+  const runnerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: runnerCount }, () => runner()));
+  if (firstError) throw firstError;
+  return results;
+}
+
 async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
-  const htmlParts = [];
-  // eslint-disable-next-line no-restricted-syntax
-  for (const block of blocks) {
-    // eslint-disable-next-line no-await-in-loop
-    const part = await processBlock(block, figmaUrl, () => tracker.markDetailResponse());
-    htmlParts.push(part);
-  }
+  const { blockContentConcurrency } = await getFigmaRetryConfig();
+  const htmlParts = await runWithConcurrency(
+    blocks,
+    blockContentConcurrency,
+    (block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse()),
+  );
   return htmlParts.filter(Boolean);
 }
 

@@ -1,4 +1,4 @@
-export function showErrorPage(context = '') {
+export function showErrorPage(context = '', preMessage = 'Oops! Something broke while') {
   const safeContext = (context || 'processing your request').replace(/[<>]/g, '');
   document.body.innerHTML = `
       <div class="enigma-error-page">
@@ -10,7 +10,7 @@ export function showErrorPage(context = '') {
               >
             </div>
             <div class="enigma-error-copy">
-                <h1 class="enigma-error-title">Oops! Something broke while ${safeContext}</h1>
+                <h1 class="enigma-error-title">${preMessage} ${safeContext}</h1>
                 <p class="enigma-retry-line">
                   <span class="enigma-retry-text">Give it another go?</span>
                   <button type="button" id="enigma-retry-btn" class="enigma-retry-btn">Yes Retry</button>
@@ -32,10 +32,10 @@ export function showErrorPage(context = '') {
 }
 
 // eslint-disable-next-line no-unused-vars
-export function handleError(error, context = '') {
+export function handleError(error, context = '', preMessage='Oops! Something broke while') {
   // eslint-disable-next-line no-console
   console.log(error);
-  showErrorPage(context);
+  showErrorPage(context, preMessage);
 }
 
 export async function safeFetch(url, options = {}, customSettings = {}) {
