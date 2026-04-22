@@ -62,7 +62,7 @@ async function fetchJsonWithRetry(url, options) {
       lastError = new Error(`HTTP 503 from ${url}`);
       lastError.is503Exhausted = attempt === maxRetries;
       if (attempt === maxRetries) {
-        handleError(lastError, ' experiencing high server load. Please try again later');
+        handleError(lastError, 'We are experiencing high server load. Please try again later', '');
         throw lastError;
       }
       const delay = getRetryDelay(retryDelaysMs, attempt);
