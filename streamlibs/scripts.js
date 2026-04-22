@@ -35,6 +35,11 @@ const CONFIG = {
     de: { ietf: 'de-DE', tk: 'hah7vzn.css' },
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
+  figmaServiceRetry: {
+    retryCount: 3,
+    retryDelaysMs: [2000, 4000, 8000],
+    blockContentConcurrency: 3,
+  },
   prod: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
