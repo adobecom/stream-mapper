@@ -1139,9 +1139,6 @@ export default function createCommentsPanelController({
             replyComposer.className = 'annotation-panel-reply-composer';
             replyComposer.innerHTML = `
               <input type="text" id="${replyFieldId}" name="${replyFieldId}" class="annotation-panel-reply-input" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" placeholder="Reply..." />
-              <button type="button" class="annotation-panel-attach-btn" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" aria-label="Attach asset" title="Attach asset">
-                <span aria-hidden="true">📎</span>
-              </button>
               <button type="button" class="annotation-panel-reply-btn" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" aria-label="Send reply">
                 <span aria-hidden="true">➤</span>
               </button>
