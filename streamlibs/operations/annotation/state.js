@@ -1,6 +1,6 @@
 export function createAnnotationState() {
   return {
-    store: { threads: [], easyEdits: [] },
+    store: { threads: [], easyEdits: [], assets: [], localAssets: [] },
     selectedElement: null,
     selectedElementPath: '',
     selectedElementRef: '',
@@ -56,5 +56,8 @@ export function createAnnotationUI() {
     inlineImageSelectHandler: null,
     inlineAltPopupEl: null,
     inlineAltOutsideClickHandler: null,
+    assetSelectMode: false,
+    assetSelectHandler: null,
+    appliedAssets: new Map(),
   };
 }

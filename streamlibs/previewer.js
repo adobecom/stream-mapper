@@ -1,9 +1,7 @@
 /* eslint-disable no-console */
 /* eslint-disable no-use-before-define */
 import {
-  getDACompatibleHtml,
   persistOnTarget,
-  postData,
   targetCompatibleHtml,
 } from './target/da.js';
 import {
@@ -33,6 +31,7 @@ import {
   annotationOperation,
   refreshAnnotationFloatingUI,
   saveAnnotationChanges,
+  persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
 } from './utils/operations.js';
@@ -49,7 +48,20 @@ import {
   hideLoader,
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
-import { fetchDAContent } from './sources/da.js';
+
+const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
+
+function notifyParentPushToDaResult(success, detailMessage) {
+  if (!window.parent || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: PUSH_TO_DA_RESULT,
+      success: !!success,
+      message: detailMessage ? String(detailMessage) : '',
+    },
+    '*',
+  );
+}
 
 function parseBooleanFlag(value) {
   if (value === true || value === 'true') return true;
@@ -219,7 +231,11 @@ async function setupMessageListener() {
     if (!isOriginAllowed) return;
 
     if (event.data.type === 'PUSH_TO_DA') {
-      await persist();
+      try {
+        await persist();
+      } catch {
+        // persist() notifies the parent on failure; swallow to avoid unhandled rejection
+      }
     }
     if (event.data.type === 'SAVE_ANNOTATION_CHANGES') {
       await saveChanges();
@@ -300,20 +316,18 @@ export async function persist() {
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (window.streamConfig.operation === 'annotation') {
-      const htmlMainEl = await fetchDAContent(window.streamConfig.contentUrl);
-      const originalHtml = htmlMainEl?.innerHTML || '';
-      const daCompatibleHtml = getDACompatibleHtml(originalHtml);
-      await postData(window.streamConfig.pageUrl, daCompatibleHtml, {
-        suppressErrorPage: true,
-      });
+      await persistAnnotationChangesToDA();
     } else {
       await persistOnTarget();
     }
     hideLoader();
     showDOMElements([document.querySelector('main')]);
+    notifyParentPushToDaResult(true);
   } catch (error) {
     hideLoader();
     showDOMElements([document.querySelector('main')]);
+    const detail = error?.message ? String(error.message) : '';
+    notifyParentPushToDaResult(false, detail);
     handleError(error, 'persisting content');
     throw error;
   }
