@@ -197,9 +197,7 @@ export default function createInlineEditingController({
 
   function attachInlineToolbarTracking() {
     if (annotationUI.inlineToolbarClickHandler) return;
-    annotationUI.inlineToolbarClickHandler = (event) => {
-      handleInlineToolbarClick(event);
-    };
+    annotationUI.inlineToolbarClickHandler = handleInlineToolbarClick;
     document.addEventListener('click', annotationUI.inlineToolbarClickHandler, true);
   }
 
@@ -227,7 +225,6 @@ export default function createInlineEditingController({
         originalHtml: currentHtml,
         originalText: currentText,
       });
-      clearExplicitFormattingIntent(elementRef);
       return;
     }
 
@@ -362,13 +359,12 @@ export default function createInlineEditingController({
 
     const popup = document.createElement('div');
     popup.className = 'annotation-inline-alt-popup';
-    const currentAlt = imageElement.getAttribute('alt') || '';
     popup.innerHTML = `
       <div class="annotation-inline-alt-popup__header">
         <h4>Edit image alt text</h4>
         <button type="button" class="annotation-inline-alt-popup__close" data-action="close" aria-label="Close">x</button>
       </div>
-      <textarea class="annotation-inline-alt-popup__input" data-input="alt" placeholder="Describe the image for accessibility...">${currentAlt}</textarea>
+      <textarea class="annotation-inline-alt-popup__input" data-input="alt" placeholder="Describe the image for accessibility..."></textarea>
       <div class="annotation-inline-alt-popup__actions">
         <button type="button" class="annotation-inline-alt-popup__btn" data-action="cancel">Cancel</button>
         <button type="button" class="annotation-inline-alt-popup__btn annotation-inline-alt-popup__btn--primary" data-action="save">Save</button>
@@ -392,6 +388,7 @@ export default function createInlineEditingController({
 
     const input = popup.querySelector('[data-input="alt"]');
     if (input instanceof HTMLTextAreaElement) {
+      input.value = imageElement.getAttribute('alt') || '';
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
       input.addEventListener('keydown', (event) => {
@@ -550,16 +547,6 @@ export default function createInlineEditingController({
     await Promise.all(pendingUpdates);
   }
 
-  function flushPendingInlineChangesInBackground(pendingTasks = []) {
-    if (!pendingTasks.length) return;
-
-    Promise.allSettled(pendingTasks).then(() => {
-      store.saveAnnotationStore();
-      renderThreadMarkers({ resolveTargets: true });
-      renderCommentsPanel();
-    });
-  }
-
   function resetInlineEditModeState() {
     annotationUI.inlineMode = false;
     document.body.classList.remove('annotation-inline-edit-mode');
@@ -656,18 +643,16 @@ export default function createInlineEditingController({
   async function disableInlineEditMode() {
     if (!annotationUI.inlineMode) return;
 
-    const pendingInlineChangeTasks = [
-      ...annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
-      syncImageAltChanges(),
-    ];
+    await Promise.all(
+      annotationUI.editableElements.map((element) => trackInlineEditChange(element)),
+    );
+    await syncImageAltChanges();
+    store.saveAnnotationStore();
 
     resetInlineEditModeState();
-
     store.applyEasyEditsToDom();
-    store.saveAnnotationStore();
     renderThreadMarkers();
     renderCommentsPanel();
-    flushPendingInlineChangesInBackground(pendingInlineChangeTasks);
   }
 
   async function syncInlineEditsBeforePersist() {
