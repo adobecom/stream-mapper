@@ -8,10 +8,27 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
+const MAX_LINK_DISPLAY_LENGTH = 60;
+
+function truncateUrl(url) {
+  if (url.length <= MAX_LINK_DISPLAY_LENGTH) return url;
+  return `${url.slice(0, MAX_LINK_DISPLAY_LENGTH)}…`;
+}
+
+function linkifyText(str) {
+  if (!str) return '';
+  const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    (match) => `<a href="${match}" target="_blank" rel="noopener noreferrer" title="${match}">${truncateUrl(match)}</a>`,
+  );
+}
+
 export default function createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
+  assetsPanel,
 }) {
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
@@ -463,6 +480,72 @@ export default function createCommentsPanelController({
     return annotationService.isAvailable();
   }
 
+
+
+  function showAttachAssetDropdown(anchorEl, threadId) {
+    // Remove existing dropdown if any
+    const existing = document.querySelector('.annotation-attach-dropdown');
+    if (existing) { existing.remove(); return; }
+
+    const assets = (annotationState.store.assets || [])
+      .filter((a) => a.status !== 'rejected');
+    if (!assets.length) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'annotation-attach-dropdown';
+
+    assets.forEach((asset) => {
+      const item = document.createElement('button');
+      item.className = 'annotation-attach-dropdown-item';
+      item.textContent = `${asset.filename} (${asset.status})`;
+      item.title = asset.elementPath;
+      item.addEventListener('click', async () => {
+        dropdown.remove();
+        // Link this asset to the comment thread by re-uploading with comment_id
+        // For now, we show the asset thumbnail inline in the thread as a visual reference
+        try {
+          const content = await (assetsPanel
+            ? Promise.resolve(asset._base64Data ? { data: asset._base64Data } : null)
+            : Promise.resolve(null));
+          if (content?.data) {
+            const thread = store.getThreadById(threadId);
+            if (thread) {
+              store.pushThreadMessage(threadId, {
+                id: `asset-attach-${asset.id}-${Date.now()}`,
+                username: '',
+                text: `[Attached: ${asset.filename}]`,
+                kind: 'reply',
+                replyToCommentId: thread.messages?.[0]?.id || '',
+                createdAt: new Date().toISOString(),
+              });
+              renderCommentsPanel();
+            }
+          }
+        } catch (err) {
+          console.error('[comments-panel] Attach asset failed:', err);
+        }
+      });
+      dropdown.appendChild(item);
+    });
+
+    // Position dropdown below the anchor button
+    const rect = anchorEl.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.zIndex = '10000';
+    document.body.appendChild(dropdown);
+
+    // Close on outside click
+    const closeHandler = (e) => {
+      if (!dropdown.contains(e.target)) {
+        dropdown.remove();
+        document.removeEventListener('click', closeHandler, true);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+  }
+
   function captureTransientDraftsFromDom() {
     const popupInput = annotationUI.popupEl?.querySelector('.annotation-reply-input');
     if (popupInput instanceof HTMLTextAreaElement) {
@@ -780,6 +863,20 @@ export default function createCommentsPanelController({
         console.warn('Could not apply remote edits snapshot', error);
       }
     }
+
+    // Update assets from snapshot (edits API returns { edits, assets })
+    const remoteAssets = snapshot?.edits?.assets || snapshot?.assets;
+    if (remoteAssets && assetsPanel) {
+      try {
+        assetsPanel.updateAssetsFromSnapshot(remoteAssets);
+        if (annotationUI.annotationMode === 'assets') {
+          assetsPanel.renderAssetsPanel();
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not apply remote assets snapshot', error);
+      }
+    }
   }
 
   function applyPendingRemoteEditsSnapshot() {
@@ -855,10 +952,14 @@ export default function createCommentsPanelController({
     }
 
     if (annotationUI.annotationMode === 'assets') {
-      const empty = document.createElement('p');
-      empty.className = 'annotation-comments-empty';
-      empty.textContent = ANNOTATION_MESSAGES.noAssets;
-      annotationUI.panelListEl.appendChild(empty);
+      if (assetsPanel) {
+        assetsPanel.renderAssetsPanel();
+      } else {
+        const empty = document.createElement('p');
+        empty.className = 'annotation-comments-empty';
+        empty.textContent = ANNOTATION_MESSAGES.noAssets;
+        annotationUI.panelListEl.appendChild(empty);
+      }
       return;
     }
 
@@ -876,6 +977,9 @@ export default function createCommentsPanelController({
     const visibleThreadType = getVisibleThreadType();
     const visibleThreads = annotationState.store.threads
       .filter((thread) => store.getThreadType(thread) === visibleThreadType);
+
+    // Asset logs are shown in the Assets tab, not the Edit tab
+
     const showComments = isCommentsViewActive();
 
     if (!visibleThreads.length) {
@@ -977,7 +1081,7 @@ export default function createCommentsPanelController({
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
-          text.textContent = group.comment.text || '';
+          text.innerHTML = linkifyText(group.comment.text);
           card.append(username, text);
         }
         if (statusControls) card.append(statusControls);
@@ -1014,7 +1118,7 @@ export default function createCommentsPanelController({
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
             const replyText = document.createElement('p');
             replyText.className = 'annotation-panel-reply-text';
-            replyText.textContent = reply.text || '';
+            replyText.innerHTML = linkifyText(reply.text);
             replyContent.append(replyUsername, replyText);
             replyRow.append(replyContent);
           }
@@ -1147,7 +1251,7 @@ export default function createCommentsPanelController({
 
   function clearMarkers() {
     if (!annotationUI.layerEl) return;
-    annotationUI.layerEl.querySelectorAll('.annotation-thread-marker, .annotation-edit-marker')
+    annotationUI.layerEl.querySelectorAll('.annotation-thread-marker, .annotation-edit-marker, .annotation-asset-marker')
       .forEach((marker) => marker.remove());
   }
 
@@ -1213,7 +1317,10 @@ export default function createCommentsPanelController({
       el.removeAttribute('data-annotation-count');
     });
     clearMarkers();
-    if (annotationUI.annotationMode === 'assets') return;
+    if (annotationUI.annotationMode === 'assets') {
+      if (assetsPanel) assetsPanel.renderAssetMarkers();
+      return;
+    }
 
     const markerThreadType = isEditViewActive() ? 'edit' : 'comment';
 
@@ -1830,6 +1937,15 @@ export default function createCommentsPanelController({
         return;
       }
 
+      if (target.closest('.annotation-panel-attach-btn')) {
+        const attachBtn = target.closest('.annotation-panel-attach-btn');
+        if (!(attachBtn instanceof HTMLButtonElement)) return;
+        const { threadId } = attachBtn.dataset;
+        if (!threadId) return;
+        showAttachAssetDropdown(attachBtn, threadId);
+        return;
+      }
+
       if (target.closest('.annotation-panel-reply-btn')) {
         const replyBtn = target.closest('.annotation-panel-reply-btn');
         if (!(replyBtn instanceof HTMLButtonElement)) return;
@@ -2017,6 +2133,7 @@ export default function createCommentsPanelController({
       annotationState.inlineToggleChangeHandler = async (event) => {
         const { target } = event;
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
+        if (assetsPanel) assetsPanel.exitSelectMode();
         if (!isInlineEditingAllowed()) {
           closeCommentEditor();
           closePopupAndSelection();
@@ -2070,6 +2187,7 @@ export default function createCommentsPanelController({
         if (!(target instanceof HTMLInputElement) || !target.checked) return;
         closeCommentEditor();
         annotationUI.annotationMode = 'comments';
+        if (assetsPanel) assetsPanel.exitSelectMode();
         await disableInlineEditMode();
         if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
         if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;

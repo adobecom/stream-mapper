@@ -973,6 +973,11 @@ img.da-process-wait {
     cursor: grab;
   }
 
+  div[data-source="figma"][data-placeholder="true"],
+  div[data-source="figma"].do-not-drag {
+    cursor: default;
+  }
+
   .section[data-source="figma"],
   .section[data-source="da"] {
     border-top: 1px dashed #8a8a8a;
@@ -1262,6 +1267,30 @@ body.annotation-mode main::-webkit-scrollbar {
   width: 13px;
   height: 13px;
   fill: #b45309;
+}
+
+.annotation-asset-marker {
+  position: fixed;
+  transform: translate(-100%, 0);
+  pointer-events: auto;
+  border: 1px solid #6ee7b7;
+  border-radius: 999px;
+  background: #d1fae5;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.annotation-asset-marker-icon {
+  width: 13px;
+  height: 13px;
+  fill: #059669;
 }
 
 .annotation-comments-panel {
@@ -1741,6 +1770,8 @@ body.annotation-mode main::-webkit-scrollbar {
   background: #f8fbff;
   border-radius: 8px;
   padding: 7px 8px;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .annotation-panel-replies-list {
@@ -1769,6 +1800,8 @@ body.annotation-mode main::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .annotation-panel-reply-text {
@@ -2287,4 +2320,647 @@ body.annotation-inline-edit-mode .annotation-selected-element {
   .annotation-floating-layer {
     inset: 0 320px 0 0;
   }
+}
+
+/* ── Assets panel ──────────────────────────────────────────────────── */
+
+.annotation-assets-upload-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.annotation-assets-select-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.annotation-assets-select-btn:hover {
+  background: #1d4ed8;
+}
+
+.annotation-assets-select-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Select-element mode: highlight images on hover */
+body.annotation-asset-select-mode main img {
+  cursor: crosshair !important;
+  transition: outline 0.1s;
+}
+
+body.annotation-asset-select-mode main img:hover {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Asset list */
+.annotation-assets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.annotation-asset-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  align-items: flex-start;
+}
+
+.annotation-asset-card:hover {
+  border-color: #93c5fd;
+}
+
+.annotation-asset-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annotation-asset-thumb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.annotation-asset-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.annotation-asset-filename {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-status {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.annotation-asset-status-pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.annotation-asset-status-applied {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.annotation-asset-status-accepted {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.annotation-asset-status-rejected {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.annotation-asset-status-promoted {
+  color: #5b21b6;
+  background: #ede9fe;
+}
+
+.annotation-asset-status-unsaved {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.annotation-asset-card-local {
+  border-left: 3px solid #f97316;
+}
+
+.annotation-asset-from-to {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.annotation-asset-from-to-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.annotation-asset-from-to-label {
+  font-weight: 600;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.annotation-asset-from-to-value {
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-element {
+  font-size: 10px;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.annotation-asset-action-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.annotation-asset-action-btn:hover {
+  background: #f3f4f6;
+}
+
+.annotation-asset-action-delete {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.annotation-asset-action-delete:hover {
+  background: #fef2f2;
+}
+
+/* Visual indicator on replaced images */
+.annotation-asset-pending-indicator {
+  outline: 3px dashed #2563eb !important;
+  outline-offset: 2px;
+}
+
+.annotation-asset-pending-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+  padding: 2px 8px;
+  border-radius: 4px;
+  z-index: 10;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Attach asset button in reply composer */
+.annotation-panel-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.annotation-panel-attach-btn:hover {
+  background: #f3f4f6;
+}
+
+/* Attach asset dropdown */
+.annotation-attach-dropdown {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  min-width: 180px;
+}
+
+.annotation-attach-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-attach-dropdown-item:hover {
+  background: #f3f4f6;
+}
+
+.annotation-attach-dropdown-item + .annotation-attach-dropdown-item {
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ── Assets panel ──────────────────────────────────────────────────── */
+
+.annotation-assets-upload-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.annotation-assets-select-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #2563eb;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.annotation-assets-select-btn:hover {
+  background: #1d4ed8;
+}
+
+.annotation-assets-select-hint {
+  margin: 0;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Select-element mode: highlight images on hover */
+body.annotation-asset-select-mode main img {
+  cursor: crosshair !important;
+  transition: outline 0.1s;
+}
+
+body.annotation-asset-select-mode main img:hover {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Asset list */
+.annotation-assets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.annotation-asset-card {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  align-items: flex-start;
+}
+
+.annotation-asset-card:hover {
+  border-color: #93c5fd;
+}
+
+.annotation-asset-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.annotation-asset-thumb-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.annotation-asset-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.annotation-asset-filename {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-status {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  width: fit-content;
+  margin-top: 4px;
+}
+
+.annotation-asset-status-pending {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.annotation-asset-status-applied {
+  color: #1e40af;
+  background: #dbeafe;
+}
+
+.annotation-asset-status-accepted {
+  color: #065f46;
+  background: #d1fae5;
+}
+
+.annotation-asset-status-rejected {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.annotation-asset-status-promoted {
+  color: #5b21b6;
+  background: #ede9fe;
+}
+
+.annotation-asset-status-unsaved {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.annotation-asset-card-local {
+  border-left: 3px solid #f97316;
+}
+
+.annotation-asset-from-to {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.annotation-asset-from-to-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.annotation-asset-from-to-label {
+  font-weight: 600;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.annotation-asset-from-to-value {
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-element {
+  font-size: 10px;
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-asset-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.annotation-asset-action-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.annotation-asset-action-btn:hover {
+  background: #f3f4f6;
+}
+
+.annotation-asset-action-delete {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.annotation-asset-action-delete:hover {
+  background: #fef2f2;
+}
+
+/* Visual indicator on replaced images */
+.annotation-asset-pending-indicator {
+  outline: 3px dashed #2563eb !important;
+  outline-offset: 2px;
+}
+
+.annotation-asset-pending-badge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #2563eb;
+  padding: 2px 8px;
+  border-radius: 4px;
+  z-index: 10;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Attach asset button in reply composer */
+.annotation-panel-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.annotation-panel-attach-btn:hover {
+  background: #f3f4f6;
+}
+
+/* Attach asset dropdown */
+.annotation-attach-dropdown {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  min-width: 180px;
+}
+
+.annotation-attach-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.annotation-attach-dropdown-item:hover {
+  background: #f3f4f6;
+}
+
+.annotation-attach-dropdown-item + .annotation-attach-dropdown-item {
+  border-top: 1px solid #f3f4f6;
+}
+
+.broken-placeholder {
+    height: 360px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #991b1b;
+    line-height: 1.4;
+    flex-direction: row;
+    box-sizing: border-box;
+    border: 2px solid #991b1b;
+    background-color: #fee2e2;
+}
+
+.broken-placeholder .foreground {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    flex-direction: row;
+    margin: 0;
+    padding: 0;
+}
+
+.broken-placeholder .text {
+    box-sizing: border-box;
+    width: 50%;
+    height: 100%;
+    margin: 0;
+    padding-left: 10%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.broken-placeholder .image {
+    width: 50%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: url('/streamlibs/assets/failed-mapping.png') no-repeat center center;
+    background-size: cover;
+}
+
+.broken-placeholder h3 {
+    color: #a91313;
+    font-size: 24px;
+}
+
+.broken-placeholder p {
+    font-size: 14px;
+}
+
+.figma-panel .section:not(:has(div)),
+.da-panel .section:not(:has(div)) {
+    display: none;
 }
