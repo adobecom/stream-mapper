@@ -15,6 +15,15 @@ export default function createInlineEditingController({
 }) {
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
+  const EXPLICIT_FORMATTING_TOOLBAR_ACTIONS = new Set([
+    'bold',
+    'italic',
+    'underline',
+    'anchor',
+    'append-h2',
+    'append-h3',
+    'append-blockquote',
+  ]);
 
   function normalizeInlineFormattingHtml(html = '') {
     const template = document.createElement('template');
@@ -125,6 +134,81 @@ export default function createInlineEditingController({
       });
   }
 
+  function clearExplicitFormattingIntent(elementRef = '') {
+    if (!elementRef) return;
+    annotationState.explicitFormattingElementRefs.delete(elementRef);
+    if (annotationUI.inlineActiveElementRef === elementRef) {
+      annotationUI.inlineActiveElementRef = '';
+    }
+  }
+
+  function markInlineElementAsFormattingIntent(elementRef = '') {
+    if (!elementRef) return;
+    annotationState.explicitFormattingElementRefs.add(elementRef);
+  }
+
+  function setActiveInlineEditableElement(element) {
+    if (!(element instanceof HTMLElement)) return;
+    annotationUI.inlineActiveElementRef = store.ensureElementRef(element);
+  }
+
+  function getActiveInlineEditableElementRef() {
+    const currentRef = annotationUI.inlineActiveElementRef;
+    if (currentRef && annotationUI.mainEl?.querySelector(`[data-annotation-ref="${currentRef}"]`)) {
+      return currentRef;
+    }
+
+    const selection = window.getSelection();
+    const candidateNodes = [
+      selection?.anchorNode,
+      selection?.focusNode,
+      selection?.rangeCount ? selection.getRangeAt(0).commonAncestorContainer : null,
+    ];
+
+    for (let idx = 0; idx < candidateNodes.length; idx += 1) {
+      const node = candidateNodes[idx];
+      const element = node instanceof HTMLElement ? node : node?.parentElement;
+      const editableElement = element?.closest('.annotation-inline-editable');
+      if (editableElement instanceof HTMLElement) {
+        const elementRef = store.ensureElementRef(editableElement);
+        annotationUI.inlineActiveElementRef = elementRef;
+        return elementRef;
+      }
+    }
+
+    return '';
+  }
+
+  function handleInlineToolbarClick(event) {
+    if (!annotationUI.inlineMode) return;
+    const button = event.target instanceof HTMLElement
+      ? event.target.closest('button[data-action]')
+      : null;
+    if (!(button instanceof HTMLButtonElement)) return;
+    if (!button.closest('.medium-editor-toolbar')) return;
+
+    const action = `${button.getAttribute('data-action') || ''}`.trim();
+    if (!EXPLICIT_FORMATTING_TOOLBAR_ACTIONS.has(action)) return;
+
+    const activeElementRef = getActiveInlineEditableElementRef();
+    if (!activeElementRef) return;
+    markInlineElementAsFormattingIntent(activeElementRef);
+  }
+
+  function attachInlineToolbarTracking() {
+    if (annotationUI.inlineToolbarClickHandler) return;
+    annotationUI.inlineToolbarClickHandler = (event) => {
+      handleInlineToolbarClick(event);
+    };
+    document.addEventListener('click', annotationUI.inlineToolbarClickHandler, true);
+  }
+
+  function detachInlineToolbarTracking() {
+    if (!annotationUI.inlineToolbarClickHandler) return;
+    document.removeEventListener('click', annotationUI.inlineToolbarClickHandler, true);
+    annotationUI.inlineToolbarClickHandler = null;
+  }
+
   async function trackInlineEditChange(element) {
     if (!(element instanceof HTMLElement) || !annotationUI.mainEl) return;
     const elementRef = store.ensureElementRef(element);
@@ -136,6 +220,16 @@ export default function createInlineEditingController({
     const didTextChange = currentText.trim() !== snapshot.originalText.trim();
     const didHtmlChange = currentHtml !== snapshot.originalHtml;
     if (!didTextChange && !didHtmlChange) return;
+    const hasExplicitFormattingIntent = annotationState.explicitFormattingElementRefs
+      .has(elementRef);
+    if (!didTextChange && didHtmlChange && !hasExplicitFormattingIntent) {
+      annotationUI.inlineElementSnapshot.set(elementRef, {
+        originalHtml: currentHtml,
+        originalText: currentText,
+      });
+      clearExplicitFormattingIntent(elementRef);
+      return;
+    }
 
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
     const easyEditElementPath = editAnchor.elementPath;
@@ -179,6 +273,7 @@ export default function createInlineEditingController({
       originalHtml: currentHtml,
       originalText: currentText,
     });
+    clearExplicitFormattingIntent(elementRef);
   }
 
   function getSelectedImageForMediumEditor() {
@@ -468,6 +563,7 @@ export default function createInlineEditingController({
   function resetInlineEditModeState() {
     annotationUI.inlineMode = false;
     document.body.classList.remove('annotation-inline-edit-mode');
+    detachInlineToolbarTracking();
 
     if (annotationUI.mediumEditorInstance) {
       annotationUI.mediumEditorInstance.destroy();
@@ -476,7 +572,13 @@ export default function createInlineEditingController({
 
     annotationUI.editableElements.forEach((element) => {
       const elementRef = element.dataset.annotationRef;
+      const focusHandler = elementRef ? annotationUI.inlineFocusHandlers.get(elementRef) : null;
       const handler = elementRef ? annotationUI.inlineBlurHandlers.get(elementRef) : null;
+      if (focusHandler) {
+        element.removeEventListener('focus', focusHandler, true);
+        element.removeEventListener('click', focusHandler, true);
+        annotationUI.inlineFocusHandlers.delete(elementRef);
+      }
       if (handler) {
         element.removeEventListener('blur', handler, true);
         annotationUI.inlineBlurHandlers.delete(elementRef);
@@ -491,6 +593,8 @@ export default function createInlineEditingController({
     annotationUI.editableImages = [];
     annotationUI.inlineElementSnapshot.clear();
     annotationUI.inlineImageAltSnapshot.clear();
+    annotationUI.inlineActiveElementRef = '';
+    annotationState.explicitFormattingElementRefs.clear();
     detachInlineImageSelectionHandler();
     closeInlineAltPopup();
   }
@@ -515,6 +619,7 @@ export default function createInlineEditingController({
     annotationUI.editableElements = getInlineEditableElements();
     annotationUI.editableImages = getInlineEditableImages();
     annotationUI.mediumEditorInstance = createMediumEditorInstance(annotationUI.editableElements);
+    attachInlineToolbarTracking();
     attachInlineImageSelectionHandler();
 
     annotationUI.editableElements.forEach((element) => {
@@ -527,8 +632,14 @@ export default function createInlineEditingController({
       const blurHandler = () => {
         trackInlineEditChange(element);
       };
+      const focusHandler = () => {
+        setActiveInlineEditableElement(element);
+      };
       annotationUI.inlineBlurHandlers.set(elementRef, blurHandler);
+      annotationUI.inlineFocusHandlers.set(elementRef, focusHandler);
       element.addEventListener('blur', blurHandler, true);
+      element.addEventListener('focus', focusHandler, true);
+      element.addEventListener('click', focusHandler, true);
     });
 
     annotationUI.editableImages.forEach((imageElement) => {
