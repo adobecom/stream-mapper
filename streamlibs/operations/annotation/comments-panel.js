@@ -8,6 +8,22 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
+const MAX_LINK_DISPLAY_LENGTH = 60;
+
+function truncateUrl(url) {
+  if (url.length <= MAX_LINK_DISPLAY_LENGTH) return url;
+  return `${url.slice(0, MAX_LINK_DISPLAY_LENGTH)}…`;
+}
+
+function linkifyText(str) {
+  if (!str) return '';
+  const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    (match) => `<a href="${match}" target="_blank" rel="noopener noreferrer" title="${match}">${truncateUrl(match)}</a>`,
+  );
+}
+
 export default function createCommentsPanelController({
   annotationState,
   annotationUI,
@@ -1065,7 +1081,7 @@ export default function createCommentsPanelController({
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
-          text.textContent = group.comment.text || '';
+          text.innerHTML = linkifyText(group.comment.text);
           card.append(username, text);
         }
         if (statusControls) card.append(statusControls);
@@ -1102,7 +1118,7 @@ export default function createCommentsPanelController({
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
             const replyText = document.createElement('p');
             replyText.className = 'annotation-panel-reply-text';
-            replyText.textContent = reply.text || '';
+            replyText.innerHTML = linkifyText(reply.text);
             replyContent.append(replyUsername, replyText);
             replyRow.append(replyContent);
           }
