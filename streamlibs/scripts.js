@@ -42,9 +42,9 @@ const CONFIG = {
   },
   prod: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
-      figmaBlockContentUrl: '/api/fig-comp-details',
+      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      figmaMappingUrl: '/api/v1/web/streamclient/fig-comps-v2',
+      figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details-v2',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
       figmaAuthToken: '',
@@ -56,9 +56,9 @@ const CONFIG = {
   },
   stage: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-32c93a.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
-      figmaBlockContentUrl: '/api/fig-comp-details',
+      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      figmaMappingUrl: '/api/v1/web/streamclient/fig-comps-v2',
+      figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details-v2',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',
@@ -70,9 +70,9 @@ const CONFIG = {
   },
   dev: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
-      figmaBlockContentUrl: '/api/fig-comp-details',
+      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      figmaMappingUrl: '/api/v1/web/streamclient/fig-comps-v2',
+      figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details-v2',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',
