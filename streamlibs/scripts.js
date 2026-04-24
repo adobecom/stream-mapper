@@ -43,8 +43,8 @@ const CONFIG = {
   prod: {
     streamMapper: {
       serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
-      figmaMappingUrl: '/api/v1/web/streamclient/fig-comps-v2',
-      figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details-v2',
+      figmaMappingUrl: '/api/v1/web/streamclient/fig-comps',
+      figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
       figmaAuthToken: '',
