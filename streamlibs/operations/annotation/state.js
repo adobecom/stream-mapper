@@ -1,6 +1,11 @@
 export function createAnnotationState() {
   return {
-    store: { threads: [], easyEdits: [], assets: [], localAssets: [] },
+    store: {
+      threads: [],
+      easyEdits: [],
+      assets: [],
+      localAssets: [],
+    },
     selectedElement: null,
     selectedElementPath: '',
     selectedElementRef: '',
@@ -8,6 +13,7 @@ export function createAnnotationState() {
     activeMessageId: '',
     activeEditId: '',
     mediumEditorLoadPromise: null,
+    explicitFormattingElementRefs: new Set(),
     latestSavedEditsUpdatedAt: null,
     latestSelfSavedEditsHash: '',
     latestSelfSavedEditsCount: 0,
@@ -52,6 +58,9 @@ export function createAnnotationUI() {
     inlineElementSnapshot: new Map(),
     inlineImageAltSnapshot: new Map(),
     inlineBlurHandlers: new Map(),
+    inlineFocusHandlers: new Map(),
+    inlineActiveElementRef: '',
+    inlineToolbarClickHandler: null,
     inlineSelectedImageEl: null,
     inlineImageSelectHandler: null,
     inlineAltPopupEl: null,
