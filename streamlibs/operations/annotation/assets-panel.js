@@ -1,5 +1,13 @@
+import { showGlobalSnackbar } from '../../utils/snackbar.js';
+
 const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
 const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
+
+const ALLOWED_MIME_TYPES = [
+  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function createAssetsPanelController({
   annotationState,
@@ -204,10 +212,29 @@ export default function createAssetsPanelController({
     }
   }
 
+  function validateFile(file) {
+    const ext = `.${(file.name || '').split('.').pop() || ''}`.toLowerCase();
+    if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
+      const friendlyTypes = ALLOWED_EXTENSIONS.join(', ');
+      return `Unsupported file type "${ext}". Allowed types: ${friendlyTypes}`;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      return `File is too large (${sizeMB} MB). Maximum allowed size is 10 MB.`;
+    }
+    return null;
+  }
+
   async function handleFileSelected(event) {
     const file = event.target.files?.[0];
     event.target.value = ''; // reset for re-use
     if (!file || !pendingUploadTarget) return;
+
+    const validationError = validateFile(file);
+    if (validationError) {
+      showGlobalSnackbar(validationError, { variant: 'error', duration: 5000 });
+      return;
+    }
 
     const targetImg = pendingUploadTarget;
     pendingUploadTarget = null;
@@ -525,6 +552,10 @@ export default function createAssetsPanelController({
         uploadedIds.push(asset.id);
       } catch (err) {
         console.error('[assets-panel] Upload failed for local asset:', localAsset.localId, err);
+        showGlobalSnackbar(
+          `Upload failed for "${localAsset.filename}": ${err.message || 'Unknown error'}`,
+          { variant: 'error', duration: 5000 },
+        );
       }
     }
 
