@@ -7,7 +7,6 @@ const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg',
 ];
 const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function createAssetsPanelController({
   annotationState,
@@ -217,10 +216,6 @@ export default function createAssetsPanelController({
     if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
       const friendlyTypes = ALLOWED_EXTENSIONS.join(', ');
       return `Unsupported file type "${ext}". Allowed types: ${friendlyTypes}`;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      return `File is too large (${sizeMB} MB). Maximum allowed size is 10 MB.`;
     }
     return null;
   }
