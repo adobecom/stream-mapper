@@ -35,11 +35,6 @@ const CONFIG = {
     de: { ietf: 'de-DE', tk: 'hah7vzn.css' },
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
-  figmaServiceRetry: {
-    retryCount: 3,
-    retryDelaysMs: [1000, 2000, 4000, 6000],
-    blockContentConcurrency: 3,
-  },
   prod: {
     streamMapper: {
       serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
