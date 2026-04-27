@@ -8,6 +8,22 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
+const MAX_LINK_DISPLAY_LENGTH = 60;
+
+function truncateUrl(url) {
+  if (url.length <= MAX_LINK_DISPLAY_LENGTH) return url;
+  return `${url.slice(0, MAX_LINK_DISPLAY_LENGTH)}…`;
+}
+
+function linkifyText(str) {
+  if (!str) return '';
+  const escaped = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    (match) => `<a href="${match}" target="_blank" rel="noopener noreferrer" title="${match}">${truncateUrl(match)}</a>`,
+  );
+}
+
 export default function createCommentsPanelController({
   annotationState,
   annotationUI,
@@ -1065,7 +1081,7 @@ export default function createCommentsPanelController({
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
-          text.textContent = group.comment.text || '';
+          text.innerHTML = linkifyText(group.comment.text);
           card.append(username, text);
         }
         if (statusControls) card.append(statusControls);
@@ -1102,7 +1118,7 @@ export default function createCommentsPanelController({
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
             const replyText = document.createElement('p');
             replyText.className = 'annotation-panel-reply-text';
-            replyText.textContent = reply.text || '';
+            replyText.innerHTML = linkifyText(reply.text);
             replyContent.append(replyUsername, replyText);
             replyRow.append(replyContent);
           }
@@ -1139,9 +1155,6 @@ export default function createCommentsPanelController({
             replyComposer.className = 'annotation-panel-reply-composer';
             replyComposer.innerHTML = `
               <input type="text" id="${replyFieldId}" name="${replyFieldId}" class="annotation-panel-reply-input" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" placeholder="Reply..." />
-              <button type="button" class="annotation-panel-attach-btn" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" aria-label="Attach asset" title="Attach asset">
-                <span aria-hidden="true">📎</span>
-              </button>
               <button type="button" class="annotation-panel-reply-btn" data-thread-id="${thread.id}" data-comment-id="${group.comment.id || ''}" aria-label="Send reply">
                 <span aria-hidden="true">➤</span>
               </button>

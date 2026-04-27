@@ -1770,6 +1770,8 @@ body.annotation-mode main::-webkit-scrollbar {
   background: #f8fbff;
   border-radius: 8px;
   padding: 7px 8px;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .annotation-panel-replies-list {
@@ -1798,6 +1800,8 @@ body.annotation-mode main::-webkit-scrollbar {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .annotation-panel-reply-text {
