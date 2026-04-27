@@ -4,9 +4,9 @@ const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
 const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
 
 const ALLOWED_MIME_TYPES = [
-  'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml',
+  'image/png', 'image/jpeg',
 ];
-const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function createAssetsPanelController({
@@ -22,7 +22,7 @@ export default function createAssetsPanelController({
     if (!fileInputEl) {
       fileInputEl = document.createElement('input');
       fileInputEl.type = 'file';
-      fileInputEl.accept = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
+      fileInputEl.accept = 'image/png,image/jpeg';
       fileInputEl.style.display = 'none';
       document.body.appendChild(fileInputEl);
       fileInputEl.addEventListener('change', handleFileSelected);
