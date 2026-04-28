@@ -321,54 +321,23 @@ function parseArrangement(arrangement) {
   const parts = arrangement.split(' ');
   if (parts.length < 2) {
     // eslint-disable-next-line no-console
-    console.warn(`[masonry] skipping unrecognized token: "${arrangement}"`);
+    console.warn(`[masonry] skipping unrecognized span: "${arrangement}"`);
     return null;
   }
-  const intPart = parseInt(parts[1].trim(), 10);
-  if (Number.isNaN(intPart) || intPart < 1 || intPart > 12) {
+  const spanValue = parseInt(parts[1].trim(), 10);
+  if (Number.isNaN(spanValue) || spanValue < 1 || spanValue > 12) {
     // eslint-disable-next-line no-console
     console.warn(`[masonry] skipping invalid span value in: "${arrangement}"`);
     return null;
   }
-  return { token: arrangement.toLowerCase(), intPart };
-}
-
-function buildMasonryRows(masonryArrangement) {
-  const rows = [];
-  let current = '';
-  let sum = 0;
-  masonryArrangement.map(parseArrangement).filter(Boolean).forEach(({ token, intPart }) => {
-    sum += intPart;
-    if (sum < 12) {
-      current += `${token}, `;
-    } else if (sum > 12) {
-      if (current) rows.push(current.replace(/, $/, ''));
-      current = `${token}, `;
-      sum = intPart;
-    } else if (intPart === 12) {
-      if (current) rows.push(current.replace(/, $/, ''));
-      rows.push('full-width');
-      current = '';
-      sum = 0;
-    } else {
-      rows.push(`${current}${token}`);
-      current = '';
-      sum = 0;
-    }
-  });
-  if (current) rows.push(current.replace(/, $/, ''));
-  return rows;
+  return { span: spanValue === 12 ? 'full-width' : arrangement.toLowerCase(), spanValue };
 }
 
 export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
-  const rows = buildMasonryRows(masonryArrangement);
-  const children = [];
-  rows.forEach((r, i) => {
-    if (i > 0) children.push(document.createTextNode('\n'));
-    const p = document.createElement('p');
-    p.textContent = r;
-    children.push(p);
-  });
-  styleLoc.replaceChildren(...children);
+  const spans = masonryArrangement.map(parseArrangement).filter(Boolean).map(({ span }) => span);
+  if (!spans.length) { styleLoc.replaceChildren(); return; }
+  const p = document.createElement('p');
+  p.textContent = spans.join(', ');
+  styleLoc.replaceChildren(p);
 }

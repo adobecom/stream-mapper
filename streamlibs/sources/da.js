@@ -55,11 +55,27 @@ async function getDAContent(path = false) {
   return html;
 }
 
+function restoreNewlinesInMasonryCell(doc) {
+  doc.querySelectorAll('.section-metadata > div').forEach((row) => {
+    const propertyCell = row.children[0];
+    const valueCell = row.children[1];
+    if (!propertyCell || !valueCell) return;
+    if (propertyCell.textContent.trim().toLowerCase() !== 'masonry') return;
+    [...valueCell.querySelectorAll(':scope > p')].forEach((p, i) => {
+      if (i === 0) return;
+      const prev = p.previousSibling;
+      const hasNewline = prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.includes('\n');
+      if (!hasNewline) valueCell.insertBefore(document.createTextNode('\n'), p);
+    });
+  });
+}
+
 // eslint-disable-next-line import/prefer-default-export
 export async function fetchDAContent(path = false) {
   const doc = await getDAContent(path);
   const parser = new DOMParser();
   const html = parser.parseFromString(doc, 'text/html');
+  restoreNewlinesInMasonryCell(html);
   return html.querySelector('main');
 }
 
