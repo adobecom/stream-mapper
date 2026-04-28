@@ -37,7 +37,7 @@ const CONFIG = {
   },
   prod: {
     streamMapper: {
-      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      serviceEP: 'https://440859-stream-dev.adobeio-static.net',
       figmaMappingUrl: '/api/v1/web/streamclient/fig-comps',
       figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details',
       pushToDaUrl: '/api/push-html',
@@ -51,7 +51,7 @@ const CONFIG = {
   },
   stage: {
     streamMapper: {
-      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      serviceEP: 'https://440859-stream-dev.adobeio-static.net',
       figmaMappingUrl: '/api/v1/web/streamclient/fig-comps',
       figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details',
       pushToDaUrl: '/api/push-html',
@@ -65,7 +65,7 @@ const CONFIG = {
   },
   dev: {
     streamMapper: {
-      serviceEP: 'https://440859-stream-dev.adobeioruntime.net',
+      serviceEP: 'https://440859-stream-dev.adobeio-static.net',
       figmaMappingUrl: '/api/v1/web/streamclient/fig-comps',
       figmaBlockContentUrl: '/api/v1/web/streamclient/fig-comp-details',
       pushToDaUrl: '/api/push-html',
