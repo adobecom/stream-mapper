@@ -317,27 +317,58 @@ export function handleProductLockup(value, areaEl) {
   if (productName) areaEl.innerHTML += productName;
 }
 
-export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
-  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
+function parseArrangement(arrangement) {
+  const parts = arrangement.split(' ');
+  if (parts.length < 2) {
+    // eslint-disable-next-line no-console
+    console.warn(`[masonry] skipping unrecognized token: "${arrangement}"`);
+    return null;
+  }
+  const intPart = parseInt(parts[1].trim(), 10);
+  if (Number.isNaN(intPart) || intPart < 1 || intPart > 12) {
+    // eslint-disable-next-line no-console
+    console.warn(`[masonry] skipping invalid span value in: "${arrangement}"`);
+    return null;
+  }
+  return { token: arrangement.toLowerCase(), intPart };
+}
+
+function buildMasonryRows(masonryArrangement) {
+  const rows = [];
+  let current = '';
   let sum = 0;
-  let masonryStyle = '';
-  // eslint-disable-next-line no-restricted-syntax
-  for (const arrangement of masonryArrangement) {
-    const a = arrangement.toLowerCase();
-    const intPart = parseInt(arrangement.split(' ')[1].trim(), 10);
+  masonryArrangement.map(parseArrangement).filter(Boolean).forEach(({ token, intPart }) => {
     sum += intPart;
     if (sum < 12) {
-      masonryStyle += `${a}, `;
+      current += `${token}, `;
     } else if (sum > 12) {
-      masonryStyle += `\n${a}`;
+      if (current) rows.push(current.replace(/, $/, ''));
+      current = `${token}, `;
+      sum = intPart;
+    } else if (intPart === 12) {
+      if (current) rows.push(current.replace(/, $/, ''));
+      rows.push('full-width');
+      current = '';
       sum = 0;
-    } else if (sum === 12 && intPart === 12) {
-      masonryStyle += 'full-width\n';
-      sum = 0;
-    } else if (sum === 12) {
-      masonryStyle += `${a}\n`;
+    } else {
+      rows.push(`${current}${token}`);
+      current = '';
       sum = 0;
     }
-  }
-  styleLoc.innerHTML = masonryStyle;
+  });
+  if (current) rows.push(current.replace(/, $/, ''));
+  return rows;
+}
+
+export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
+  const rows = buildMasonryRows(masonryArrangement);
+  const children = [];
+  rows.forEach((r, i) => {
+    if (i > 0) children.push(document.createTextNode('\n'));
+    const p = document.createElement('p');
+    p.textContent = r;
+    children.push(p);
+  });
+  styleLoc.replaceChildren(...children);
 }
