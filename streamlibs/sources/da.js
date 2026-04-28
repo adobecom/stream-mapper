@@ -65,7 +65,7 @@ function restoreNewlinesInMasonryCell(doc) {
       if (i === 0) return;
       const prev = p.previousSibling;
       const hasNewline = prev && prev.nodeType === Node.TEXT_NODE && prev.textContent.includes('\n');
-      if (!hasNewline) valueCell.insertBefore(document.createTextNode('\n'), p);
+      if (!hasNewline) valueCell.insertBefore(doc.createTextNode('\n'), p);
     });
   });
 }
