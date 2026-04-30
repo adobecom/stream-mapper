@@ -1,5 +1,12 @@
+import { showGlobalSnackbar } from '../../utils/snackbar.js';
+
 const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
 const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
+
+const ALLOWED_MIME_TYPES = [
+  'image/png', 'image/jpeg',
+];
+const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg'];
 
 export default function createAssetsPanelController({
   annotationState,
@@ -14,7 +21,7 @@ export default function createAssetsPanelController({
     if (!fileInputEl) {
       fileInputEl = document.createElement('input');
       fileInputEl.type = 'file';
-      fileInputEl.accept = 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml';
+      fileInputEl.accept = 'image/png,image/jpeg';
       fileInputEl.style.display = 'none';
       document.body.appendChild(fileInputEl);
       fileInputEl.addEventListener('change', handleFileSelected);
@@ -204,10 +211,25 @@ export default function createAssetsPanelController({
     }
   }
 
+  function validateFile(file) {
+    const ext = `.${(file.name || '').split('.').pop() || ''}`.toLowerCase();
+    if (!ALLOWED_MIME_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
+      const friendlyTypes = ALLOWED_EXTENSIONS.join(', ');
+      return `Unsupported file type "${ext}". Allowed types: ${friendlyTypes}`;
+    }
+    return null;
+  }
+
   async function handleFileSelected(event) {
     const file = event.target.files?.[0];
     event.target.value = ''; // reset for re-use
     if (!file || !pendingUploadTarget) return;
+
+    const validationError = validateFile(file);
+    if (validationError) {
+      showGlobalSnackbar(validationError, { variant: 'error', duration: 5000 });
+      return;
+    }
 
     const targetImg = pendingUploadTarget;
     pendingUploadTarget = null;
@@ -525,6 +547,10 @@ export default function createAssetsPanelController({
         uploadedIds.push(asset.id);
       } catch (err) {
         console.error('[assets-panel] Upload failed for local asset:', localAsset.localId, err);
+        showGlobalSnackbar(
+          `Upload failed for "${localAsset.filename}": ${err.message || 'Unknown error'}`,
+          { variant: 'error', duration: 5000 },
+        );
       }
     }
 

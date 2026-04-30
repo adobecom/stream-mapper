@@ -1784,6 +1784,7 @@ export default function createCommentsPanelController({
     } = options;
     hideGlobalSnackbar();
     closeCommentEditor();
+    assetsPanel.exitSelectMode();
     pendingCommentsPanelRefresh = false;
     if (!preserveRemoteEditState) {
       clearSelfSavedEditsFingerprint();
