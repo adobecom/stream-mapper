@@ -185,10 +185,10 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
   handler();
 }
 
-export async function miloLoadArea() {
+export async function miloLoadArea(area=document) {
   await transformImages();
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
-  await loadArea();
-  handleBrokenBlocks();
+  await loadArea(area);
+  // handleBrokenBlocks();
 }
