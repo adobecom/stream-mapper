@@ -41,6 +41,7 @@ export default function createEditDragDropController({
 
     event.preventDefault();
     currentDropContainer.classList.add('da-drop-active');
+    const dropPlaceholder = ensureDropPlaceholder();
 
     const pointElement = document.elementFromPoint(event.clientX, event.clientY);
     let targetBlock = pointElement && pointElement.closest('[data-source="da"], [data-source="figma"]');
@@ -49,12 +50,18 @@ export default function createEditDragDropController({
     }
 
     if (targetBlock && currentDropContainer.contains(targetBlock)) {
-      const dropPlaceholder = ensureDropPlaceholder();
       const rect = targetBlock.getBoundingClientRect();
       const shouldInsertBefore = event.clientY < rect.top + rect.height / 2;
-      if (!shouldInsertBefore && targetBlock.nextSibling !== dropPlaceholder) {
+      if (shouldInsertBefore && targetBlock.previousSibling !== dropPlaceholder) {
+        currentDropContainer.insertBefore(dropPlaceholder, targetBlock);
+      } else if (!shouldInsertBefore && targetBlock.nextSibling !== dropPlaceholder) {
         currentDropContainer.insertBefore(dropPlaceholder, targetBlock.nextSibling);
       }
+      return;
+    }
+
+    if (dropPlaceholder.parentNode !== currentDropContainer || dropPlaceholder !== currentDropContainer.lastChild) {
+      currentDropContainer.appendChild(dropPlaceholder);
     }
   }
 
