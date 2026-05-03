@@ -112,6 +112,13 @@ function emitReady() {
   });
 }
 
+/** Re-emit READY a few times so we can't lose the race with the parent attaching its listener. */
+function emitReadyWithRetries() {
+  emitReady();
+  const delays = [200, 600, 1500, 3000];
+  delays.forEach((ms) => setTimeout(emitReady, ms));
+}
+
 function buildStreamConfigFromInit(payload) {
   const incoming = (payload && typeof payload === 'object') ? payload : {};
   const prev = window.streamConfig || {};
@@ -224,8 +231,11 @@ if (!state.initialized) {
 
   const params = new URLSearchParams(window.location.search);
   if (params.get('streamHtmlReview') === '1') {
+    console.log('[stream-html-review] bootstrap loaded', {
+      href: window.location.href,
+    });
     attachMessageListener();
     scheduleCleanHtmlCapture();
-    emitReady();
+    emitReadyWithRetries();
   }
 }
