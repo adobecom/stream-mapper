@@ -74,8 +74,15 @@ function postToParent(msg) {
  * Inline minimum styles so the annotation panel is visible even before the full
  * stream-mapper stylesheet loads (or if the cross-origin link is blocked).
  */
+/**
+ * Layout note: the real `styles/styles.css` already handles gutter for the panel
+ * by scaling `main` (`transform: scale(0.75)`) and switching to a 320px inset
+ * on narrower viewports. We intentionally do NOT add `padding-right` to the
+ * body here — doing so on top of the stylesheet creates a visible gap between
+ * the page content and the panel (figma flow doesn't apply this fallback, so
+ * the bug only shows up for HTML Review).
+ */
 const MINIMAL_PANEL_STYLES = `
-body.annotation-mode { padding-right: 26%; box-sizing: border-box; }
 .annotation-comments-panel {
   position: fixed; top: 0; right: 0; width: 25%; min-width: 320px;
   height: 100vh; box-sizing: border-box; padding: 12px;
