@@ -17,6 +17,7 @@
 import {
   initializeTokens,
   ensureStreamMapperForStandalone,
+  setLibs,
 } from '../utils/utils.js';
 import {
   annotationOperationOnHostPage,
@@ -24,6 +25,20 @@ import {
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
 } from '../operations/annotation.js';
+
+/**
+ * Stream-mapper's `scripts.js` normally calls setLibs to bootstrap the Milo libs URL,
+ * but the tenant page never loads scripts.js. Initialise it ourselves so getConfig()
+ * resolves (otherwise getLibs() === undefined → dynamic import of `undefined/utils/utils.js`
+ * throws and INIT silently fails).
+ */
+function initMiloLibs() {
+  try {
+    setLibs('/libs');
+  } catch {
+    /* setLibs is a one-shot setter; safe to no-op on re-entry */
+  }
+}
 
 const MESSAGE = {
   ready: 'STREAM_HTML_REVIEW_READY',
@@ -153,6 +168,7 @@ async function startAnnotationFromInit(payload) {
   window.streamConfig = cfg;
 
   ensureMapperStylesheet();
+  initMiloLibs();
   await ensureStreamMapperForStandalone({ streamServiceEP: cfg.streamServiceEP });
   await initializeTokens(cfg.token);
 
@@ -237,5 +253,43 @@ if (!state.initialized) {
     attachMessageListener();
     scheduleCleanHtmlCapture();
     emitReadyWithRetries();
+
+    // Standalone self-test mode: opening the URL in a plain tab (no parent window)
+    // auto-fires INIT with values from the URL so the annotation panel mounts.
+    // Required: streamHtmlReviewAutoInit=1 + collabId; pageUrl defaults to the tenant pathname.
+    if (params.get('streamHtmlReviewAutoInit') === '1') {
+      const autoCollabId = params.get('collabId') || '';
+      if (!autoCollabId) {
+        console.warn(
+          '[stream-html-review] streamHtmlReviewAutoInit=1 but no collabId param; skipping self-INIT',
+        );
+      } else {
+        const autoPageUrl = (() => {
+          const fromParam = (params.get('pageUrl') || '').trim();
+          if (fromParam) return fromParam;
+          const seg = window.location.pathname.replace(/^\/+|\/+$/g, '');
+          return seg ? `adobecom/da-cc/${seg}` : '';
+        })();
+        const selfStreamConfig = {
+          token: params.get('token') || '',
+          streamServiceEP: params.get('streamServiceEP') || '',
+          collabId: autoCollabId,
+          collab_id: autoCollabId,
+          jiraId: params.get('jiraId') || '',
+          pageUrl: autoPageUrl,
+          targetUrl: autoPageUrl,
+          source: 'da',
+          operation: 'htmlRendererStandaloneAnnotation',
+          inlineEditingAllowed: params.get('inlineEditingAllowed') !== 'false',
+        };
+        console.log('[stream-html-review] self-INIT', selfStreamConfig);
+        // Defer until after capture has started so cachedCleanHtml is populated.
+        setTimeout(() => {
+          startAnnotationFromInit(selfStreamConfig).catch((err) => {
+            console.error('[stream-html-review] self-INIT failed', err);
+          });
+        }, 800);
+      }
+    }
   }
 }
