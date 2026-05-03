@@ -1,6 +1,6 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
-import { miloLoadArea, getConfig } from '../utils/utils.js';
+import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -311,30 +311,6 @@ export async function annotationOperationOnHostPage(options = {}) {
   });
 }
 
-function firstNonEmptyPersistUrl(...vals) {
-  for (const v of vals) {
-    const s = `${v ?? ''}`.trim();
-    if (s) return s;
-  }
-  return '';
-}
-
-function collabPersistUrl(collab) {
-  if (!collab || typeof collab !== 'object') return '';
-  return firstNonEmptyPersistUrl(
-    collab.pageUrl,
-    collab.page_url,
-    collab.draftLocation,
-    collab.draft_location,
-    collab.draftPageUrl,
-    collab.draft_page_url,
-    collab.daPath,
-    collab.da_path,
-    collab.metadata?.pageUrl,
-    collab.metadata?.page_url,
-  );
-}
-
 /** da.live edit URL → repo path (e.g. adobecom/...); leaves plain paths unchanged. */
 function normalizePersistUrlForDaApi(raw) {
   const s = `${raw || ''}`.trim();
@@ -354,46 +330,6 @@ function normalizePersistUrlForDaApi(raw) {
     /* ignore */
   }
   return s;
-}
-
-async function fetchCollabPersistUrlFromService(cfg) {
-  const collabId = `${cfg.collabId || cfg.collab_id || ''}`.trim();
-  if (!collabId) return '';
-  const tokenRaw = `${cfg.token || ''}`.trim();
-  if (!tokenRaw) return '';
-  const auth = tokenRaw.startsWith('Bearer ') ? tokenRaw : `Bearer ${tokenRaw}`;
-
-  let ep = `${cfg.streamServiceEP || ''}`.trim().replace(/\/$/, '');
-  if (!ep) {
-    try {
-      const c = await getConfig();
-      ep = `${c?.streamMapper?.serviceEP || ''}`.trim().replace(/\/$/, '');
-    } catch {
-      return '';
-    }
-  }
-  if (!ep) return '';
-
-  try {
-    const res = await fetch(
-      `${ep}/collabs/${encodeURIComponent(collabId)}`,
-      { headers: { Authorization: auth } },
-    );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return '';
-    return firstNonEmptyPersistUrl(
-      collabPersistUrl(data),
-      data.pageUrl,
-      data.page_url,
-      data.targetUrl,
-      data.daPath,
-      data.da_path,
-      data.draftLocation,
-      data.draft_location,
-    );
-  } catch {
-    return '';
-  }
 }
 
 export async function persistAnnotationChangesToDA() {
@@ -430,31 +366,13 @@ export async function persistAnnotationChangesToDA() {
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   const cfg = window.streamConfig || {};
-  const c = annotationState.latestRemoteCollabSnapshot?.collab;
-  let pushUrl = firstNonEmptyPersistUrl(
-    cfg.pageUrl,
-    cfg.targetUrl,
-    cfg.page_url,
-    cfg.target_url,
-    cfg.daPath,
-    cfg.da_path,
-    collabPersistUrl(c),
-    typeof window !== 'undefined'
-      ? window.__streamHtmlReviewPersistUrl
-      : '',
-  );
-  if (!pushUrl) {
-    pushUrl = await fetchCollabPersistUrlFromService(cfg);
-  }
-  if (pushUrl) {
-    const normalized = normalizePersistUrlForDaApi(pushUrl);
-    pushUrl = normalized || pushUrl;
-  }
-  if (!pushUrl) {
+  const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
+  if (!rawPushUrl) {
     throw new Error(
-      'persistAnnotationChangesToDA: set streamConfig.pageUrl or targetUrl (e.g. from STREAM_HTML_REVIEW_INIT).',
+      'persistAnnotationChangesToDA: streamConfig.pageUrl is required (set via STREAM_HTML_REVIEW_INIT).',
     );
   }
+  const pushUrl = normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl;
 
   await postData(pushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
