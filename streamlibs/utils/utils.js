@@ -31,9 +31,35 @@ export async function getConfig() {
 }
 
 export async function initializeTokens(token) {
+  if (token == null || `${token}`.trim() === '') return;
   const config = await getConfig();
-  config.streamMapper.figmaAuthToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-  config.streamMapper.daToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  if (!config.streamMapper) config.streamMapper = {};
+  const normalized = `${token}`.trim().startsWith('Bearer ') ? token : `Bearer ${token}`;
+  config.streamMapper.figmaAuthToken = normalized;
+  config.streamMapper.daToken = normalized;
+}
+
+/** Default stream annotation service (prod); override via host init e.g. streamServiceEP. */
+export const DEFAULT_STREAM_MAPPER_SERVICE_EP = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
+
+/** Ensure Milo config.streamMapper.* exists for annotation services when running outside mapper preview shell. */
+export async function ensureStreamMapperForStandalone(overrides = {}) {
+  const config = await getConfig();
+  const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
+  const existing = config.streamMapper || {};
+  const serviceEP = streamServiceEP || existing.serviceEP || DEFAULT_STREAM_MAPPER_SERVICE_EP;
+  config.streamMapper = {
+    serviceEP,
+    pushToDaUrl: '/api/push-html',
+    figmaMappingUrl: '/api/fig-comps',
+    figmaBlockContentUrl: '/api/fig-comp-details',
+    blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
+    figmaAuthToken: '',
+    daToken: '',
+    ...existing,
+    serviceEP,
+  };
+  return config;
 }
 
 export function extractByPattern(tag, pattern) {

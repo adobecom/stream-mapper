@@ -217,6 +217,33 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
 
+async function finishAnnotationSession(mainEl, {
+  preserveRemoteEditState,
+  shouldRestoreInlineMode,
+}) {
+  await commentsPanel.setupAnnotationUI(mainEl, {
+    preserveRemoteEditState,
+  });
+  if (annotationState.latestRemoteCollabSnapshot) {
+    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
+      includeEdits: false,
+    });
+  }
+  store.rebindEasyEditsToCurrentDom();
+  store.applyEasyEditsToDom();
+  store.saveAnnotationStore();
+  if (shouldRestoreInlineMode) {
+    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
+    if (!didEnableInlineMode) {
+      commentsPanel.renderThreadMarkers({ resolveTargets: true });
+      commentsPanel.renderCommentsPanel();
+    }
+  } else {
+    commentsPanel.renderThreadMarkers({ resolveTargets: true });
+    commentsPanel.renderCommentsPanel();
+  }
+}
+
 export async function annotationOperation(options = {}) {
   const {
     preserveRemoteEditState = false,
@@ -242,27 +269,46 @@ export async function annotationOperation(options = {}) {
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  await commentsPanel.setupAnnotationUI(mainEl, {
+  await finishAnnotationSession(mainEl, {
     preserveRemoteEditState,
+    shouldRestoreInlineMode,
   });
-  if (annotationState.latestRemoteCollabSnapshot) {
-    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
-      includeEdits: false,
-    });
+}
+
+/**
+ * Annotation on an existing decorated page (tenant AEM): uses current <main>, no miloLoadArea / preview replacement.
+ */
+export async function annotationOperationOnHostPage(options = {}) {
+  const {
+    preserveRemoteEditState = false,
+    refreshBaselineHtml = false,
+  } = options;
+  const previousAnnotationMode = annotationUI.annotationMode || 'comments';
+  const shouldRestoreInlineMode = annotationUI.inlineMode
+    && window.streamConfig?.inlineEditingAllowed !== false;
+
+  inlineEditing.resetInlineEditModeState();
+  annotationUI.annotationMode = shouldRestoreInlineMode ? 'edit' : previousAnnotationMode;
+  document.body.classList.add('annotation-mode');
+  if (!preserveRemoteEditState) {
+    annotationState.latestSavedEditsUpdatedAt = null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = false;
   }
-  store.rebindEasyEditsToCurrentDom();
-  store.applyEasyEditsToDom();
-  store.saveAnnotationStore();
-  if (shouldRestoreInlineMode) {
-    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
-    if (!didEnableInlineMode) {
-      commentsPanel.renderThreadMarkers({ resolveTargets: true });
-      commentsPanel.renderCommentsPanel();
-    }
-  } else {
-    commentsPanel.renderThreadMarkers({ resolveTargets: true });
-    commentsPanel.renderCommentsPanel();
+
+  const mainEl = document.querySelector('main');
+  if (!mainEl) {
+    throw new Error('annotationOperationOnHostPage: no <main> found on page');
   }
+
+  if (!cachedCleanHtml || refreshBaselineHtml) {
+    cachedCleanHtml = mainEl.innerHTML || '';
+  }
+
+  await finishAnnotationSession(mainEl, {
+    preserveRemoteEditState,
+    shouldRestoreInlineMode,
+  });
 }
 
 export async function persistAnnotationChangesToDA() {
