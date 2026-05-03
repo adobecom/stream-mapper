@@ -28,6 +28,31 @@ import {
 const STYLES_LINK_ID = 'stream-mapper-html-review-styles';
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
 
+/** First non-empty string among candidates (treats "", null, undefined as empty). */
+function firstNonEmpty(...vals) {
+  for (const v of vals) {
+    const s = `${v ?? ''}`.trim();
+    if (s) return s;
+  }
+  return '';
+}
+
+function persistUrlFromCollab(collab) {
+  if (!collab || typeof collab !== 'object') return '';
+  return firstNonEmpty(
+    collab.pageUrl,
+    collab.page_url,
+    collab.draftLocation,
+    collab.draft_location,
+    collab.draftPageUrl,
+    collab.draft_page_url,
+    collab.daPath,
+    collab.da_path,
+    collab.metadata?.pageUrl,
+    collab.metadata?.page_url,
+  );
+}
+
 function ensureMapperStylesheet() {
   if (document.getElementById(STYLES_LINK_ID)) return;
   const origin = new URL(import.meta.url).origin;
@@ -58,11 +83,41 @@ function notifyParentPushToDaResult(success, detailMessage) {
 export async function startHtmlReviewStandalone(streamConfig = {}) {
   ensureMapperStylesheet();
 
-  window.streamConfig = {
-    ...(window.streamConfig || {}),
-    ...streamConfig,
-    operation: streamConfig.operation || 'htmlRendererStandaloneAnnotation',
+  const prev = window.streamConfig || {};
+  const incoming =
+    streamConfig && typeof streamConfig === 'object' ? streamConfig : {};
+  const merged = {
+    ...prev,
+    ...incoming,
+    operation:
+      incoming.operation
+      || prev.operation
+      || 'htmlRendererStandaloneAnnotation',
   };
+
+  const persistUrl = firstNonEmpty(
+    incoming.pageUrl,
+    incoming.targetUrl,
+    incoming.page_url,
+    incoming.target_url,
+    incoming.daPath,
+    incoming.da_path,
+    merged.pageUrl,
+    merged.targetUrl,
+    merged.page_url,
+    merged.daPath,
+  );
+  if (persistUrl) {
+    merged.pageUrl = firstNonEmpty(merged.pageUrl, persistUrl);
+    merged.targetUrl = firstNonEmpty(
+      merged.targetUrl,
+      merged.pageUrl,
+      persistUrl,
+    );
+    window.__streamHtmlReviewPersistUrl = persistUrl;
+  }
+
+  window.streamConfig = merged;
 
   await ensureStreamMapperForStandalone({
     streamServiceEP: window.streamConfig.streamServiceEP,
@@ -124,13 +179,18 @@ function attachMessageBridge() {
 
     if (data.type === 'STREAM_COLLAB_SNAPSHOT') {
       const payload = data.payload || {};
-      const collabPageUrl = `${payload.collab?.pageUrl || ''}`.trim();
+      const collabPageUrl = persistUrlFromCollab(payload.collab);
       if (collabPageUrl) {
-        const prev = window.streamConfig || {};
+        window.__streamHtmlReviewPersistUrl = collabPageUrl;
+        const prevCfg = window.streamConfig || {};
         window.streamConfig = {
-          ...prev,
-          pageUrl: prev.pageUrl || collabPageUrl,
-          targetUrl: prev.targetUrl || prev.pageUrl || collabPageUrl,
+          ...prevCfg,
+          pageUrl: firstNonEmpty(prevCfg.pageUrl, collabPageUrl),
+          targetUrl: firstNonEmpty(
+            prevCfg.targetUrl,
+            prevCfg.pageUrl,
+            collabPageUrl,
+          ),
         };
       }
       applyRemoteCollabSnapshot(payload);

@@ -311,6 +311,30 @@ export async function annotationOperationOnHostPage(options = {}) {
   });
 }
 
+function firstNonEmptyPersistUrl(...vals) {
+  for (const v of vals) {
+    const s = `${v ?? ''}`.trim();
+    if (s) return s;
+  }
+  return '';
+}
+
+function collabPersistUrl(collab) {
+  if (!collab || typeof collab !== 'object') return '';
+  return firstNonEmptyPersistUrl(
+    collab.pageUrl,
+    collab.page_url,
+    collab.draftLocation,
+    collab.draft_location,
+    collab.draftPageUrl,
+    collab.draft_page_url,
+    collab.daPath,
+    collab.da_path,
+    collab.metadata?.pageUrl,
+    collab.metadata?.page_url,
+  );
+}
+
 export async function persistAnnotationChangesToDA() {
   await inlineEditing.syncInlineEditsBeforePersist();
 
@@ -345,11 +369,19 @@ export async function persistAnnotationChangesToDA() {
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   const cfg = window.streamConfig || {};
-  const snapUrl = (() => {
-    const c = annotationState.latestRemoteCollabSnapshot?.collab;
-    return `${c?.pageUrl || c?.page_url || ''}`.trim();
-  })();
-  const pushUrl = `${cfg.pageUrl || cfg.targetUrl || cfg.page_url || snapUrl || ''}`.trim();
+  const c = annotationState.latestRemoteCollabSnapshot?.collab;
+  const pushUrl = firstNonEmptyPersistUrl(
+    cfg.pageUrl,
+    cfg.targetUrl,
+    cfg.page_url,
+    cfg.target_url,
+    cfg.daPath,
+    cfg.da_path,
+    collabPersistUrl(c),
+    typeof window !== 'undefined'
+      ? window.__streamHtmlReviewPersistUrl
+      : '',
+  );
   if (!pushUrl) {
     throw new Error(
       'persistAnnotationChangesToDA: set streamConfig.pageUrl or targetUrl (e.g. from STREAM_HTML_REVIEW_INIT).',
