@@ -70,7 +70,32 @@ function postToParent(msg) {
   }
 }
 
+/**
+ * Inline minimum styles so the annotation panel is visible even before the full
+ * stream-mapper stylesheet loads (or if the cross-origin link is blocked).
+ */
+const MINIMAL_PANEL_STYLES = `
+body.annotation-mode { padding-right: 26%; box-sizing: border-box; }
+.annotation-comments-panel {
+  position: fixed; top: 0; right: 0; width: 25%; min-width: 320px;
+  height: 100vh; box-sizing: border-box; padding: 12px;
+  background: #eef5ff; border-left: 1px solid #cfe1ff; z-index: 2147483000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.annotation-comments-panel-header { display: flex; justify-content: space-between; align-items: center; }
+.annotation-comments-panel-header h3 { margin: 0; color: #1d4ed8; font-size: 16px; }
+.annotation-comments-content { flex: 1 1 auto; overflow: auto; margin-top: 12px; }
+.annotation-floating-layer { position: fixed; inset: 0 25% 0 0; pointer-events: none; z-index: 2147482000; }
+`;
+
 function ensureMapperStylesheet() {
+  if (!document.getElementById('stream-html-review-inline-fallback')) {
+    const inline = document.createElement('style');
+    inline.id = 'stream-html-review-inline-fallback';
+    inline.textContent = MINIMAL_PANEL_STYLES;
+    document.head.appendChild(inline);
+  }
   if (document.getElementById(STYLES_LINK_ID)) return;
   try {
     const origin = new URL(import.meta.url).origin;
@@ -78,9 +103,12 @@ function ensureMapperStylesheet() {
     link.id = STYLES_LINK_ID;
     link.rel = 'stylesheet';
     link.href = `${origin}/streamlibs/styles/styles.css`;
+    link.crossOrigin = 'anonymous';
+    link.onload = () => console.log('[stream-html-review] mapper stylesheet loaded', link.href);
+    link.onerror = () => console.warn('[stream-html-review] mapper stylesheet failed to load', link.href);
     document.head.appendChild(link);
-  } catch {
-    /* ignore */
+  } catch (err) {
+    console.warn('[stream-html-review] could not attach stylesheet link', err);
   }
 }
 
@@ -167,16 +195,59 @@ async function startAnnotationFromInit(payload) {
   }
   window.streamConfig = cfg;
 
+  console.log('[stream-html-review] step:ensureMapperStylesheet');
   ensureMapperStylesheet();
-  initMiloLibs();
-  await ensureStreamMapperForStandalone({ streamServiceEP: cfg.streamServiceEP });
-  await initializeTokens(cfg.token);
 
-  // Make sure baseline HTML is captured before annotation rewrites <main>.
+  console.log('[stream-html-review] step:initMiloLibs');
+  initMiloLibs();
+
+  console.log('[stream-html-review] step:ensureStreamMapperForStandalone');
+  try {
+    await ensureStreamMapperForStandalone({ streamServiceEP: cfg.streamServiceEP });
+  } catch (err) {
+    console.error('[stream-html-review] ensureStreamMapperForStandalone failed', err);
+    throw err;
+  }
+
+  if (cfg.token) {
+    console.log('[stream-html-review] step:initializeTokens');
+    try {
+      await initializeTokens(cfg.token);
+    } catch (err) {
+      console.error('[stream-html-review] initializeTokens failed', err);
+      throw err;
+    }
+  }
+
   if (!state.cleanMainHtml) captureCleanHtml();
 
-  await annotationOperationOnHostPage({ refreshBaselineHtml: !state.annotationStarted });
+  const mainEl = document.querySelector('main');
+  console.log('[stream-html-review] pre-annotation <main> check', {
+    found: !!mainEl,
+    childCount: mainEl ? mainEl.children.length : 0,
+    cleanHtmlLength: state.cleanMainHtml.length,
+  });
+  if (!mainEl) {
+    console.error(
+      '[stream-html-review] no <main> found on page. The bootstrap requires a top-level <main> element.',
+    );
+    return;
+  }
+
+  console.log('[stream-html-review] step:annotationOperationOnHostPage');
+  try {
+    await annotationOperationOnHostPage({ refreshBaselineHtml: !state.annotationStarted });
+  } catch (err) {
+    console.error('[stream-html-review] annotationOperationOnHostPage failed', err);
+    throw err;
+  }
   state.annotationStarted = true;
+
+  const panelEl = document.querySelector('.annotation-comments-panel');
+  console.log('[stream-html-review] annotation mounted', {
+    hasPanel: !!panelEl,
+    bodyHasMode: document.body.classList.contains('annotation-mode'),
+  });
 
   postToParent({ type: MESSAGE.annotationReady });
   postToParent({ type: MESSAGE.previewInteractive, ready: true });
