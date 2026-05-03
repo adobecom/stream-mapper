@@ -1,6 +1,6 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
-import { miloLoadArea } from '../utils/utils.js';
+import { miloLoadArea, getConfig } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -335,6 +335,67 @@ function collabPersistUrl(collab) {
   );
 }
 
+/** da.live edit URL → repo path (e.g. adobecom/...); leaves plain paths unchanged. */
+function normalizePersistUrlForDaApi(raw) {
+  const s = `${raw || ''}`.trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) {
+    return s.replace(/^\/+/, '');
+  }
+  try {
+    const u = new URL(s);
+    if (u.hash?.startsWith('#/')) {
+      return decodeURIComponent(u.hash.slice(2)).replace(/^\/+/, '');
+    }
+    if (u.hostname.includes('da.live') && u.pathname && u.pathname !== '/') {
+      return decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    }
+  } catch {
+    /* ignore */
+  }
+  return s;
+}
+
+async function fetchCollabPersistUrlFromService(cfg) {
+  const collabId = `${cfg.collabId || cfg.collab_id || ''}`.trim();
+  if (!collabId) return '';
+  const tokenRaw = `${cfg.token || ''}`.trim();
+  if (!tokenRaw) return '';
+  const auth = tokenRaw.startsWith('Bearer ') ? tokenRaw : `Bearer ${tokenRaw}`;
+
+  let ep = `${cfg.streamServiceEP || ''}`.trim().replace(/\/$/, '');
+  if (!ep) {
+    try {
+      const c = await getConfig();
+      ep = `${c?.streamMapper?.serviceEP || ''}`.trim().replace(/\/$/, '');
+    } catch {
+      return '';
+    }
+  }
+  if (!ep) return '';
+
+  try {
+    const res = await fetch(
+      `${ep}/collabs/${encodeURIComponent(collabId)}`,
+      { headers: { Authorization: auth } },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return '';
+    return firstNonEmptyPersistUrl(
+      collabPersistUrl(data),
+      data.pageUrl,
+      data.page_url,
+      data.targetUrl,
+      data.daPath,
+      data.da_path,
+      data.draftLocation,
+      data.draft_location,
+    );
+  } catch {
+    return '';
+  }
+}
+
 export async function persistAnnotationChangesToDA() {
   await inlineEditing.syncInlineEditsBeforePersist();
 
@@ -370,7 +431,7 @@ export async function persistAnnotationChangesToDA() {
 
   const cfg = window.streamConfig || {};
   const c = annotationState.latestRemoteCollabSnapshot?.collab;
-  const pushUrl = firstNonEmptyPersistUrl(
+  let pushUrl = firstNonEmptyPersistUrl(
     cfg.pageUrl,
     cfg.targetUrl,
     cfg.page_url,
@@ -382,6 +443,13 @@ export async function persistAnnotationChangesToDA() {
       ? window.__streamHtmlReviewPersistUrl
       : '',
   );
+  if (!pushUrl) {
+    pushUrl = await fetchCollabPersistUrlFromService(cfg);
+  }
+  if (pushUrl) {
+    const normalized = normalizePersistUrlForDaApi(pushUrl);
+    pushUrl = normalized || pushUrl;
+  }
   if (!pushUrl) {
     throw new Error(
       'persistAnnotationChangesToDA: set streamConfig.pageUrl or targetUrl (e.g. from STREAM_HTML_REVIEW_INIT).',
