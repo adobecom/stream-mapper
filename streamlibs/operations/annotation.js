@@ -345,8 +345,11 @@ export async function persistAnnotationChangesToDA() {
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   const cfg = window.streamConfig || {};
-  const pushUrl =
-    `${cfg.pageUrl || cfg.targetUrl || cfg.page_url || ''}`.trim();
+  const snapUrl = (() => {
+    const c = annotationState.latestRemoteCollabSnapshot?.collab;
+    return `${c?.pageUrl || c?.page_url || ''}`.trim();
+  })();
+  const pushUrl = `${cfg.pageUrl || cfg.targetUrl || cfg.page_url || snapUrl || ''}`.trim();
   if (!pushUrl) {
     throw new Error(
       'persistAnnotationChangesToDA: set streamConfig.pageUrl or targetUrl (e.g. from STREAM_HTML_REVIEW_INIT).',

@@ -123,7 +123,18 @@ function attachMessageBridge() {
     }
 
     if (data.type === 'STREAM_COLLAB_SNAPSHOT') {
-      applyRemoteCollabSnapshot(data.payload || {});
+      const payload = data.payload || {};
+      const collabPageUrl = `${payload.collab?.pageUrl || ''}`.trim();
+      if (collabPageUrl) {
+        const prev = window.streamConfig || {};
+        window.streamConfig = {
+          ...prev,
+          pageUrl: prev.pageUrl || collabPageUrl,
+          targetUrl: prev.targetUrl || prev.pageUrl || collabPageUrl,
+        };
+      }
+      applyRemoteCollabSnapshot(payload);
+      return;
     }
   });
 }
