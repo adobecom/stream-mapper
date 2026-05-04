@@ -192,12 +192,17 @@ export const LOADER_MSG_LIST = [
 ];
 
 export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
+export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
+export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {
   START: 0,
   FIGMA_DESIGN_DONE: 10,
   BLOCKS_START: 10,
   BLOCKS_DONE: 90,
+  SAVE_PREPARING: 10,
+  SAVE_HTML_DONE: 55,
+  SAVE_METADATA_DONE: 85,
   START_PAINTING: 100,
 };
 
@@ -207,9 +212,61 @@ export const LOADER_STEP_MESSAGES = {
   FIGMA_DESIGN_LOADED: 'Figma design loaded',
   NO_COMPONENTS: 'No components found',
   NO_BLOCKS: 'No blocks to create',
+  SAVE_PREPARING: 'Preparing changes to save',
+  SAVE_HTML_DONE: 'Saved HTML changes',
+  SAVE_METADATA_DONE: 'Saved edit metadata',
+  SAVE_COMPLETE: 'Changes saved',
   START_PAINTING: 'Start painting',
 };
 
 export function getBlocksCreationMessage(current, total) {
   return `Creating blocks ${current}/${total}`;
+}
+
+export const ANNOTATION_DEFAULT_USERNAME = 'stream';
+
+export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+
+export const ANNOTATION_MESSAGES = {
+  collabUnavailableTitle: 'Collaboration unavailable',
+  collabUnavailableDescription: 'This review does not have a collab ID yet, so comments and edits cannot load or sync.',
+  collabUnavailableSnackbar: 'Comments and edits are unavailable until a collab is attached.',
+  commentsUnavailableSnackbar: 'Comments are unavailable until a collab is attached.',
+  closedThreadRestricted: 'Closed threads can no longer be updated.',
+  inlineEditRestrictedTitle: 'Edit access restricted',
+  inlineEditRestrictedDescription: 'Only collab owners can use inline editing in this review.',
+  inlineEditRestrictedSnackbar: 'Inline editing is only available to collab owners.',
+  noAssets: 'No assets yet.',
+  noComments: 'No comments yet. Click an element to add one.',
+  noEdits: 'No edits yet. Start editing text or image alt.',
+  refreshEditsTitle: 'New saved edits available',
+  refreshEditsDescription: 'Another user saved changes. Refresh the canvas to load the latest edits.',
+  refreshEditsInlineMessage: 'Changes detected. Please refresh.',
+  refreshEditsAction: 'Refresh canvas',
+  refreshEditsSnackbar: 'New saved edits are available. Refresh the canvas to load them.',
+  refreshEditsError: "Couldn't refresh edits. Please try again.",
+  saveEditsError: "Couldn't save changes. Please try again.",
+  postCommentError: "Couldn't post comment. Please try again.",
+  sendReplyError: "Couldn't send reply. Please try again.",
+  saveCommentError: "Couldn't save comment. Please try again.",
+  updateStatusError: "Couldn't update comment status. Please try again.",
+  updateStatusRestricted: 'Only the collab owner can update thread status.',
+  syncEditError: "Couldn't sync edit thread. Please try again.",
+  editCommentAriaLabel: 'Edit comment',
+  saveCommentAction: 'Save',
+  cancelCommentAction: 'Cancel',
+  editCommentPlaceholder: 'Update your comment...',
+};
+
+export const BROKEN_PLACEHOLDER_HTML = {
+  default: `<div class="broken-placeholder default-placeholder">
+      <div class="foreground">
+          <div class="text">
+              <h3>⚠️ Manual authoring required for this block.</h3>
+              <p>Automated mapping is not supported for this area. Manual authoring is required.</p>
+          </div>
+          <div class="image">
+          </div>
+      </div>
+    </div>`,
 }

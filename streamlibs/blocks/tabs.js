@@ -43,7 +43,7 @@ function createTabsSections(tabId, tabs, sectionWrapper) {
     const div = document.createElement('div');
     div.innerHTML = `
                 <p>
-                  <a href='https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder'>${tab.label}</a>
+                  <a href='https://main--stream-mapper--adobecom.aem.live/fragments/stream-tab-placeholder'>${tab.label}</a>
                 </p>
                 <div class="section-metadata">
                   <div>

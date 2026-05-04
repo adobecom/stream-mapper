@@ -8,6 +8,10 @@ import {
   pushTargetHtmlToStore,
   fetchPreviewHtmlFromStore,
   pushPreviewHtmlToStore,
+  fetchTargetHtmlFromStore,
+  resetEditChangesInStore,
+  resetPreviewHtmlInStore,
+  resetTargetHtmlInStore,
 } from './store/store.js';
 import {
   getQueryParam,
@@ -17,15 +21,71 @@ import {
   miloLoadArea,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
+import { showGlobalSnackbar } from './utils/snackbar.js';
 import {
   createStreamOperation,
   editStreamOperation,
   applyEditChanges,
   handleBackToEditor,
   preflightOperation,
+  annotationOperation,
+  refreshAnnotationFloatingUI,
+  saveAnnotationChanges,
+  persistAnnotationChangesToDA,
+  applyRemoteCollabSnapshot,
+  preparePendingRemoteEditsRefresh,
 } from './utils/operations.js';
-import { LOADER_PROGRESS_STEPS, LOADER_STEP_MESSAGES } from './utils/constants.js';
-import { initializeLoader, updateLoader, hideLoader } from './utils/loader.js';
+import {
+  ANNOTATION_REFRESH_EVENT,
+  ANNOTATION_READY_EVENT,
+  ANNOTATION_MESSAGES,
+  LOADER_PROGRESS_STEPS,
+  LOADER_STEP_MESSAGES,
+} from './utils/constants.js';
+import {
+  initializeLoader,
+  updateLoader,
+  hideLoader,
+  notifyParentPreviewInteractive,
+} from './utils/loader.js';
+
+const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
+
+function notifyParentPushToDaResult(success, detailMessage) {
+  if (!window.parent || window.parent === window) return;
+  window.parent.postMessage(
+    {
+      type: PUSH_TO_DA_RESULT,
+      success: !!success,
+      message: detailMessage ? String(detailMessage) : '',
+    },
+    '*',
+  );
+}
+
+function parseBooleanFlag(value) {
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return null;
+}
+
+function isCollabOwnerRole(role) {
+  const normalizedRole = `${role || ''}`
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+  if (!normalizedRole) return false;
+  return normalizedRole === 'owner'
+    || normalizedRole === 'collab owner'
+    || normalizedRole.endsWith(' owner');
+}
+
+function resolveInlineEditingAllowed(previewParams = {}) {
+  const explicitFlag = parseBooleanFlag(previewParams.inlineEditingAllowed);
+  if (explicitFlag !== null) return explicitFlag;
+  if (previewParams.collabRole) return isCollabOwnerRole(previewParams.collabRole);
+  return false;
+}
 
 function hideDOMElements(eles = []) {
   if (!eles.length) return;
@@ -57,6 +117,14 @@ async function postOperationProcessing(rawhtml) {
   hideLoader();
 }
 
+function notifyAnnotationReady() {
+  if (!window.parent || window.parent === window) return;
+  window.parent.postMessage({
+    type: ANNOTATION_READY_EVENT,
+    storeId: getQueryParam('storeId'),
+  }, '*');
+}
+
 export async function initiatePreviewer(forceOperation = null) {
   let html = '';
   switch (forceOperation || window.streamConfig.operation) {
@@ -73,6 +141,12 @@ export async function initiatePreviewer(forceOperation = null) {
       updateLoader();
       await preflightOperation();
       hideLoader();
+      break;
+    case 'annotation':
+      updateLoader();
+      await annotationOperation();
+      hideLoader();
+      notifyAnnotationReady();
       break;
     default:
       break;
@@ -102,11 +176,18 @@ async function requestStreamConfigFromParent() {
       contentUrl: getQueryParam('contentUrl'),
       target: getQueryParam('target'),
       targetUrl: getQueryParam('targetUrl'),
+      pageUrl: getQueryParam('pageUrl') || getQueryParam('page_url'),
       token: getQueryParam('token'),
+      profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
+      collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
       operation: getQueryParam('operation') || 'create',
       preflightUrl: getQueryParam('preflightUrl'),
       selectedPageBlocks: getQueryParam('selectedPageBlock') ? getQueryParam('selectedPageBlock').split(',') : [],
       selectedPageBlockIndices: getQueryParam('selectedPageBlockIndex') ? getQueryParam('selectedPageBlockIndex').split(',') : [],
+      reviewId: getQueryParam('reviewId') || getQueryParam('reviewid'),
+      startReview: getQueryParam('startReview') || getQueryParam('startreview'),
+      inlineEditingAllowed: getQueryParam('inlineEditingAllowed'),
+      collabRole: getQueryParam('collabRole'),
     };
   }
 
@@ -150,7 +231,14 @@ async function setupMessageListener() {
     if (!isOriginAllowed) return;
 
     if (event.data.type === 'PUSH_TO_DA') {
-      await persist();
+      try {
+        await persist();
+      } catch {
+        // persist() notifies the parent on failure; swallow to avoid unhandled rejection
+      }
+    }
+    if (event.data.type === 'SAVE_ANNOTATION_CHANGES') {
+      await saveChanges();
     }
     if (event.data.type === 'RUN_PREFLIGHT') {
       const url = new URL(window.location.href);
@@ -166,11 +254,32 @@ async function setupMessageListener() {
     if (event.data.type === 'RESET') {
       window.location.reload();
     }
+    if (event.data.type === 'STREAM_GET_TARGET_HTML') {
+      const bodyHtml = fetchTargetHtmlFromStore() || '';
+      event.source?.postMessage({
+        type: 'STREAM_TARGET_HTML',
+        requestId: event.data.requestId,
+        storeId: getQueryParam('storeId'),
+        bodyHtml,
+      }, event.origin);
+    }
+    if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
+      if (window.streamConfig.operation !== 'annotation') return;
+      const collabPageUrl = event.data?.payload?.collab?.pageUrl;
+      if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
+      applyRemoteCollabSnapshot(event.data.payload || {});
+    }
+  });
+
+  window.addEventListener(ANNOTATION_REFRESH_EVENT, async () => {
+    await refreshAnnotationCanvas();
   });
 }
 
 export default async function initPreviewer() {
-  window.sessionStorage.clear();
+  resetTargetHtmlInStore();
+  resetPreviewHtmlInStore();
+  resetEditChangesInStore();
   initializeLoader();
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
@@ -179,11 +288,22 @@ export default async function initPreviewer() {
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
+    pageUrl: previewParams.pageUrl
+      || previewParams.page_url
+      || previewParams.collab?.pageUrl
+      || null,
     token: previewParams.token,
+    profileId: previewParams.profileId || previewParams.profile_id || null,
+    collabId: previewParams.collabId || previewParams.collab_id || null,
     operation: previewParams.operation || 'create',
     preflightUrl: previewParams.preflightUrl,
     selectedPageBlocks: previewParams.selectedPageBlocks || [],
     selectedPageBlockIndices: previewParams.selectedPageBlockIndices || [],
+    username: previewParams.username || null,
+    reviewId: previewParams.reviewId || previewParams.reviewid || null,
+    startReview: previewParams.startReview || previewParams.startreview || false,
+    inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
+    collabRole: previewParams.collabRole || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -192,15 +312,101 @@ export default async function initPreviewer() {
 
 export async function persist() {
   try {
+    notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    await persistOnTarget();
+    if (window.streamConfig.operation === 'annotation') {
+      await persistAnnotationChangesToDA();
+    } else {
+      await persistOnTarget();
+    }
     hideLoader();
     showDOMElements([document.querySelector('main')]);
+    notifyParentPushToDaResult(true);
   } catch (error) {
     hideLoader();
     showDOMElements([document.querySelector('main')]);
+    const detail = error?.message ? String(error.message) : '';
+    notifyParentPushToDaResult(false, detail);
     handleError(error, 'persisting content');
+    throw error;
+  }
+}
+
+export async function saveChanges() {
+  const isAnnotationOperation = window.streamConfig.operation === 'annotation';
+  try {
+    updateLoader({
+      message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
+      percentage: LOADER_PROGRESS_STEPS.SAVE_PREPARING,
+    });
+    hideDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      await saveAnnotationChanges((stage) => {
+        if (stage === 'htmlSaved') {
+          updateLoader({
+            message: LOADER_STEP_MESSAGES.SAVE_HTML_DONE,
+            percentage: LOADER_PROGRESS_STEPS.SAVE_HTML_DONE,
+          });
+        }
+        if (stage === 'editsSaved') {
+          updateLoader({
+            message: LOADER_STEP_MESSAGES.SAVE_METADATA_DONE,
+            percentage: LOADER_PROGRESS_STEPS.SAVE_METADATA_DONE,
+          });
+        }
+      });
+      updateLoader({
+        message: LOADER_STEP_MESSAGES.START_PAINTING,
+        percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+      });
+      await annotationOperation({
+        preserveRemoteEditState: true,
+      });
+    } else {
+      await persistOnTarget();
+    }
+    showDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      await refreshAnnotationFloatingUI();
+    }
+    hideLoader();
+    if (isAnnotationOperation) {
+      notifyAnnotationReady();
+    }
+  } catch (error) {
+    hideLoader();
+    showDOMElements([document.querySelector('main')]);
+    if (isAnnotationOperation) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.saveEditsError);
+    } else {
+      handleError(error, 'saving changes');
+    }
+    throw error;
+  }
+}
+
+export async function refreshAnnotationCanvas() {
+  if (window.streamConfig.operation !== 'annotation') return;
+
+  try {
+    updateLoader({
+      message: LOADER_STEP_MESSAGES.START_PAINTING,
+      percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+    });
+    hideDOMElements([document.querySelector('main')]);
+    preparePendingRemoteEditsRefresh();
+    await annotationOperation({
+      preserveRemoteEditState: true,
+    });
+    showDOMElements([document.querySelector('main')]);
+    await refreshAnnotationFloatingUI();
+    hideLoader();
+    notifyAnnotationReady();
+  } catch (error) {
+    hideLoader();
+    showDOMElements([document.querySelector('main')]);
+    showGlobalSnackbar(ANNOTATION_MESSAGES.refreshEditsError);
     throw error;
   }
 }

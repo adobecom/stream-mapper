@@ -93,7 +93,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch('brick.json');
     properties.masonryArrangement = [];
     properties.bricks.forEach((brick) => {
-      if (!brick.brickType) return;
+      if (!brick.brickType || !brick.spanLayout) return;
       const blockTemplate = blockContent.cloneNode(true);
       if (brick.colorTheme) blockTemplate.classList.add(brick.colorTheme);
       properties.masonryArrangement.push(brick.spanLayout.toLowerCase());
@@ -145,7 +145,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     blockContent.classList.add('to-remove');
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
     const allBricks = sectionWrapper.querySelectorAll('.brick');
-    handleMasonrysWithSectionMetadata(sectionWrapper, allBricks[allBricks.length - 1], properties.masonryArrangement);
+    if (allBricks.length) handleMasonrysWithSectionMetadata(sectionWrapper, allBricks[allBricks.length - 1], properties.masonryArrangement);
     if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {

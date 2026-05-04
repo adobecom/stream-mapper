@@ -35,9 +35,14 @@ const CONFIG = {
     de: { ietf: 'de-DE', tk: 'hah7vzn.css' },
     kr: { ietf: 'ko-KR', tk: 'zfo3ouc' },
   },
+  figmaServiceRetry: {
+    retryCount: 3,
+    retryDelaysMs: [1000, 2000, 4000, 6000],
+    blockContentConcurrency: 3,
+  },
   prod: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
+      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-ab8ae6.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',
@@ -51,7 +56,7 @@ const CONFIG = {
   },
   stage: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
+      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-32c93a.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',

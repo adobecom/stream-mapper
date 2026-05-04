@@ -1,24 +1,102 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { createFigmaLoaderReporter } from '../utils/loader.js';
 
+const PLACEHOLDER_URL = 'https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder';
+const METADATA_KEYS = new Set(['colorTheme', 'miloTag', 'layout']);
+
+function isEmptyBlockContent(properties) {
+  if (!properties || typeof properties !== 'object') return true;
+  const entries = Object.entries(properties);
+  if (entries.length === 0) return true;
+  return entries.every(([key, value]) => {
+    if (METADATA_KEYS.has(key)) return true;
+    if (value === false || value === '' || value == null) return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') return Object.keys(value).length === 0;
+    return false;
+  });
+}
+
+function createPlaceholder() {
+  const div = document.createElement('div');
+  div.classList.add('stream-placeholder');
+  div.dataset.placeholder = 'true';
+  div.innerHTML = `<p><a href='${PLACEHOLDER_URL}'>${PLACEHOLDER_URL}</a></p>`;
+  return div;
+}
+
+async function getFigmaRetryConfig() {
+  const config = await import('../utils/utils.js').then((m) => m.getConfig());
+  return config.figmaServiceRetry;
+}
+
+function getRetryDelay(delays, attempt) {
+  if (!Array.isArray(delays) || delays.length === 0) return 0;
+  const idx = Math.min(attempt, delays.length - 1);
+  return delays[idx];
+}
+
+async function fetchJsonWithRetry(url, options) {
+  const { retryCount, retryDelaysMs } = await getFigmaRetryConfig();
+  const maxRetries = Number.isInteger(retryCount) && retryCount >= 0 ? retryCount : 0;
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    let response;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      response = await fetch(url, options);
+    } catch (networkError) {
+      lastError = networkError;
+      if (attempt === maxRetries) throw networkError;
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    if (response.ok) {
+      // eslint-disable-next-line no-await-in-loop, no-return-await
+      return await response.json();
+    }
+    if (response.status === 503) {
+      lastError = new Error(`HTTP 503 from ${url}`);
+      lastError.is503Exhausted = attempt === maxRetries;
+      if (attempt === maxRetries) {
+        handleError(lastError, 'We are experiencing high server load. Please try again later', '');
+        throw lastError;
+      }
+      const delay = getRetryDelay(retryDelaysMs, attempt);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, delay); });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    throw new Error(`HTTP error! Status: ${url} ${response.status}`);
+  }
+  if (lastError) throw lastError;
+  return {};
+}
+
 async function fetchFigmaMapping(figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
     const pagePath = window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl.slice(1) : window.streamConfig.targetUrl;
-    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken,
+    return await fetchJsonWithRetry(
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: config.streamMapper.figmaAuthToken,
+        },
+        body: JSON.stringify({
+          figmaUrl,
+          pagePath,
+        }),
       },
-      body: JSON.stringify({
-        figmaUrl,
-        pagePath,
-      }),
-    });
-    return await response.json();
+    );
   } catch (error) {
-    handleError(error, 'getting figma mapping');
+    if (!error?.is503Exhausted) handleError(error, 'getting figma mapping');
     throw error;
   }
 }
@@ -66,16 +144,19 @@ async function fetchContent(contentUrl) {
 async function fetchBlockContent(figId, id, figmaUrl) {
   try {
     const config = await import('../utils/utils.js').then((m) => m.getConfig());
-    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: config.streamMapper.figmaAuthToken,
+    return await fetchJsonWithRetry(
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: config.streamMapper.figmaAuthToken,
+        },
+        body: JSON.stringify({ figmaUrl, figId, id }),
       },
-      body: JSON.stringify({ figmaUrl, figId, id }),
-    });
-    return await response.json();
+    );
   } catch (error) {
+    if (error?.is503Exhausted) throw error;
     handleError(error, 'getting block content');
     return {};
   }
@@ -106,6 +187,14 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl).finally(() => onDetailResponse()),
   ]);
+
+  const properties = figContent?.details?.properties;
+  if (figContent?.success && isEmptyBlockContent(properties)) {
+    const placeholder = createPlaceholder();
+    block.blockDomEl = placeholder;
+    return placeholder;
+  }
+
   let blockContent = getHtml(doc, block.miloId, block.variant);
   figContent.details.properties.miloTag = block.tag;
   blockContent = await mapFigmaContent(blockContent, block, figContent);
@@ -113,10 +202,39 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   return blockContent || '';
 }
 
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  let stopped = false;
+  let firstError = null;
+  const limit = Math.max(1, concurrency);
+  async function runner() {
+    while (cursor < items.length && !stopped) {
+      const current = cursor;
+      cursor += 1;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        results[current] = await worker(items[current], current);
+      } catch (error) {
+        stopped = true;
+        if (!firstError) firstError = error;
+        return;
+      }
+    }
+  }
+  const runnerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: runnerCount }, () => runner()));
+  if (firstError) throw firstError;
+  return results;
+}
+
 async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
-  const htmlParts = await Promise.all(
-    blocks.map((block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse())),
+  const { blockContentConcurrency } = await getFigmaRetryConfig();
+  const htmlParts = await runWithConcurrency(
+    blocks,
+    blockContentConcurrency,
+    (block) => processBlock(block, figmaUrl, () => tracker.markDetailResponse()),
   );
   return htmlParts.filter(Boolean);
 }

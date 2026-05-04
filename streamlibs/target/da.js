@@ -34,7 +34,15 @@ function replaceSpanWithColonText(html) {
 }
 // TODO: check span tag with icon and add in html
 
+function removePlaceholderBlocks(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  doc.querySelectorAll('.stream-placeholder, [data-placeholder]').forEach((el) => el.remove());
+  return doc.body.innerHTML;
+}
+
 export function getDACompatibleHtml(html) {
+  html = removePlaceholderBlocks(html);
   html = replacePictureWithImg(html);
   html = replaceSpanWithColonText(html);
   html = html.replaceAll('\n', '');
@@ -46,9 +54,12 @@ function wrapHTMLForDA(html) {
   return `<body><header></header><main>${html}</main><footer></footer>`;
 }
 
-export async function postData(url, html) {
+export async function postData(url, html, options = {}) {
   const config = await getConfig();
   const wrappedHtml = wrapHTMLForDA(html);
+  const { suppressErrorPage = false } = options;
+  const { pageUrl } = window.streamConfig || {};
+  const payloadUrl = url || pageUrl;
   try {
     const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.pushToDaUrl}`, {
       method: 'POST',
@@ -58,12 +69,16 @@ export async function postData(url, html) {
       },
       body: new URLSearchParams({
         htmlContent: wrappedHtml,
-        url,
+        url: payloadUrl,
       }),
+    }, {
+      donotShowErrorPage: suppressErrorPage,
     });
     await response.json();
   } catch (error) {
-    handleError(error, 'posting to DA');
+    if (!suppressErrorPage) {
+      handleError(error, 'posting to DA');
+    }
     throw error;
   }
 }
@@ -76,9 +91,10 @@ export function targetCompatibleHtml(html) {
 
 export async function persistOnTarget() {
   if (!window.streamConfig.target === 'da') return;
+  const { pageUrl, targetUrl, contentUrl } = window.streamConfig || {};
   // eslint-disable-next-line consistent-return, no-return-await
   return await postData(
-    window.streamConfig.targetUrl,
-    fetchTargetHtmlFromStore(window.streamConfig.contentUrl),
+    pageUrl || targetUrl,
+    fetchTargetHtmlFromStore(contentUrl),
   );
 }

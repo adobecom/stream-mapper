@@ -1,3 +1,5 @@
+import { BROKEN_PLACEHOLDER_HTML } from './constants.js';
+
 export const [setLibs, getLibs] = (() => {
   let libs;
   return [
@@ -6,6 +8,7 @@ export const [setLibs, getLibs] = (() => {
         const { hostname, search } = location || window.location;
         if (!(hostname.includes('.aem.') || hostname.includes('local'))) return prodLibs;
         const branch = new URLSearchParams(search).get('milolibs') || 'main';
+        if (!/^[a-zA-Z0-9_-]+$/.test(branch)) throw new Error('Invalid branch name.');
         if (branch === 'local') return 'http://localhost:6456/libs';
         return branch.includes('--') ? `https://${branch}.aem.live/libs` : `https://${branch}--milo--adobecom.aem.live/libs`;
       })();
@@ -131,7 +134,18 @@ async function fetchImageAsBase64(url, token) {
   });
 }
 
-async function transformImages() {
+function persistOriginalImageUrl(img, url) {
+  if (!url) return;
+  img.setAttribute('data-stream-original-src', url);
+  const picture = img.closest('picture');
+  if (!picture) return;
+  picture.setAttribute('data-stream-original-src', url);
+  picture.querySelectorAll('source').forEach((source) => {
+    source.setAttribute('data-stream-original-src', url);
+  });
+}
+
+export async function transformImages() {
   const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
   if (imgs.length === 0) return;
   const config = await getConfig();
@@ -142,6 +156,7 @@ async function transformImages() {
       if (!url) return;
       try {
         const dataUrl = await fetchImageAsBase64(url, config.streamMapper.daToken);
+        persistOriginalImageUrl(img, url);
         img.src = dataUrl;
         const picture = img.closest('picture');
         if (picture) {
@@ -157,9 +172,23 @@ async function transformImages() {
   );
 }
 
+async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.default) {
+  const handler = async () => {
+    const brokenAreas = document.querySelectorAll('main div[data-failed="true"], main .text.broken-placeholder-fragment');
+    console.log(brokenAreas);
+    brokenAreas.forEach(async (brokenArea) => {
+      brokenArea.insertAdjacentHTML('afterend', placeholderHtml);
+      brokenArea.remove();
+    });
+    if (!document.querySelector('#page-load-ok-milo')) setTimeout(handler, 5000);
+  }
+  handler();
+}
+
 export async function miloLoadArea() {
   await transformImages();
   window['page-load-ok-milo']?.remove();
   const { loadArea } = await import(`${getLibs()}/utils/utils.js`);
   await loadArea();
+  handleBrokenBlocks();
 }
