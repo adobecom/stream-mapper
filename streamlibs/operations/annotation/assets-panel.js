@@ -16,6 +16,17 @@ export default function createAssetsPanelController({
 }) {
   let fileInputEl = null;
   let pendingUploadTarget = null;
+  let onAssetsChanged = null;
+
+  function setOnAssetsChanged(handler) {
+    onAssetsChanged = typeof handler === 'function' ? handler : null;
+  }
+
+  function notifyAssetsChanged() {
+    if (typeof onAssetsChanged === 'function') {
+      onAssetsChanged();
+    }
+  }
 
   function getFileInput() {
     if (!fileInputEl) {
@@ -89,8 +100,9 @@ export default function createAssetsPanelController({
 
   function buildLocalAssetCard(localAsset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment annotation-asset-card-local';
+    card.className = 'annotation-panel-comment annotation-panel-asset-item annotation-asset-card-local';
     card.dataset.localAssetId = localAsset.localId;
+    if (localAsset.createdAt) card.dataset.createdAt = localAsset.createdAt;
 
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
@@ -121,8 +133,9 @@ export default function createAssetsPanelController({
 
   function buildRemoteAssetCard(asset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment';
+    card.className = 'annotation-panel-comment annotation-panel-asset-item';
     card.dataset.assetId = asset.id;
+    if (asset.createdAt) card.dataset.createdAt = asset.createdAt;
 
     const isApplied = annotationUI.appliedAssets.has(asset.id);
 
@@ -285,7 +298,7 @@ export default function createAssetsPanelController({
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
-    renderAssetsPanel();
+    notifyAssetsChanged();
   }
 
   function readFileAsDataUrl(file) {
@@ -308,7 +321,7 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.delete(localId);
 
     annotationState.store.localAssets.splice(idx, 1);
-    renderAssetsPanel();
+    notifyAssetsChanged();
   }
 
   function applyAssetPreviewToImg(targetImg, base64Data, asset) {
@@ -374,7 +387,7 @@ export default function createAssetsPanelController({
       }
 
       applyAssetPreviewToImg(targetImg, base64Data, asset);
-      renderAssetsPanel();
+      notifyAssetsChanged();
     } catch (err) {
       console.error('[assets-panel] Apply asset failed:', err);
     }
@@ -385,8 +398,6 @@ export default function createAssetsPanelController({
 
     annotationUI.layerEl.querySelectorAll('.annotation-asset-marker')
       .forEach((m) => m.remove());
-
-    if (annotationUI.annotationMode !== 'assets') return;
 
     const assetsByPath = new Map();
     for (const asset of (annotationState.store.assets || [])) {
@@ -483,7 +494,7 @@ export default function createAssetsPanelController({
       }
 
       annotationState.store.assets = annotationState.store.assets.filter((a) => a.id !== asset.id);
-      renderAssetsPanel();
+      notifyAssetsChanged();
     } catch (err) {
       console.error('[assets-panel] Delete failed:', err);
     }
@@ -605,15 +616,26 @@ export default function createAssetsPanelController({
     pendingUploadTarget = null;
   }
 
+  function getAssetTimestamp(asset) {
+    if (!asset) return 0;
+    const value = asset.updatedAt || asset.createdAt || 0;
+    const ts = new Date(value).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
   return {
     applyAssetToPage,
+    buildLocalAssetCard,
+    buildRemoteAssetCard,
     cleanup,
     clearAppliedAssets,
     enterSelectMode,
     exitSelectMode,
     getAppliedAssetIds,
+    getAssetTimestamp,
     renderAssetMarkers,
     renderAssetsPanel,
+    setOnAssetsChanged,
     updateAssetsFromSnapshot,
     uploadLocalAssets,
   };

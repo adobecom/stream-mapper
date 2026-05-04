@@ -71,6 +71,19 @@ export default function createCommentsPanelController({
     annotationUI.layerEl = layer;
   }
 
+  function updateModeButtonStates() {
+    if (annotationUI.inlineToggleEl instanceof HTMLButtonElement) {
+      const pressed = annotationUI.annotationMode === 'edit' || annotationUI.inlineMode;
+      annotationUI.inlineToggleEl.setAttribute('aria-pressed', `${pressed}`);
+      annotationUI.inlineToggleEl.classList.toggle('is-active', pressed);
+    }
+    if (annotationUI.inlineAssetsToggleEl instanceof HTMLButtonElement) {
+      const pressed = annotationUI.annotationMode === 'assets';
+      annotationUI.inlineAssetsToggleEl.setAttribute('aria-pressed', `${pressed}`);
+      annotationUI.inlineAssetsToggleEl.classList.toggle('is-active', pressed);
+    }
+  }
+
   function ensureCommentsPanel() {
     const existing = document.querySelector('.annotation-comments-panel');
     if (existing) existing.remove();
@@ -80,17 +93,33 @@ export default function createCommentsPanelController({
     panel.innerHTML = `
       <div class="annotation-comments-panel-header">
         <div class="annotation-comments-panel-heading">
-          <h3>Comments</h3>
+          <h3>Annotations</h3>
         </div>
-        <div class="annotation-inline-edit-switcher">
-          <div class="annotation-inline-radio-group" role="radiogroup" aria-label="Annotation mode">
-            <input type="radio" id="annotation-inline-mode-comments" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="comments" checked />
-            <label for="annotation-inline-mode-comments">Comments</label>
-            <input type="radio" id="annotation-inline-mode-edit" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="edit" />
-            <label for="annotation-inline-mode-edit">Edit</label>
-            <input type="radio" id="annotation-inline-mode-assets" name="annotation-inline-mode" class="annotation-inline-mode-radio" value="assets" />
-            <label for="annotation-inline-mode-assets">Assets</label>
-          </div>
+        <div class="annotation-mode-toolbar" role="toolbar" aria-label="Annotation modes">
+          <button
+            type="button"
+            class="annotation-mode-btn annotation-mode-btn-edit"
+            data-mode="edit"
+            aria-pressed="false"
+            aria-label="Toggle inline edit mode"
+            title="Toggle inline edit mode"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75z"></path>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="annotation-mode-btn annotation-mode-btn-assets"
+            data-mode="assets"
+            aria-pressed="false"
+            aria-label="Toggle replace image mode"
+            title="Toggle replace image mode"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
+            </svg>
+          </button>
         </div>
       </div>
       <div class="annotation-comments-content">
@@ -101,29 +130,43 @@ export default function createCommentsPanelController({
     document.body.appendChild(panel);
     annotationUI.panelEl = panel;
     annotationUI.panelListEl = panel.querySelector('.annotation-comments-list');
-    annotationUI.inlineToggleEl = panel.querySelector('#annotation-inline-mode-edit');
-    annotationUI.inlineCommentsToggleEl = panel.querySelector('#annotation-inline-mode-comments');
-    annotationUI.inlineAssetsToggleEl = panel.querySelector('#annotation-inline-mode-assets');
+    annotationUI.inlineToggleEl = panel.querySelector('.annotation-mode-btn-edit');
+    annotationUI.inlineAssetsToggleEl = panel.querySelector('.annotation-mode-btn-assets');
+    annotationUI.inlineCommentsToggleEl = null;
 
-    if (annotationUI.annotationMode === 'assets') {
-      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = true;
-      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
-      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = false;
-    } else if (annotationUI.annotationMode === 'edit' || annotationUI.inlineMode) {
-      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = true;
-      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = false;
-      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
-    } else {
-      if (annotationUI.inlineCommentsToggleEl) annotationUI.inlineCommentsToggleEl.checked = true;
-      if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
-      if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+    updateModeButtonStates();
+    applyOwnerOnlyToggleState();
+  }
+
+  function applyOwnerOnlyToggleState() {
+    const isOwner = isCurrentUserCollabOwner();
+    const restrictedTooltip = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
+
+    if (annotationUI.inlineToggleEl instanceof HTMLButtonElement) {
+      if (isOwner) {
+        annotationUI.inlineToggleEl.disabled = false;
+        annotationUI.inlineToggleEl.title = 'Toggle inline edit mode';
+        annotationUI.inlineToggleEl.setAttribute('aria-label', 'Toggle inline edit mode');
+        annotationUI.inlineToggleEl.removeAttribute('aria-disabled');
+      } else {
+        annotationUI.inlineToggleEl.disabled = true;
+        annotationUI.inlineToggleEl.title = restrictedTooltip;
+        annotationUI.inlineToggleEl.setAttribute('aria-label', restrictedTooltip);
+        annotationUI.inlineToggleEl.setAttribute('aria-disabled', 'true');
+      }
     }
 
-    if (annotationUI.inlineToggleEl && !isInlineEditingAllowed()) {
-      const editLabel = panel.querySelector('label[for="annotation-inline-mode-edit"]');
-      if (editLabel instanceof HTMLElement) {
-        editLabel.title = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
-        editLabel.setAttribute('aria-label', ANNOTATION_MESSAGES.inlineEditRestrictedDescription);
+    if (annotationUI.inlineAssetsToggleEl instanceof HTMLButtonElement) {
+      if (isOwner) {
+        annotationUI.inlineAssetsToggleEl.disabled = false;
+        annotationUI.inlineAssetsToggleEl.title = 'Toggle replace image mode';
+        annotationUI.inlineAssetsToggleEl.setAttribute('aria-label', 'Toggle replace image mode');
+        annotationUI.inlineAssetsToggleEl.removeAttribute('aria-disabled');
+      } else {
+        annotationUI.inlineAssetsToggleEl.disabled = true;
+        annotationUI.inlineAssetsToggleEl.title = restrictedTooltip;
+        annotationUI.inlineAssetsToggleEl.setAttribute('aria-label', restrictedTooltip);
+        annotationUI.inlineAssetsToggleEl.setAttribute('aria-disabled', 'true');
       }
     }
   }
@@ -728,7 +771,6 @@ export default function createCommentsPanelController({
   }
 
   function applyNormalizedCommentThreads(nextCommentThreads = []) {
-    const visibleThreadType = getVisibleThreadType();
     const currentCommentThreads = annotationState.store.threads.filter(
       (thread) => store.getThreadType(thread) === 'comment',
     );
@@ -736,25 +778,19 @@ export default function createCommentsPanelController({
       !== getThreadsRenderSignature(nextCommentThreads);
 
     if (!didCommentsChange) {
-      if (
-        pendingCommentsPanelRefresh
-        && visibleThreadType === 'comment'
-        && !shouldDeferCommentsPanelRefresh()
-      ) {
+      if (pendingCommentsPanelRefresh && !shouldDeferCommentsPanelRefresh()) {
         renderCommentsPanel();
       }
       return false;
     }
 
     store.replaceThreadsByType('comment', nextCommentThreads);
-    if (visibleThreadType !== 'comment') {
-      return true;
-    }
 
     // eslint-disable-next-line no-use-before-define
     clearThreadTargetCache();
     // eslint-disable-next-line no-use-before-define
     renderThreadMarkers({ resolveTargets: true });
+
     if (shouldDeferCommentsPanelRefresh()) {
       pendingCommentsPanelRefresh = true;
       return true;
@@ -869,9 +905,11 @@ export default function createCommentsPanelController({
     if (remoteAssets && assetsPanel) {
       try {
         assetsPanel.updateAssetsFromSnapshot(remoteAssets);
-        if (annotationUI.annotationMode === 'assets') {
-          assetsPanel.renderAssetsPanel();
-        }
+        // eslint-disable-next-line no-use-before-define
+        clearThreadTargetCache();
+        // eslint-disable-next-line no-use-before-define
+        renderThreadMarkers({ resolveTargets: true });
+        renderCommentsPanel();
       } catch (error) {
         // eslint-disable-next-line no-console
         console.warn('Could not apply remote assets snapshot', error);
@@ -887,11 +925,65 @@ export default function createCommentsPanelController({
     return true;
   }
 
+  function getThreadActivityTimestamp(thread) {
+    if (!thread) return 0;
+    const messages = Array.isArray(thread.messages) ? thread.messages : [];
+    let latest = 0;
+    messages.forEach((message) => {
+      const candidates = [message?.editedAt, message?.createdAt];
+      candidates.forEach((value) => {
+        const ts = getTimestampValue(value);
+        if (ts > latest) latest = ts;
+      });
+    });
+    if (!latest) {
+      latest = getTimestampValue(thread.updatedAt || thread.createdAt);
+    }
+    return latest;
+  }
+
+  function buildUnifiedItems() {
+    const items = [];
+
+    annotationState.store.threads.forEach((thread) => {
+      if (!thread) return;
+      const threadType = store.getThreadType(thread);
+      if (threadType === 'comment' || threadType === 'edit') {
+        items.push({
+          kind: threadType,
+          thread,
+          timestamp: getThreadActivityTimestamp(thread),
+        });
+      }
+    });
+
+    if (assetsPanel) {
+      (annotationState.store.localAssets || []).forEach((localAsset) => {
+        items.push({
+          kind: 'asset-local',
+          asset: localAsset,
+          timestamp: assetsPanel.getAssetTimestamp(localAsset),
+        });
+      });
+      (annotationState.store.assets || []).forEach((asset) => {
+        items.push({
+          kind: 'asset-remote',
+          asset,
+          timestamp: assetsPanel.getAssetTimestamp(asset),
+        });
+      });
+    }
+
+    items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    return items;
+  }
+
   renderCommentsPanel = function renderCommentsPanelImpl() {
     if (!annotationUI.panelListEl) return;
     pendingCommentsPanelRefresh = false;
     captureTransientDraftsFromDom();
     renderRefreshAction();
+    updateModeButtonStates();
 
     const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();
     if (activePopupThreadId) {
@@ -944,23 +1036,29 @@ export default function createCommentsPanelController({
     annotationUI.panelListEl.innerHTML = '';
     const panelTitle = annotationUI.panelEl?.querySelector('.annotation-comments-panel-header h3');
     if (panelTitle instanceof HTMLElement) {
-      const mode = annotationUI.annotationMode || (annotationUI.inlineMode ? 'edit' : 'comments');
-      let title = 'Comments';
-      if (mode === 'edit') title = 'Edits';
-      if (mode === 'assets') title = 'Assets';
-      panelTitle.textContent = title;
+      panelTitle.textContent = 'Annotations';
     }
 
-    if (annotationUI.annotationMode === 'assets') {
-      if (assetsPanel) {
-        assetsPanel.renderAssetsPanel();
-      } else {
-        const empty = document.createElement('p');
-        empty.className = 'annotation-comments-empty';
-        empty.textContent = ANNOTATION_MESSAGES.noAssets;
-        annotationUI.panelListEl.appendChild(empty);
-      }
-      return;
+    if (assetsPanel
+      && annotationUI.annotationMode === 'assets'
+      && !annotationUI.assetSelectMode) {
+      assetsPanel.enterSelectMode();
+    }
+
+    if (annotationUI.annotationMode === 'edit' && annotationUI.inlineMode) {
+      const hint = document.createElement('p');
+      hint.className = 'annotation-mode-hint annotation-mode-hint-edit';
+      hint.textContent = 'Click on text on the page to suggest a replacement.';
+      annotationUI.panelListEl.appendChild(hint);
+    } else if (
+      assetsPanel
+      && annotationUI.annotationMode === 'assets'
+      && annotationUI.assetSelectMode
+    ) {
+      const hint = document.createElement('p');
+      hint.className = 'annotation-mode-hint annotation-mode-hint-assets';
+      hint.textContent = 'Click an image on the page to upload a replacement.';
+      annotationUI.panelListEl.appendChild(hint);
     }
 
     if (!isCommentsServiceAvailable()) {
@@ -974,20 +1072,12 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const visibleThreadType = getVisibleThreadType();
-    const visibleThreads = annotationState.store.threads
-      .filter((thread) => store.getThreadType(thread) === visibleThreadType);
+    const unifiedItems = buildUnifiedItems();
 
-    // Asset logs are shown in the Assets tab, not the Edit tab
-
-    const showComments = isCommentsViewActive();
-
-    if (!visibleThreads.length) {
+    if (!unifiedItems.length) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      empty.textContent = showComments
-        ? ANNOTATION_MESSAGES.noComments
-        : ANNOTATION_MESSAGES.noEdits;
+      empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
       annotationUI.panelListEl.appendChild(empty);
       return;
     }
@@ -995,15 +1085,18 @@ export default function createCommentsPanelController({
     let didReuseComposer = false;
     let didReuseEditForm = false;
 
-    visibleThreads.forEach((thread) => {
+    const renderThreadItem = (thread, isCommentThread) => {
       const groups = buildCommentGroups(thread);
       groups.forEach((group, idx) => {
         const isLatestInThread = idx === groups.length - 1;
         const isClosedThread = isThreadClosed(thread);
-        const canEditRootComment = !isClosedThread
+        const canEditRootComment = isCommentThread
+          && !isClosedThread
           && isCommentEditableByCurrentUser(thread, group.comment);
         const card = document.createElement('article');
-        card.className = 'annotation-panel-comment';
+        card.className = isCommentThread
+          ? 'annotation-panel-comment annotation-panel-comment-item'
+          : 'annotation-panel-comment annotation-panel-edit-item';
         card.dataset.threadId = thread.id;
         card.dataset.messageId = group.comment.id || '';
         const isActiveMessage = Boolean(annotationState.activeMessageId)
@@ -1016,7 +1109,7 @@ export default function createCommentsPanelController({
         }
 
         let statusControls;
-        if (showComments) {
+        if (isCommentThread) {
           statusControls = document.createElement('div');
           statusControls.className = 'annotation-panel-status-controls';
           const statusSelect = document.createElement('select');
@@ -1064,7 +1157,8 @@ export default function createCommentsPanelController({
           || ANNOTATION_DEFAULT_USERNAME;
 
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
-        const isEditingRootComment = canEditRootComment && isEditingComment(thread.id, group.comment.id || '');
+        const isEditingRootComment = canEditRootComment
+          && isEditingComment(thread.id, group.comment.id || '');
         if (isEditingRootComment) {
           if (preservedEditForm && !preservedIsReply && preservedEditKey === rootCommentKey) {
             card.append(username, preservedEditForm);
@@ -1093,7 +1187,8 @@ export default function createCommentsPanelController({
           replyRow.className = 'annotation-panel-reply-row';
 
           const replyKey = `${thread.id}::${reply.id || ''}`;
-          const canEditReply = !isClosedThread
+          const canEditReply = isCommentThread
+            && !isClosedThread
             && isCommentEditableByCurrentUser(thread, reply);
           const isEditingReply = canEditReply && isEditingComment(thread.id, reply.id || '');
           if (isEditingReply) {
@@ -1123,7 +1218,7 @@ export default function createCommentsPanelController({
             replyRow.append(replyContent);
           }
 
-          if (showComments && canEditReply && !isEditingReply) {
+          if (isCommentThread && canEditReply && !isEditingReply) {
             const replyEditBtn = document.createElement('button');
             replyEditBtn.type = 'button';
             replyEditBtn.className = 'annotation-panel-edit-btn annotation-panel-edit-btn-reply';
@@ -1143,7 +1238,7 @@ export default function createCommentsPanelController({
 
         card.append(repliesWrap);
 
-        if (showComments && !isClosedThread) {
+        if (isCommentThread && !isClosedThread) {
           const composerKey = `${thread.id}::${group.comment.id || ''}`;
           if (preservedComposer && preservedComposerKey === composerKey) {
             card.append(preservedComposer);
@@ -1169,6 +1264,18 @@ export default function createCommentsPanelController({
 
         annotationUI.panelListEl.appendChild(card);
       });
+    };
+
+    unifiedItems.forEach((item) => {
+      if (item.kind === 'comment') {
+        renderThreadItem(item.thread, true);
+      } else if (item.kind === 'edit') {
+        renderThreadItem(item.thread, false);
+      } else if (assetsPanel && item.kind === 'asset-local') {
+        annotationUI.panelListEl.appendChild(assetsPanel.buildLocalAssetCard(item.asset));
+      } else if (assetsPanel && item.kind === 'asset-remote') {
+        annotationUI.panelListEl.appendChild(assetsPanel.buildRemoteAssetCard(item.asset));
+      }
     });
 
     if (scrollContainer) scrollContainer.scrollTop = savedScrollTop;
@@ -1285,10 +1392,6 @@ export default function createCommentsPanelController({
       return cachedTarget;
     }
 
-    if (annotationState.threadTargetCache.has(thread.id) && cachedTarget === null) {
-      return null;
-    }
-
     const resolvedTarget = store.getElementForThread(thread);
     annotationState.threadTargetCache.set(thread.id, resolvedTarget);
     return resolvedTarget;
@@ -1299,7 +1402,7 @@ export default function createCommentsPanelController({
     if (!scrollContainer) return;
     window.requestAnimationFrame(() => {
       scrollContainer.scrollTo({
-        top: scrollContainer.scrollHeight,
+        top: 0,
         behavior: 'smooth',
       });
     });
@@ -1317,12 +1420,6 @@ export default function createCommentsPanelController({
       el.removeAttribute('data-annotation-count');
     });
     clearMarkers();
-    if (annotationUI.annotationMode === 'assets') {
-      if (assetsPanel) assetsPanel.renderAssetMarkers();
-      return;
-    }
-
-    const markerThreadType = isEditViewActive() ? 'edit' : 'comment';
 
     const resolveMarkerPosition = (baseTop, baseLeft) => {
       const row = Math.max(0, Math.round(baseTop));
@@ -1340,15 +1437,16 @@ export default function createCommentsPanelController({
     };
 
     annotationState.store.threads
-      .filter((thread) => store.getThreadType(thread) === markerThreadType)
+      .filter((thread) => store.getThreadType(thread) === 'comment')
       .forEach((thread) => {
         const targetEl = getCachedThreadTarget(thread);
         if (!targetEl) return;
 
-        if (isCommentsViewActive()) {
-          targetEl.classList.add('annotation-has-comments');
-          targetEl.setAttribute('data-annotation-count', String((thread.messages || []).length || 1));
-        }
+        targetEl.classList.add('annotation-has-comments');
+        targetEl.setAttribute(
+          'data-annotation-count',
+          String((thread.messages || []).length || 1),
+        );
 
         const rect = targetEl.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
@@ -1357,26 +1455,17 @@ export default function createCommentsPanelController({
         groups.forEach((group, idx) => {
           const marker = document.createElement('button');
           marker.type = 'button';
-          marker.className = isEditViewActive() ? 'annotation-edit-marker' : 'annotation-thread-marker';
+          marker.className = 'annotation-thread-marker';
           marker.dataset.threadId = thread.id;
           marker.dataset.messageId = group.comment.id || '';
           marker.dataset.commentIndex = String(idx);
-          marker.title = isEditViewActive() ? `Edit ${idx + 1}` : `Comment ${idx + 1}`;
-          marker.setAttribute(
-            'aria-label',
-            isEditViewActive() ? `Open edit ${idx + 1}` : `Open comment ${idx + 1}`,
-          );
-          marker.innerHTML = isEditViewActive()
-            ? `
-          <svg class="annotation-edit-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75z"></path>
-          </svg>
-        `
-            : `
-          <svg class="annotation-thread-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 4h16v11H7l-3 3z"></path>
-          </svg>
-        `;
+          marker.title = `Comment ${idx + 1}`;
+          marker.setAttribute('aria-label', `Open comment ${idx + 1}`);
+          marker.innerHTML = `
+            <svg class="annotation-thread-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 4h16v11H7l-3 3z"></path>
+            </svg>
+          `;
 
           const position = resolveMarkerPosition(
             rect.top - 8,
@@ -1387,6 +1476,77 @@ export default function createCommentsPanelController({
           annotationUI.layerEl.appendChild(marker);
         });
       });
+
+    annotationState.store.threads
+      .filter((thread) => store.getThreadType(thread) === 'edit')
+      .forEach((thread) => {
+        const targetEl = getCachedThreadTarget(thread);
+        if (!targetEl) return;
+
+        const rect = targetEl.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+
+        const groups = buildCommentGroups(thread);
+        groups.forEach((group, idx) => {
+          const marker = document.createElement('button');
+          marker.type = 'button';
+          marker.className = 'annotation-edit-marker';
+          marker.dataset.threadId = thread.id;
+          marker.dataset.messageId = group.comment.id || '';
+          marker.dataset.commentIndex = String(idx);
+          marker.title = `Edit ${idx + 1}`;
+          marker.setAttribute('aria-label', `Open edit ${idx + 1}`);
+          marker.innerHTML = `
+            <svg class="annotation-edit-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75z"></path>
+            </svg>
+          `;
+
+          const position = resolveMarkerPosition(
+            rect.top - 8,
+            rect.right - 8 - (idx * MARKER_STEP),
+          );
+          marker.style.top = `${position.top}px`;
+          marker.style.left = `${position.left}px`;
+          annotationUI.layerEl.appendChild(marker);
+        });
+      });
+
+    if (assetsPanel) {
+      const assetsByPath = new Map();
+      (annotationState.store.assets || []).forEach((asset) => {
+        if (asset?.elementPath) assetsByPath.set(asset.elementPath, asset);
+      });
+      (annotationState.store.localAssets || []).forEach((asset) => {
+        if (asset?.elementPath) assetsByPath.set(asset.elementPath, asset);
+      });
+
+      [...assetsByPath.values()].forEach((asset) => {
+        const el = annotationUI.mainEl.querySelector(asset.elementPath);
+        if (!el) return;
+        const targetImg = el.tagName === 'IMG' ? el : el.querySelector('img');
+        const targetEl = targetImg || el;
+        const rect = targetEl.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+
+        const position = resolveMarkerPosition(rect.top - 8, rect.right - 8);
+        const marker = document.createElement('button');
+        marker.type = 'button';
+        marker.className = 'annotation-asset-marker';
+        marker.dataset.assetId = `${asset.id || asset.localId || ''}`;
+        marker.dataset.elementPath = asset.elementPath;
+        marker.title = `Asset: ${asset.filename || 'image'}`;
+        marker.setAttribute('aria-label', `Asset replacement: ${asset.filename || 'image'}`);
+        marker.innerHTML = `
+          <svg class="annotation-asset-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
+          </svg>
+        `;
+        marker.style.top = `${position.top}px`;
+        marker.style.left = `${position.left}px`;
+        annotationUI.layerEl.appendChild(marker);
+      });
+    }
   }
 
   function setPopupSubmitPending(isPending) {
@@ -1841,23 +2001,19 @@ export default function createCommentsPanelController({
       annotationUI.panelEl.removeEventListener('change', annotationState.panelChangeHandler);
       annotationState.panelChangeHandler = null;
     }
-    if (annotationUI.inlineToggleEl && annotationState.inlineToggleChangeHandler) {
-      annotationUI.inlineToggleEl.removeEventListener('change', annotationState.inlineToggleChangeHandler);
-      annotationState.inlineToggleChangeHandler = null;
-    }
-    if (annotationUI.inlineCommentsToggleEl && annotationState.inlineCommentsToggleChangeHandler) {
-      annotationUI.inlineCommentsToggleEl.removeEventListener(
-        'change',
-        annotationState.inlineCommentsToggleChangeHandler,
+    if (annotationUI.inlineToggleEl && annotationState.inlineToggleClickHandler) {
+      annotationUI.inlineToggleEl.removeEventListener(
+        'click',
+        annotationState.inlineToggleClickHandler,
       );
-      annotationState.inlineCommentsToggleChangeHandler = null;
+      annotationState.inlineToggleClickHandler = null;
     }
-    if (annotationUI.inlineAssetsToggleEl && annotationState.inlineAssetsToggleChangeHandler) {
+    if (annotationUI.inlineAssetsToggleEl && annotationState.inlineAssetsToggleClickHandler) {
       annotationUI.inlineAssetsToggleEl.removeEventListener(
-        'change',
-        annotationState.inlineAssetsToggleChangeHandler,
+        'click',
+        annotationState.inlineAssetsToggleClickHandler,
       );
-      annotationState.inlineAssetsToggleChangeHandler = null;
+      annotationState.inlineAssetsToggleClickHandler = null;
     }
     if (annotationState.documentClickHandler) {
       document.removeEventListener('click', annotationState.documentClickHandler);
@@ -1900,6 +2056,17 @@ export default function createCommentsPanelController({
     annotationState.layerClickHandler = (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
+      const assetMarker = target.closest('.annotation-asset-marker');
+      if (assetMarker instanceof HTMLButtonElement) {
+        const elementPath = assetMarker.dataset.elementPath || '';
+        if (elementPath && annotationUI.mainEl) {
+          const el = annotationUI.mainEl.querySelector(elementPath);
+          if (el instanceof HTMLElement) {
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+        }
+        return;
+      }
       const editMarker = target.closest('.annotation-edit-marker');
       if (editMarker instanceof HTMLButtonElement) {
         scrollThreadInPanel(
@@ -1922,12 +2089,15 @@ export default function createCommentsPanelController({
     annotationState.panelClickHandler = async (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
-      if (target.closest('.annotation-inline-edit-switcher')) return;
+      if (target.closest('.annotation-mode-toolbar')) return;
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
-      if (getVisibleThreadType() === 'edit') {
-        if (!(card instanceof HTMLElement)) return;
+      if (card instanceof HTMLElement && card.classList.contains('annotation-panel-asset-item')) {
+        return;
+      }
+
+      if (card instanceof HTMLElement && card.classList.contains('annotation-panel-edit-item')) {
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
         const targetEl = store.getElementForThread(thread);
@@ -2067,7 +2237,6 @@ export default function createCommentsPanelController({
 
     annotationState.panelChangeHandler = async (event) => {
       const { target } = event;
-      if (target instanceof HTMLInputElement && target.classList.contains('annotation-inline-mode-radio')) return;
       if (annotationUI.inlineMode) return;
       if (!isCommentsServiceAvailable()) return;
       if (!(target instanceof HTMLSelectElement)) return;
@@ -2130,94 +2299,92 @@ export default function createCommentsPanelController({
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
     window.addEventListener('resize', annotationState.windowResizeHandler);
 
-    if (annotationUI.inlineToggleEl) {
-      annotationState.inlineToggleChangeHandler = async (event) => {
-        const { target } = event;
-        if (!(target instanceof HTMLInputElement) || !target.checked) return;
+    if (annotationUI.inlineToggleEl instanceof HTMLButtonElement) {
+      annotationState.inlineToggleClickHandler = async (event) => {
+        event.preventDefault();
+        const button = annotationUI.inlineToggleEl;
+        if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+
+        if (annotationUI.annotationMode === 'edit') {
+          closeCommentEditor();
+          closePopupAndSelection();
+          annotationUI.annotationMode = 'comments';
+          await disableInlineEditMode();
+          updateModeButtonStates();
+          renderThreadMarkers({ resolveTargets: true });
+          renderCommentsPanel();
+          return;
+        }
+
         if (assetsPanel) assetsPanel.exitSelectMode();
+
         if (!isInlineEditingAllowed()) {
           closeCommentEditor();
           closePopupAndSelection();
           annotationUI.annotationMode = 'edit';
           await disableInlineEditMode();
-          if (annotationUI.inlineCommentsToggleEl) {
-            annotationUI.inlineCommentsToggleEl.checked = false;
-          }
-          if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
+          updateModeButtonStates();
           renderThreadMarkers({ resolveTargets: true });
           renderCommentsPanel();
+          showGlobalSnackbar(ANNOTATION_MESSAGES.inlineEditRestrictedSnackbar);
           return;
         }
         if (!isCommentsServiceAvailable()) {
-          target.checked = false;
-          if (annotationUI.inlineCommentsToggleEl) {
-            annotationUI.inlineCommentsToggleEl.checked = true;
-          }
           annotationUI.annotationMode = 'comments';
+          updateModeButtonStates();
           showGlobalSnackbar(ANNOTATION_MESSAGES.collabUnavailableSnackbar);
           return;
         }
-        target.disabled = true;
+
+        button.disabled = true;
         try {
           closeCommentEditor();
           closePopupAndSelection();
           annotationUI.annotationMode = 'edit';
-          if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
           const didEnable = await enableInlineEditMode();
           if (!didEnable) {
             throw new Error('Inline edit mode unavailable');
           }
         } catch {
-          target.checked = false;
-          if (annotationUI.inlineCommentsToggleEl) {
-            annotationUI.inlineCommentsToggleEl.checked = true;
-          }
           annotationUI.annotationMode = 'comments';
         } finally {
-          target.disabled = false;
+          button.disabled = false;
         }
+        updateModeButtonStates();
         renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
       };
-      annotationUI.inlineToggleEl.addEventListener('change', annotationState.inlineToggleChangeHandler);
-    }
-
-    if (annotationUI.inlineCommentsToggleEl) {
-      annotationState.inlineCommentsToggleChangeHandler = async (event) => {
-        const { target } = event;
-        if (!(target instanceof HTMLInputElement) || !target.checked) return;
-        closeCommentEditor();
-        annotationUI.annotationMode = 'comments';
-        if (assetsPanel) assetsPanel.exitSelectMode();
-        await disableInlineEditMode();
-        if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
-        if (annotationUI.inlineAssetsToggleEl) annotationUI.inlineAssetsToggleEl.checked = false;
-        renderThreadMarkers({ resolveTargets: true });
-        renderCommentsPanel();
-      };
-      annotationUI.inlineCommentsToggleEl.addEventListener(
-        'change',
-        annotationState.inlineCommentsToggleChangeHandler,
+      annotationUI.inlineToggleEl.addEventListener(
+        'click',
+        annotationState.inlineToggleClickHandler,
       );
     }
 
-    if (annotationUI.inlineAssetsToggleEl) {
-      annotationState.inlineAssetsToggleChangeHandler = async (event) => {
-        const { target } = event;
-        if (!(target instanceof HTMLInputElement) || !target.checked) return;
+    if (annotationUI.inlineAssetsToggleEl instanceof HTMLButtonElement) {
+      annotationState.inlineAssetsToggleClickHandler = async (event) => {
+        event.preventDefault();
+        const button = annotationUI.inlineAssetsToggleEl;
+        if (!(button instanceof HTMLButtonElement) || button.disabled) return;
+
+        if (annotationUI.annotationMode === 'assets') {
+          annotationUI.annotationMode = 'comments';
+          if (assetsPanel) assetsPanel.exitSelectMode();
+          updateModeButtonStates();
+          renderThreadMarkers({ resolveTargets: true });
+          renderCommentsPanel();
+          return;
+        }
+
         closeCommentEditor();
         annotationUI.annotationMode = 'assets';
         await disableInlineEditMode();
-        if (annotationUI.inlineToggleEl) annotationUI.inlineToggleEl.checked = false;
-        if (annotationUI.inlineCommentsToggleEl) {
-          annotationUI.inlineCommentsToggleEl.checked = false;
-        }
+        updateModeButtonStates();
         renderThreadMarkers({ resolveTargets: true });
         renderCommentsPanel();
       };
       annotationUI.inlineAssetsToggleEl.addEventListener(
-        'change',
-        annotationState.inlineAssetsToggleChangeHandler,
+        'click',
+        annotationState.inlineAssetsToggleClickHandler,
       );
     }
   }
