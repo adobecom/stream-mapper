@@ -43,6 +43,11 @@ commentsPanel.setInlineModeHandlers({
   disableInlineEditMode: inlineEditing.disableInlineEditMode,
 });
 
+assetsPanel.setOnAssetsChanged(() => {
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
+});
+
 function normalizeDAImages(root) {
   root.querySelectorAll('img').forEach((img) => {
     if (img.src.includes('content.da.live') && img.parentElement.tagName !== 'PICTURE') {
