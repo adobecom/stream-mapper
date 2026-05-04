@@ -175,13 +175,14 @@ export async function transformImages() {
 async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.default) {
   const handler = async () => {
     const brokenAreas = document.querySelectorAll('main div[data-failed="true"], main .text.broken-placeholder-fragment');
+    // eslint-disable-next-line no-console
     console.log(brokenAreas);
     brokenAreas.forEach(async (brokenArea) => {
       brokenArea.insertAdjacentHTML('afterend', placeholderHtml);
       brokenArea.remove();
     });
     if (!document.querySelector('#page-load-ok-milo')) setTimeout(handler, 5000);
-  }
+  };
   handler();
 }
 
