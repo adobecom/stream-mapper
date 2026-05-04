@@ -239,6 +239,11 @@ export async function hydrateFragmentLinksInDaBlocks(mainEl) {
 
     for (const a of anchors) {
       if (!a.isConnected) continue;
+      /* Merged/root fragment rows embed full section HTML; nested /fragments/ links are authored
+       * refs or placeholders already satisfied by inlined markup — re-fetching duplicates output
+       * or fails auth/CORS and injects broken-placeholder next to visible content after Apply.
+       */
+      if (a.closest('[data-class="fragment"]')) continue;
 
       let absolute;
       try {

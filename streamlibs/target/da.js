@@ -38,6 +38,7 @@ function removePlaceholderBlocks(html) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   doc.querySelectorAll('.stream-placeholder, [data-placeholder]').forEach((el) => el.remove());
+  doc.querySelectorAll('[data-failed="true"], .broken-placeholder-fragment').forEach((el) => el.remove());
   doc.querySelectorAll('.block-action-btn').forEach((b) => b.remove());
   doc.querySelectorAll('.has-block-action').forEach((el) => el.classList.remove('has-block-action'));
   return doc.body.innerHTML;

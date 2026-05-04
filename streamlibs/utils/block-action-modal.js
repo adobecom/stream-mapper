@@ -95,17 +95,54 @@ function applySelectionHighlight(blockId, selected) {
   }
 }
 
+function isFragmentEditorHintContext() {
+  return document.body.classList.contains('editor-mode')
+    && window.streamConfig?.operation === 'edit';
+}
+
 function updateSelectionBar() {
   const bar = document.getElementById('block-selection-bar');
   const countEl = document.getElementById('block-selection-count');
+  const subline = document.getElementById('block-selection-subline');
+  const actions = bar?.querySelector('.block-selection-bar-actions');
   if (!bar) return;
+
   if (selectedBlockIds.length === 0) {
-    bar.hidden = true;
+    if (isFragmentEditorHintContext()) {
+      bar.hidden = false;
+      bar.classList.add('block-selection-bar--hint');
+      if (countEl) countEl.textContent = 'Create a fragment from DA blocks';
+      if (subline) {
+        subline.hidden = false;
+        subline.textContent =
+          'In the DA column on the right, use the stacked-pages (+) control at the corner of each block row to toggle selection '
+          + '(highlighted outline). Rows must be next to each other in the list. When at least one block is chosen, '
+          + 'buttons appear below to Create fragment.';
+      }
+      if (actions) actions.hidden = true;
+    } else {
+      bar.hidden = true;
+      bar.classList.remove('block-selection-bar--hint');
+      if (subline) subline.hidden = true;
+      if (actions) actions.hidden = false;
+    }
     return;
   }
+
+  bar.classList.remove('block-selection-bar--hint');
+  if (actions) actions.hidden = false;
+  bar.hidden = false;
   const n = selectedBlockIds.length;
   if (countEl) countEl.textContent = `${n} block${n > 1 ? 's' : ''} selected`;
-  bar.hidden = false;
+  if (subline) {
+    subline.hidden = false;
+    subline.textContent = 'Press Create fragment to publish to DA and replace this range, or Clear (Esc).';
+  }
+}
+
+/** Call after the edit UI mounts (or returning to editor) so the empty-selection hint stays accurate. */
+export function syncBlockSelectionChrome() {
+  updateSelectionBar();
 }
 
 function showSelectionToast(message) {
@@ -616,7 +653,14 @@ async function handleProceed() {
 
   if (window.streamConfig?.operation === 'edit' && editMeta) {
     const { fragmentEl, minIdx, removeCount } = editMeta;
-    syncEditStateAfterFragmentReplace({ minIdx, removeCount, fragmentEl });
+    syncEditStateAfterFragmentReplace({
+      minIdx,
+      removeCount,
+      fragmentEl,
+      // Persist the lightweight "<a href=…>" pointer in originalDABlocks so Push to DA
+      // and applyEditChanges serialize the fragment link form, not the inlined Milo DOM.
+      pointerHtml: buildFragmentBlockHtml(createdFragmentPath),
+    });
     rebuildTargetStoreFromEditor();
   } else if (hydrateRemote && window.streamConfig?.operation === 'edit') {
     rebuildTargetStoreFromEditor();

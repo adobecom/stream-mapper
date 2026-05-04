@@ -7,9 +7,14 @@ export function mountBlockActionUi() {
 
   const html = `
     <div id="block-selection-bar" class="block-selection-bar" hidden>
-      <span id="block-selection-count" class="block-selection-count">1 block selected</span>
-      <button type="button" id="block-selection-create" class="block-selection-create">Create Fragment</button>
-      <button type="button" id="block-selection-clear" class="block-selection-clear">Clear</button>
+      <div class="block-selection-bar-text">
+        <span id="block-selection-count" class="block-selection-count">1 block selected</span>
+        <p id="block-selection-subline" class="block-selection-subline" hidden></p>
+      </div>
+      <div class="block-selection-bar-actions">
+        <button type="button" id="block-selection-create" class="block-selection-create">Create fragment</button>
+        <button type="button" id="block-selection-clear" class="block-selection-clear">Clear</button>
+      </div>
     </div>
     <div id="block-selection-toast" class="block-selection-toast" hidden></div>
     <div
@@ -34,8 +39,12 @@ export function mountBlockActionUi() {
         >
           <span class="block-action-modal-close-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
         </button>
-        <h2 id="block-action-modal-title" class="block-action-modal-title">Fragment</h2>
+        <h2 id="block-action-modal-title" class="block-action-modal-title">Create fragment</h2>
         <div id="block-action-modal-body" class="block-action-modal-body block-action-modal-state" data-state="form">
+          <p class="block-action-modal-intro">
+            The blocks you selected in the DA column will be merged into one fragment. Choose where to save it in DA,
+            then the page preview will swap that range for the fragment embed.
+          </p>
           <label for="block-action-modal-path" class="block-action-modal-label">Fragment folder path</label>
           <input
             type="text"

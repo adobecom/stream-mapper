@@ -1,5 +1,10 @@
 import { handleError } from '../../utils/error-handler.js';
 
+/**
+ * Concatenates per-row markup from edits. Rows use `dataset.sectionIndex` into
+ * editState originals; those clones must remain source-ish DA/Figma markup
+ * (not re-cloned from Milo-decorated `main`), or Push to DA would persist decorated HTML.
+ */
 export default function buildCombinedHtml(editState) {
   let html = '';
   const editChanges = document.querySelectorAll('.da-panel > div');

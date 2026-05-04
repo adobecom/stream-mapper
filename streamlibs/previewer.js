@@ -49,7 +49,7 @@ import {
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
 import { fetchDAContent } from './sources/da.js';
-import { setupBlockActionModal } from './utils/block-action-modal.js';
+import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
 
@@ -137,6 +137,7 @@ export async function initiatePreviewer(forceOperation = null) {
     case 'edit':
       updateLoader({ message: 'Preparing the editor. Please wait' });
       await editStreamOperation();
+      syncBlockSelectionChrome();
       hideLoader();
       return;
     case 'preflight':
@@ -252,6 +253,7 @@ async function setupMessageListener() {
     }
     if (event.data.type === 'BACK_TO_EDIT') {
       await handleBackToEditor();
+      syncBlockSelectionChrome();
     }
     if (event.data.type === 'RESET') {
       window.location.reload();
