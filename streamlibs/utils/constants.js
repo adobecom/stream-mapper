@@ -271,4 +271,4 @@ export const BROKEN_PLACEHOLDER_HTML = {
           </div>
       </div>
     </div>`,
-}
+};

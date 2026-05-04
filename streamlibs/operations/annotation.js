@@ -1,3 +1,6 @@
+/* eslint-disable no-console */
+/* eslint-disable function-paren-newline */
+/* eslint-disable no-restricted-syntax */
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
@@ -42,6 +45,11 @@ const inlineEditing = createInlineEditingController({
 commentsPanel.setInlineModeHandlers({
   enableInlineEditMode: inlineEditing.enableInlineEditMode,
   disableInlineEditMode: inlineEditing.disableInlineEditMode,
+});
+
+assetsPanel.setOnAssetsChanged(() => {
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
 });
 
 function normalizeDAImages(root) {
@@ -179,6 +187,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     );
     if (element) {
       replaceAssetUrl(element, asset.targetUrl);
+      // eslint-disable-next-line no-continue
       continue;
     }
 
@@ -350,7 +359,6 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   }
 
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
-
 
   await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
     suppressErrorPage: true,
