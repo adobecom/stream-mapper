@@ -8,7 +8,7 @@ import {
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
-import { syncFragmentEditDisabledHints } from './fragment-hints.js';
+import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MAX_LINK_DISPLAY_LENGTH = 60;

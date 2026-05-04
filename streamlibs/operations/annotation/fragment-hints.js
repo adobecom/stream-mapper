@@ -1,9 +1,13 @@
+/* eslint-disable max-len */
+/* eslint-disable import/prefer-default-export */
+
 import { ANNOTATION_MESSAGES } from '../../utils/constants.js';
 
 const HINT_CLASS = 'annotation-fragment-readonly-hint';
 
 /**
- * True when this fragment is nested inside another fragment root (banner only on the outer wrapper).
+ * True when this fragment is nested inside another fragment root.
+ * (Banner only on the outer wrapper.)
  */
 function isNestedFragmentRoot(fragmentEl) {
   const parent = fragmentEl.parentElement;
@@ -12,9 +16,10 @@ function isNestedFragmentRoot(fragmentEl) {
 }
 
 /**
- * Keeps fragment “editing disabled” banners in sync: one hint per outermost fragment, only while the Edits tab is active.
+ * Keeps fragment “editing disabled” banners in sync: one hint per outermost fragment,
+ * only while the Edits tab is active.
  */
-export function syncFragmentEditDisabledHints(mainEl, showHints) {
+export default function syncFragmentEditDisabledHints(mainEl, showHints) {
   if (!(mainEl instanceof HTMLElement)) return;
 
   mainEl.querySelectorAll(`.${HINT_CLASS}`).forEach((hint) => hint.remove());

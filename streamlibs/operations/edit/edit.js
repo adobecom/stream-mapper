@@ -1,3 +1,6 @@
+/* eslint-disable max-len */
+/* eslint-disable no-restricted-syntax */
+
 import { miloLoadArea, fixRelativeLinks } from '../../utils/utils.js';
 import { fetchDAContent } from '../../sources/da.js';
 import { fetchFigmaContent } from '../../sources/figma.js';
@@ -167,7 +170,7 @@ function stripEditorChromeOnBlock(block) {
  * against just-published fragment URLs (CDN propagation lag) shows a flash of "Fragment could not
  * be loaded." next to already-rendered content.
  */
-function commitEditedDomToMain(editState) {
+function commitEditedDomToMain(editState) { // eslint-disable-line no-shadow
   const main = editState.mainEl?.isConnected
     ? editState.mainEl
     : document.querySelector('main');
