@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable no-use-before-define */
 import {
   ANNOTATION_MESSAGES,
   ANNOTATION_DEFAULT_USERNAME,
@@ -374,13 +376,6 @@ export default function createCommentsPanelController({
     return annotationUI.annotationMode === 'comments' && !annotationUI.inlineMode;
   }
 
-  function getVisibleThreadType() {
-    if (annotationUI.annotationMode === 'assets') return '';
-    return annotationUI.inlineMode || annotationUI.annotationMode === 'edit'
-      ? 'edit'
-      : 'comment';
-  }
-
   function schedulePendingCommentsPanelRefreshFlush() {
     window.requestAnimationFrame(() => {
       flushPendingCommentsPanelRefresh();
@@ -523,8 +518,6 @@ export default function createCommentsPanelController({
     return annotationService.isAvailable();
   }
 
-
-
   function showAttachAssetDropdown(anchorEl, threadId) {
     // Remove existing dropdown if any
     const existing = document.querySelector('.annotation-attach-dropdown');
@@ -548,6 +541,7 @@ export default function createCommentsPanelController({
         // For now, we show the asset thumbnail inline in the thread as a visual reference
         try {
           const content = await (assetsPanel
+            // eslint-disable-next-line no-underscore-dangle
             ? Promise.resolve(asset._base64Data ? { data: asset._base64Data } : null)
             : Promise.resolve(null));
           if (content?.data) {
@@ -745,10 +739,6 @@ export default function createCommentsPanelController({
       const [threadId = '', commentId = ''] = key.split('::');
       setCommentEditPending(threadId, commentId, true);
     });
-  }
-
-  function isEditViewActive() {
-    return annotationUI.annotationMode === 'edit';
   }
 
   function getTimestampValue(value) {

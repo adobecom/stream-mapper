@@ -60,6 +60,7 @@ export default function createEditDragDropController({
       return;
     }
 
+    // eslint-disable-next-line max-len
     if (dropPlaceholder.parentNode !== currentDropContainer || dropPlaceholder !== currentDropContainer.lastChild) {
       currentDropContainer.appendChild(dropPlaceholder);
     }
