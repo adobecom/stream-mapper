@@ -287,6 +287,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
         ptag.removeAttribute(attr.name);
       });
     });
+    metadataDiv.querySelectorAll('img').forEach(img => {
+      const daSrc = img.getAttribute('data-stream-original-src');
+      img.setAttribute('src', daSrc);
+    });
     const divWrapper = document.createElement('div');
     divWrapper.append(metadataDiv);
     mainEl.appendChild(divWrapper);

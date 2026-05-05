@@ -566,6 +566,9 @@ export default function createAssetsPanelController({
             elementPath: asset.elementPath,
             targetImg: applied.targetImg,
           });
+          if (applied.targetImg && asset.daUrl) {
+            applied.targetImg.dataset.streamOriginalSrc = asset.daUrl;
+          }
         }
 
         uploadedIds.push(asset.id);
