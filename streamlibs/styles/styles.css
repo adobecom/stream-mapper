@@ -3611,3 +3611,35 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     height: auto;
     max-width: 100px;
   }
+
+  .annotation-mode .stream-annotation-metadata-actions {
+    display: none;
+    width: 80%;
+    flex-direction: row;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .annotation-inline-edit-mode .stream-annotation-metadata-actions {
+    display: flex;
+  }
+
+  .annotation-mode .stream-annotation-add-metadata-row {
+    padding: 5px 14px;
+    background: #fff;
+    border: 1px solid #3d63ae;
+    border-radius: 4px;
+    color: #3d63ae;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .annotation-inline-edit-mode .stream-annotation-add-metadata-row:hover {
+    background: #3d63ae;
+    color: #fff;
+  }
+
+  .page-metadata .annotation-asset-pending-badge {
+    display: none;
+  }

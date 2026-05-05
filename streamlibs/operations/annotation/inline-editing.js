@@ -678,9 +678,29 @@ export default function createInlineEditingController({
     store.saveAnnotationStore();
   }
 
+  function registerNewEditableElement(element) {
+    if (!annotationUI.inlineMode || !annotationUI.mediumEditorInstance) return;
+    const elementRef = store.ensureElementRef(element);
+    annotationUI.editableElements.push(element);
+    annotationUI.inlineElementSnapshot.set(elementRef, {
+      originalHtml: normalizeInlineFormattingHtml(element.innerHTML),
+      originalText: element.textContent || '',
+    });
+    element.classList.add('annotation-inline-editable');
+    const blurHandler = () => { trackInlineEditChange(element); };
+    const focusHandler = () => { setActiveInlineEditableElement(element); };
+    annotationUI.inlineBlurHandlers.set(elementRef, blurHandler);
+    annotationUI.inlineFocusHandlers.set(elementRef, focusHandler);
+    element.addEventListener('blur', blurHandler, true);
+    element.addEventListener('focus', focusHandler, true);
+    element.addEventListener('click', focusHandler, true);
+    annotationUI.mediumEditorInstance.addElements([element]);
+  }
+
   return {
     disableInlineEditMode,
     enableInlineEditMode,
+    registerNewEditableElement,
     resetInlineEditModeState,
     syncInlineEditsBeforePersist,
   };

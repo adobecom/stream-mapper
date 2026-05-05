@@ -18,6 +18,7 @@ import requestParentCollabRefresh from './annotation/collab-sync.js';
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 let cachedCleanHtml = '';
+let cachedPageMetadataHtml = null;
 const store = createAnnotationStore({ annotationState, annotationUI });
 const annotationService = createAnnotationServiceClient();
 const assetService = createAssetServiceClient();
@@ -85,11 +86,15 @@ async function initializePreview() {
   const mainEle = document.createElement('main');
   const metadataEle = document.createElement('div');
   metadataEle.classList.add('page-metadata');
-  const metadataBlocks = htmlDom.querySelectorAll('div.metadata');
-  if (metadataBlocks) {
-    metadataBlocks.forEach((mb) => {
-      metadataEle.innerHTML += mb.innerHTML;
-    });
+  if (cachedPageMetadataHtml !== null) {
+    metadataEle.innerHTML = cachedPageMetadataHtml;
+  } else {
+    const metadataBlocks = htmlDom.querySelectorAll('div.metadata');
+    if (metadataBlocks) {
+      metadataBlocks.forEach((mb) => {
+        metadataEle.innerHTML += mb.innerHTML;
+      });
+    }
   }
   if (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN') {
     mainEle.innerHTML = htmlDom.innerHTML;
@@ -271,13 +276,15 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
 
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
   if (pageMetadataDom) {
+    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
     mainEl.querySelectorAll('.metadata').forEach((el) => el.remove());
     const metadataDiv = document.createElement('div');
     metadataDiv.className = 'metadata';
     metadataDiv.innerHTML = pageMetadataDom.innerHTML;
     metadataDiv.querySelectorAll('p').forEach(p => {
-      [...p.attributes].forEach(attr => {
-        p.removeAttribute(attr.name);
+      const ptag = p;
+      [...ptag.attributes].forEach(attr => {
+        ptag.removeAttribute(attr.name);
       });
     });
     const divWrapper = document.createElement('div');
@@ -331,6 +338,37 @@ export async function annotationOperation(options = {}) {
   metadataSeparator.classList.add('stream-annotation-page-metadata');
   metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
   metadataSeparator.append(metadataDom);
+
+  function addAndRegisterRow(row) {
+    metadataDom.append(row);
+    row.querySelectorAll('p').forEach((p) => {
+      inlineEditing.registerNewEditableElement(p);
+    });
+  }
+
+  const addTextBtn = document.createElement('button');
+  addTextBtn.className = 'stream-annotation-add-metadata-row';
+  addTextBtn.textContent = '+ Add text/link row';
+  addTextBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
+    addAndRegisterRow(row);
+  });
+
+  const addImageBtn = document.createElement('button');
+  addImageBtn.className = 'stream-annotation-add-metadata-row';
+  addImageBtn.textContent = '+ Add image row';
+  addImageBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
+    addAndRegisterRow(row);
+  });
+
+  const metadataActions = document.createElement('div');
+  metadataActions.className = 'stream-annotation-metadata-actions';
+  metadataActions.append(addTextBtn);
+  metadataActions.append(addImageBtn);
+  metadataSeparator.append(metadataActions);
   mainEl.append(metadataSeparator);
 
   await commentsPanel.setupAnnotationUI(mainEl, {
