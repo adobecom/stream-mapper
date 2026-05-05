@@ -138,19 +138,54 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
     const withoutParams = originalSrc.split('?')[0]?.split('#')[0] ?? '';
     const filename = withoutParams.split('/').pop() || '';
 
+    const candidates = [];
     for (const img of allImages) {
       const src = img.getAttribute('src') || '';
       if (src && withoutParams && src.includes(withoutParams)) {
-        return img.closest('picture') || img;
+        candidates.push(img);
       }
     }
-    if (filename) {
+    if (candidates.length === 0 && filename) {
       for (const img of allImages) {
         const src = (img.getAttribute('src') || '').split('?')[0]?.split('#')[0] ?? '';
         if (src.split('/').pop() === filename) {
-          return img.closest('picture') || img;
+          candidates.push(img);
         }
       }
+    }
+
+    if (candidates.length === 1) {
+      return candidates[0].closest('picture') || candidates[0];
+    }
+
+    if (candidates.length > 1 && elementProps) {
+      const sectionIndex = typeof elementProps.sectionIndex === 'number' ? elementProps.sectionIndex : -1;
+      const blockClass = typeof elementProps.blockClass === 'string' ? elementProps.blockClass : '';
+      const blockIndex = typeof elementProps.blockIndex === 'number' ? elementProps.blockIndex : 0;
+
+      if (sectionIndex >= 0) {
+        const sections = Array.from(main.children).filter((el) => el.tagName === 'DIV');
+        const section = sections[sectionIndex];
+        if (section) {
+          let block = null;
+          if (blockClass) {
+            const matching = Array.from(section.querySelectorAll(`:scope > div.${blockClass}`));
+            block = matching[blockIndex] ?? matching[0] ?? null;
+          }
+          if (!block) {
+            const divs = Array.from(section.children).filter((el) => el.tagName === 'DIV');
+            block = divs[blockIndex] ?? null;
+          }
+          if (block) {
+            const blockCandidate = candidates.find((img) => block.contains(img));
+            if (blockCandidate) return blockCandidate.closest('picture') || blockCandidate;
+          }
+        }
+      }
+    }
+
+    if (candidates.length > 0) {
+      return candidates[0].closest('picture') || candidates[0];
     }
   }
 
@@ -345,18 +380,21 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
     }
   }
 
-  const assetReplacements = [];
+  const latestByPath = new Map();
   for (const asset of (annotationState.store.assets || [])) {
-    if (asset.originalSrc && asset.daUrl) {
-      assetReplacements.push({
-        elementPath: asset.elementPath,
-        elementProps: asset.elementProps,
-        originalSrc: asset.originalSrc,
-        daUrl: asset.daUrl,
-        targetUrl: asset.daUrl,
-      });
+    if (!asset.originalSrc || !asset.daUrl) continue;
+    const existing = latestByPath.get(asset.elementPath);
+    if (!existing || (asset.createdAt && new Date(asset.createdAt) > new Date(existing.createdAt || 0))) {
+      latestByPath.set(asset.elementPath, asset);
     }
   }
+  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
+    elementPath: asset.elementPath,
+    elementProps: asset.elementProps,
+    originalSrc: asset.originalSrc,
+    daUrl: asset.daUrl,
+    targetUrl: asset.daUrl,
+  }));
 
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
