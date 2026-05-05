@@ -3575,32 +3575,38 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .section .metadata {
-    margin: 10px 0;
-    width: 80%;
-    gap: 10px;
-    justify-self: center;
-  }
-
-  .section .metadata > div {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px 0;
-  }
-
-  .section .metadata > div:first-child {
-    grid-column: 1 / -1;
+  .annotation-mode .stream-annotation-page-metadata {
+    width: 100%;
+    border-top: 2px dashed #ababab;
+    margin-top: 10px;
+    background: #eff5ff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     padding: 10px;
-    background-color: #89caef;
-    border: 1px solid #bebebe;
   }
 
-  .section .metadata > div > div {
-    border: 1px solid #bebebe;
+  .annotation-mode .page-metadata {
+    width: 80%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .annotation-mode .page-metadata > div {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div > div {
+    flex: 1 1 0;
+    min-width: 0;
+    border: 0.5px solid #ababab;
     padding-left: 20px;
   }
 
-  .section .metadata > div div img {
+  .annotation-mode .page-metadata > div > div img {
     width: 100px;
     height: auto;
     max-width: 100px;

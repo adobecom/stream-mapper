@@ -177,11 +177,7 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
     const brokenAreas = document.querySelectorAll('main div[data-failed="true"], main .text.broken-placeholder-fragment');
     brokenAreas.forEach(async (brokenArea) => {
       if (brokenArea.classList.contains('metadata')) {
-        const metaHeading = document.createElement('div');
-        metaHeading.innerHTML = 'metadata';
-        brokenArea.prepend(metaHeading)
-        brokenArea.removeAttribute('data-reason');
-        brokenArea.removeAttribute('data-failed');
+        brokenArea.remove();
       }
       else {
         brokenArea.insertAdjacentHTML('afterend', placeholderHtml);

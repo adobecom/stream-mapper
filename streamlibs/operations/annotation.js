@@ -83,11 +83,20 @@ async function initializePreview() {
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
+  const metadataEle = document.createElement('div');
+  metadataEle.classList.add('page-metadata');
+  const metadataBlocks = htmlDom.querySelectorAll('div.metadata');
+  if (metadataBlocks) {
+    metadataBlocks.forEach((mb) => {
+      metadataEle.innerHTML += mb.innerHTML;
+    });
+  }
   if (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN') {
     mainEle.innerHTML = htmlDom.innerHTML;
   } else {
     mainEle.innerHTML = htmlDom;
   }
+  document.body.append(metadataEle);
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
 }
@@ -297,7 +306,15 @@ export async function annotationOperation(options = {}) {
     cachedCleanHtml = mainEl.innerHTML || '';
   }
   await miloLoadArea();
-  
+
+  // initialize page metadata
+  const metadataDom = document.body.querySelector('.page-metadata');
+  const metadataSeparator = document.createElement('div');
+  metadataSeparator.classList.add('section');
+  metadataSeparator.classList.add('stream-annotation-page-metadata');
+  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
+  metadataSeparator.append(metadataDom);
+  mainEl.append(metadataSeparator);
 
   await commentsPanel.setupAnnotationUI(mainEl, {
     preserveRemoteEditState,
