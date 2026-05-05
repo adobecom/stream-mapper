@@ -268,6 +268,23 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   }
 
   const mainEl = container.querySelector('main');
+
+  const pageMetadataDom = document.body.querySelector('main .page-metadata');
+  if (pageMetadataDom) {
+    mainEl.querySelectorAll('.metadata').forEach((el) => el.remove());
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'metadata';
+    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    metadataDiv.querySelectorAll('p').forEach(p => {
+      [...p.attributes].forEach(attr => {
+        p.removeAttribute(attr.name);
+      });
+    });
+    const divWrapper = document.createElement('div');
+    divWrapper.append(metadataDiv);
+    mainEl.appendChild(divWrapper);
+  }
+
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
 
