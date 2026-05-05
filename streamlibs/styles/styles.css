@@ -2115,6 +2115,7 @@ body.annotation-mode main::-webkit-scrollbar {
   color: #fff;
 }
 
+
 .annotation-popup-header {
   display: flex;
   justify-content: space-between;
@@ -3572,4 +3573,35 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
   .block-action-modal-secondary:focus-visible {
     outline: 2px solid var(--sm-color-primary, #3b82f6);
     outline-offset: 2px;
+  }
+
+  .section .metadata {
+    margin: 10px 0;
+    width: 80%;
+    gap: 10px;
+    justify-self: center;
+  }
+
+  .section .metadata > div {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 0;
+  }
+
+  .section .metadata > div:first-child {
+    grid-column: 1 / -1;
+    padding: 10px;
+    background-color: #89caef;
+    border: 1px solid #bebebe;
+  }
+
+  .section .metadata > div > div {
+    border: 1px solid #bebebe;
+    padding-left: 20px;
+  }
+
+  .section .metadata > div div img {
+    width: 100px;
+    height: auto;
+    max-width: 100px;
   }

@@ -297,6 +297,7 @@ export async function annotationOperation(options = {}) {
     cachedCleanHtml = mainEl.innerHTML || '';
   }
   await miloLoadArea();
+  
 
   await commentsPanel.setupAnnotationUI(mainEl, {
     preserveRemoteEditState,
