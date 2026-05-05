@@ -2,6 +2,8 @@
  * Injects block selection bar, toast, and fragment modal into the preview document.
  * Markup lives next to block-action-modal.js instead of preview.html.
  */
+/* eslint-disable import/prefer-default-export */
+
 export function mountBlockActionUi() {
   if (document.getElementById('block-action-modal')) return;
 

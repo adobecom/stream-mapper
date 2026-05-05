@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+/* eslint-disable no-use-before-define */
 import { pushBlockFragmentToDa, extractRepoPath, fragmentExistsOnDa } from '../target/da.js';
 import { previewDAPage } from '../sources/da.js';
 import { fetchTargetHtmlFromStore, pushTargetHtmlToStore } from '../store/store.js';
@@ -19,7 +20,8 @@ export const STREAM_BLOCK_FRAGMENT_EVENT = 'stream-block-fragment';
 
 let selectedBlockIds = [];
 let createdFragmentPath = '';
-/** True when next replace uses fetched fragment HTML ("Use existing"); false for Create (clone selection). */
+/** True when next replace uses fetched fragment HTML ("Use existing");
+ *  false for Create (clone selection). */
 let pendingFragmentHydrateRemote = false;
 /** Message shown on final "replaced" screen (create vs use-existing set this before replace). */
 let pendingReplacedMessage = '';
@@ -114,6 +116,7 @@ function updateSelectionBar() {
       if (countEl) countEl.textContent = 'Create a fragment from DA blocks';
       if (subline) {
         subline.hidden = false;
+        // eslint-disable-next-line operator-linebreak
         subline.textContent =
           'In the DA column on the right, use the stacked-pages (+) control at the corner of each block row to toggle selection '
           + '(highlighted outline). Rows must be next to each other in the list. When at least one block is chosen, '
@@ -140,7 +143,8 @@ function updateSelectionBar() {
   }
 }
 
-/** Call after the edit UI mounts (or returning to editor) so the empty-selection hint stays accurate. */
+/** Call after the edit UI mounts (or returning to editor) so the empty-selection hint stays
+ *  accurate. */
 export function syncBlockSelectionChrome() {
   updateSelectionBar();
 }
@@ -492,7 +496,12 @@ function updateTargetHtmlWithFragments(blockIds, fragmentPath) {
 
 function dispatchFragmentAction(action, extra = {}) {
   window.dispatchEvent(new CustomEvent(STREAM_BLOCK_FRAGMENT_EVENT, {
-    detail: { action, blockIds: [...selectedBlockIds], path: getFragmentPath(), ...extra },
+    detail: {
+      action,
+      blockIds: [...selectedBlockIds],
+      path: getFragmentPath(),
+      ...extra,
+    },
   }));
 }
 

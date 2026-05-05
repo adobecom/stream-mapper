@@ -152,7 +152,8 @@ export async function fragmentExistsOnDa(rawPath) {
  * Uses the same push API + format as the full-page Push to DA.
  *
  * @param {string} rawPath - repo path or da.live URL
- * @param {string} blockHtml - Block innerHTML; normalized with getDACompatibleHtml (same as full-page push)
+ * @param {string} blockHtml - Block innerHTML; normalized with getDACompatibleHtml
+ *   (same as full-page push)
  */
 export async function pushBlockFragmentToDa(rawPath, blockHtml) {
   const repoPath = extractRepoPath(rawPath);
@@ -163,4 +164,3 @@ export async function pushBlockFragmentToDa(rawPath, blockHtml) {
     : blockHtml;
   await postData(repoPath, payload);
 }
-

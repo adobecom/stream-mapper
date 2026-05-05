@@ -48,7 +48,6 @@ import {
   hideLoader,
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
-import { fetchDAContent } from './sources/da.js';
 import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';

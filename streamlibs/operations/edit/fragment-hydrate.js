@@ -2,6 +2,10 @@
  * Before Milo loadArea: resolve /fragments/ links in DA blocks with fetch fallback chain
  * (aem.page plain → aem.live plain → admin.da.live/source).
  */
+/* eslint-disable max-len */
+/* eslint-disable no-restricted-syntax */
+/* eslint-disable no-continue */
+
 import { getMiloCompatibleHtml } from '../../sources/da.js';
 
 /**
@@ -249,7 +253,6 @@ export async function hydrateFragmentLinksInDaBlocks(mainEl) {
       try {
         absolute = new URL(a.getAttribute('href'), window.location.href).href;
       } catch {
-        // eslint-disable-next-line no-continue
         continue;
       }
 
@@ -260,7 +263,6 @@ export async function hydrateFragmentLinksInDaBlocks(mainEl) {
 
       if (!plain) {
         insertFailureBlock(a);
-        // eslint-disable-next-line no-continue
         continue;
       }
 
