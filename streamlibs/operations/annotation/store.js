@@ -986,6 +986,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     annotationState.store.easyEdits.forEach((edit) => {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
+      if (target.closest('[data-class="fragment"]')) return;
 
       if (edit.editType === 'image-alt') {
         target.setAttribute('alt', edit.to || '');

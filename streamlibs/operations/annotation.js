@@ -3,6 +3,7 @@
 /* eslint-disable no-restricted-syntax */
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
+import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
 import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
@@ -243,13 +244,24 @@ export async function annotationOperation(options = {}) {
     annotationState.hasLoadedInitialEditsSnapshot = false;
   }
   await initializePreview();
-  if (!cachedCleanHtml) {
-    const preDecorMainEl = document.querySelector('main');
-    cachedCleanHtml = preDecorMainEl?.innerHTML || '';
-  }
-  await miloLoadArea();
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
+
+  if (window.streamConfig?.source === 'da') {
+    mainEl.querySelectorAll(':scope > div').forEach((div) => {
+      if (!div.dataset.source) div.dataset.source = 'da';
+    });
+    const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
+    for (const root of insertedFragments) {
+      // eslint-disable-next-line no-await-in-loop
+      await miloLoadArea(root);
+    }
+  }
+
+  if (!cachedCleanHtml) {
+    cachedCleanHtml = mainEl.innerHTML || '';
+  }
+  await miloLoadArea();
 
   await commentsPanel.setupAnnotationUI(mainEl, {
     preserveRemoteEditState,

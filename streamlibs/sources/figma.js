@@ -1,5 +1,6 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { createFigmaLoaderReporter } from '../utils/loader.js';
+import { appendBlockActionButton } from '../utils/block-action-button.js';
 
 const PLACEHOLDER_URL = 'https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder';
 const METADATA_KEYS = new Set(['colorTheme', 'miloTag', 'layout']);
@@ -273,10 +274,12 @@ export async function fetchFigmaContent() {
   pageComponents.html.forEach((h, idx) => {
     if (Array.isArray(h)) {
       h.forEach((hdash, idxx) => {
+        appendBlockActionButton(hdash);
         hdash.id = `block-${idx}-${idxx}`;
         htmlDom += hdash.outerHTML;
       });
     } else if (typeof h === 'object') {
+      appendBlockActionButton(h);
       h.id = `block-${idx}`;
       htmlDom += h.outerHTML;
     }

@@ -8,6 +8,7 @@ import {
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
+import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MAX_LINK_DISPLAY_LENGTH = 60;
@@ -975,6 +976,11 @@ export default function createCommentsPanelController({
     renderRefreshAction();
     updateModeButtonStates();
 
+    const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
+      annotationUI.mainEl,
+      annotationUI.annotationMode === 'edit',
+    );
+
     const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();
     if (activePopupThreadId) {
       const popupThread = store.getThreadById(activePopupThreadId);
@@ -1049,6 +1055,7 @@ export default function createCommentsPanelController({
       hint.className = 'annotation-mode-hint annotation-mode-hint-assets';
       hint.textContent = 'Click an image on the page to upload a replacement.';
       annotationUI.panelListEl.appendChild(hint);
+      finalizeFragmentHints();
     }
 
     if (!isCommentsServiceAvailable()) {
@@ -1059,6 +1066,7 @@ export default function createCommentsPanelController({
         <span>${ANNOTATION_MESSAGES.collabUnavailableDescription}</span>
       `;
       annotationUI.panelListEl.appendChild(empty);
+      finalizeFragmentHints();
       return;
     }
 
@@ -1069,6 +1077,7 @@ export default function createCommentsPanelController({
       empty.className = 'annotation-comments-empty';
       empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
       annotationUI.panelListEl.appendChild(empty);
+      finalizeFragmentHints();
       return;
     }
 
@@ -1296,6 +1305,7 @@ export default function createCommentsPanelController({
         });
       }
     }
+    finalizeFragmentHints();
   };
 
   function getCommentsScrollContainer() {
