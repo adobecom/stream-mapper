@@ -452,6 +452,7 @@ function ensureImgRegenElements() {
         if (uploadMarqueeBlock) {
           uploadMarqueeBlock.querySelectorAll('picture').forEach((pic) => {
             if (!pic.querySelector('source')) return;
+            if (pic.querySelector('img').getAttribute('src').includes('.svg')) return;
             const picImg = pic.querySelector('img');
             if (picImg) {
               registerRegenReplacement(picImg.getAttribute('data-stream-original-src') || picImg.src, newUrl);
@@ -763,6 +764,8 @@ async function startAnnotationFromInit(payload) {
           : [pic];
         pictures.forEach((p) => {
           const pImg = p.querySelector('img');
+          if (pImg.getAttribute('src').includes('.svg')) return;
+          if (pic.querySelector('img').getAttribute('src').includes('.svg')) return;
           if (pImg) {
             pImg.setAttribute('data-stream-original-src', targetUrl);
             pImg.src = displaySrc;

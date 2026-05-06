@@ -293,6 +293,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
           ? Array.from(uploadMarqueeBlock.querySelectorAll('picture > img'))
           : [img];
         targets.forEach((targetImg) => {
+          if ((targetImg).getAttribute('src').includes('.svg')) return;
           targetImg.setAttribute('src', regen.targetUrl);
           if (targetImg.hasAttribute('srcset')) targetImg.setAttribute('srcset', regen.targetUrl);
           const picture = targetImg.closest('picture');
