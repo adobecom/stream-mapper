@@ -102,20 +102,6 @@ async function fetchFragmentFromAdminSource(repoPath) {
   }
 }
 
-function sectionsFragmentFromPlainHtml(htmlString) {
-  const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-  const sections = [...doc.body.querySelectorAll(':scope > div')];
-  const frag = document.createDocumentFragment();
-  if (sections.length) {
-    sections.forEach((s) => frag.appendChild(s.cloneNode(true)));
-  } else {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = doc.body.innerHTML;
-    [...wrap.childNodes].forEach((n) => frag.appendChild(n.cloneNode(true)));
-  }
-  return frag;
-}
-
 function dataPathFromRepoPath(repoPath) {
   const clean = repoPath.replace(/^\/+/, '');
   const parts = clean.split('/');
@@ -165,25 +151,6 @@ function insertFailureBlock(anchorEl) {
   host.replaceWith(wrap);
 }
 
-/**
- * Replace the placeholder (top <p> around the link) with a Milo fragment root and injected sections.
- */
-function mountFragmentFromPlain(anchorEl, plainHtml, dataPathAttr) {
-  const p = anchorEl.tagName === 'P' ? anchorEl : anchorEl.closest('p');
-  const replaceTarget = p || anchorEl.parentElement;
-  if (!replaceTarget) return null;
-
-  const inner = sectionsFragmentFromPlainHtml(plainHtml);
-  const wrap = document.createElement('div');
-  wrap.setAttribute('data-class', 'fragment');
-  wrap.setAttribute('data-path', dataPathAttr.startsWith('/') ? dataPathAttr : `/${dataPathAttr}`);
-  wrap.setAttribute('data-block-status', 'loaded');
-  wrap.appendChild(inner);
-
-  replaceTarget.replaceWith(wrap);
-  return wrap;
-}
-
 /** Helix preview URL for repo path `org/repo/drafts/...` (matches fragment preview links). */
 export function helixPreviewUrlFromRepoPath(repoPath) {
   let path = typeof repoPath === 'string' ? repoPath.trim() : '';
@@ -196,6 +163,112 @@ export function helixPreviewUrlFromRepoPath(repoPath) {
   const rest = parts.slice(2).join('/');
   const pagePath = rest ? `/${rest.replace(/\/+$/, '')}` : '';
   return `https://main--${repo}--${org}.aem.page${pagePath}`;
+}
+
+/** Same path as {@link helixPreviewUrlFromRepoPath} but `main--repo--org.aem.live` (for resolved asset URLs). */
+function helixLiveUrlFromRepoPath(repoPath) {
+  const pageUrl = helixPreviewUrlFromRepoPath(repoPath);
+  if (!pageUrl) return '';
+  try {
+    const u = new URL(pageUrl);
+    u.hostname = u.hostname.replace(/\.aem\.page$/i, '.aem.live');
+    return u.toString();
+  } catch {
+    return '';
+  }
+}
+
+/** Base URL with trailing slash for resolving relative fragment assets (parent dir of fragment page on aem.live). */
+function fragmentAssetBaseUrlFromRepoPath(repoPath) {
+  const clean = String(repoPath || '').trim().replace(/^\/+/, '').replace(/\.html$/i, '');
+  const livePageUrl = helixLiveUrlFromRepoPath(clean);
+  if (!livePageUrl) return null;
+  try {
+    const u = new URL(livePageUrl);
+    const segs = u.pathname.split('/').filter(Boolean);
+    if (segs.length > 0) segs.pop();
+    u.pathname = segs.length > 0 ? `/${segs.join('/')}/` : '/';
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function rewriteSrcsetValue(srcset, baseUrl) {
+  if (!srcset?.trim() || !baseUrl) return srcset;
+  return srcset.split(',').map((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return trimmed;
+    const lastSpace = trimmed.lastIndexOf(' ');
+    const urlPart = (lastSpace === -1 ? trimmed : trimmed.slice(0, lastSpace)).trim();
+    const desc = lastSpace === -1 ? '' : trimmed.slice(lastSpace);
+    if (!urlPart || urlPart.startsWith('https://content.da.live')) return trimmed;
+    try {
+      const abs = new URL(urlPart, baseUrl).href;
+      return lastSpace === -1 ? abs : `${abs}${desc}`;
+    } catch {
+      return trimmed;
+    }
+  }).join(', ');
+}
+
+function rewriteFragmentMediaUrls(root, repoPath) {
+  const baseUrl = fragmentAssetBaseUrlFromRepoPath(repoPath);
+  if (!baseUrl || !(root instanceof Element)) return;
+
+  root.querySelectorAll('img:not([src^="https://content.da.live"])').forEach((img) => {
+    const src = img.getAttribute('src');
+    if (src && !src.startsWith('https://content.da.live')) {
+      try {
+        img.setAttribute('src', new URL(src, baseUrl).href);
+      } catch {
+        /* keep */
+      }
+    }
+    if (img.hasAttribute('srcset')) {
+      const next = rewriteSrcsetValue(img.getAttribute('srcset'), baseUrl);
+      if (next) img.setAttribute('srcset', next);
+    }
+  });
+
+  root.querySelectorAll('picture source[srcset]').forEach((source) => {
+    const next = rewriteSrcsetValue(source.getAttribute('srcset'), baseUrl);
+    if (next) source.setAttribute('srcset', next);
+  });
+}
+
+function sectionsFragmentFromPlainHtml(htmlString, repoPath) {
+  const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  if (repoPath) rewriteFragmentMediaUrls(doc.body, repoPath);
+  const sections = [...doc.body.querySelectorAll(':scope > div')];
+  const frag = document.createDocumentFragment();
+  if (sections.length) {
+    sections.forEach((s) => frag.appendChild(s.cloneNode(true)));
+  } else {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = doc.body.innerHTML;
+    [...wrap.childNodes].forEach((n) => frag.appendChild(n.cloneNode(true)));
+  }
+  return frag;
+}
+
+/**
+ * Replace the placeholder (top <p> around the link) with a Milo fragment root and injected sections.
+ */
+function mountFragmentFromPlain(anchorEl, plainHtml, dataPathAttr, repoPath) {
+  const p = anchorEl.tagName === 'P' ? anchorEl : anchorEl.closest('p');
+  const replaceTarget = p || anchorEl.parentElement;
+  if (!replaceTarget) return null;
+
+  const inner = sectionsFragmentFromPlainHtml(plainHtml, repoPath);
+  const wrap = document.createElement('div');
+  wrap.setAttribute('data-class', 'fragment');
+  wrap.setAttribute('data-path', dataPathAttr.startsWith('/') ? dataPathAttr : `/${dataPathAttr}`);
+  wrap.setAttribute('data-block-status', 'loaded');
+  wrap.appendChild(inner);
+
+  replaceTarget.replaceWith(wrap);
+  return wrap;
 }
 
 /**
@@ -221,7 +294,7 @@ export async function fillFragmentWrapperFromRepo(fragmentWrapEl, repoPath) {
     return false;
   }
 
-  const inner = sectionsFragmentFromPlainHtml(plain);
+  const inner = sectionsFragmentFromPlainHtml(plain, cleanPath);
   fragmentWrapEl.appendChild(inner);
   fragmentWrapEl.setAttribute('data-class', 'fragment');
   fragmentWrapEl.setAttribute('data-path', dataPathAttr.startsWith('/') ? dataPathAttr : `/${dataPathAttr}`);
@@ -266,7 +339,7 @@ export async function hydrateFragmentLinksInDaBlocks(mainEl) {
         continue;
       }
 
-      const frag = mountFragmentFromPlain(a, plain, dataPath);
+      const frag = mountFragmentFromPlain(a, plain, dataPath, rp);
       if (frag) inserted.push(frag);
     }
   }
