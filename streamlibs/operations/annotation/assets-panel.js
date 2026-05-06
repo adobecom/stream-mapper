@@ -147,7 +147,7 @@ export default function createAssetsPanelController({
 
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
-    username.textContent = window.streamConfig?.username || 'Collaborator';
+    username.textContent = asset.username || 'Collaborator';
     card.appendChild(username);
 
     const text = document.createElement('p');
