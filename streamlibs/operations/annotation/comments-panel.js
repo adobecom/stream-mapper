@@ -978,7 +978,9 @@ export default function createCommentsPanelController({
 
     const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
       annotationUI.mainEl,
-      annotationUI.annotationMode === 'edit',
+      annotationUI.annotationMode === 'edit'
+        || annotationUI.inlineMode
+        || annotationUI.assetSelectMode,
     );
 
     const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();

@@ -2260,6 +2260,13 @@ body.annotation-mode main [data-class="fragment"] {
 
 body.annotation-inline-edit-mode main [data-class="fragment"] {
   opacity: 0.78;
+  /* Block text/link interaction; fragment source of truth is the fragment doc. */
+  pointer-events: none;
+}
+
+/* Asset select: block all interaction inside embedded fragments (incl. image upload). */
+body.annotation-asset-select-mode main [data-class="fragment"] {
+  pointer-events: none;
 }
 
 body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonly-hint {
@@ -3234,12 +3241,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     box-sizing: border-box;
   }
   
-  .block-selection-bar--hint {
-    align-items: flex-start;
-    padding: 14px 20px 16px;
-    border-radius: 14px;
-  }
-  
   .block-selection-bar-text {
     display: flex;
     flex-direction: column;
@@ -3656,4 +3657,8 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
 
   .page-metadata .annotation-asset-pending-badge {
     display: none;
+  }
+
+  main > .section, .fragment > .section {
+    min-height: 50px;
   }

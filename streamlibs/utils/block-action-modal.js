@@ -97,11 +97,6 @@ function applySelectionHighlight(blockId, selected) {
   }
 }
 
-function isFragmentEditorHintContext() {
-  return document.body.classList.contains('editor-mode')
-    && window.streamConfig?.operation === 'edit';
-}
-
 function updateSelectionBar() {
   const bar = document.getElementById('block-selection-bar');
   const countEl = document.getElementById('block-selection-count');
@@ -110,29 +105,12 @@ function updateSelectionBar() {
   if (!bar) return;
 
   if (selectedBlockIds.length === 0) {
-    if (isFragmentEditorHintContext()) {
-      bar.hidden = false;
-      bar.classList.add('block-selection-bar--hint');
-      if (countEl) countEl.textContent = 'Create a fragment from DA blocks';
-      if (subline) {
-        subline.hidden = false;
-        // eslint-disable-next-line operator-linebreak
-        subline.textContent =
-          'In the DA column on the right, use the stacked-pages (+) control at the corner of each block row to toggle selection '
-          + '(highlighted outline). Rows must be next to each other in the list. When at least one block is chosen, '
-          + 'buttons appear below to Create fragment.';
-      }
-      if (actions) actions.hidden = true;
-    } else {
-      bar.hidden = true;
-      bar.classList.remove('block-selection-bar--hint');
-      if (subline) subline.hidden = true;
-      if (actions) actions.hidden = false;
-    }
+    bar.hidden = true;
+    if (subline) subline.hidden = true;
+    if (actions) actions.hidden = false;
     return;
   }
 
-  bar.classList.remove('block-selection-bar--hint');
   if (actions) actions.hidden = false;
   bar.hidden = false;
   const n = selectedBlockIds.length;
@@ -143,8 +121,7 @@ function updateSelectionBar() {
   }
 }
 
-/** Call after the edit UI mounts (or returning to editor) so the empty-selection hint stays
- *  accurate. */
+/** Call after the edit UI mounts (or returning to editor) so the selection bar state is correct. */
 export function syncBlockSelectionChrome() {
   updateSelectionBar();
 }

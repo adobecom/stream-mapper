@@ -207,6 +207,7 @@ export default function createAssetsPanelController({
       const img = event.target.closest('img');
       if (!img) return;
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
+      if (img.closest('[data-class="fragment"]')) return;
 
       event.preventDefault();
       event.stopPropagation();
