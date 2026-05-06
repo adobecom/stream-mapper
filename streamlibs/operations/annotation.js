@@ -14,7 +14,23 @@ import requestParentCollabRefresh from './annotation/collab-sync.js';
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 let cachedCleanHtml = '';
-const regenReplacements = [];
+
+function sessionLoad(key) {
+  try { return JSON.parse(window.sessionStorage?.getItem(key) || 'null'); } catch { return null; }
+}
+function sessionSave(key, val) {
+  try { window.sessionStorage?.setItem(key, JSON.stringify(val)); } catch { /* ignore */ }
+}
+
+const regenReplacements = (() => {
+  const s = sessionLoad('stream-image-regen');
+  return Array.isArray(s) ? s.filter((r) => r.originalSrc && r.targetUrl) : [];
+})();
+
+const textRegenReplacements = (() => {
+  const s = sessionLoad('stream-text-regen');
+  return Array.isArray(s) ? s.filter((r) => r.originalText && r.newText) : [];
+})();
 const store = createAnnotationStore({ annotationState, annotationUI });
 const annotationService = createAnnotationServiceClient();
 const assetService = createAssetServiceClient();
@@ -165,22 +181,13 @@ function extractFilename(url) {
   return (url.split('?')[0]?.split('#')[0] ?? '').split('/').pop() || '';
 }
 
-function toDaMediaUrl(url) {
-  if (!url) return url;
-  try {
-    const filename = new URL(url).pathname.split('/').pop();
-    if (!filename) return url;
-    return `./media_${filename}`;
-  } catch {
-    return url;
-  }
-}
+
 
 function rewriteAttr(el, attr, origin) {
   const val = el.getAttribute(attr);
   if (!val) return;
   if (val.startsWith('data:')) {
-    el.setAttribute('data-regen-src', val);
+    el.setAttribute('data-stream-original-src', val);
     return;
   }
   if (origin && val.startsWith('./media')) {
@@ -199,10 +206,37 @@ function rewriteMediaUrls(container) {
   });
 }
 
+const CC_SHARED_ORIGIN = 'https://main--da-cc--adobecom.aem.live';
+
+function rewriteCcSharedPaths(container) {
+  container.querySelectorAll('[src],[srcset],[href]').forEach((el) => {
+    ['src', 'srcset', 'href'].forEach((attr) => {
+      const val = el.getAttribute(attr);
+      if (val && val.startsWith('/cc-shared')) {
+        el.setAttribute(attr, `${CC_SHARED_ORIGIN}${val}`);
+      }
+    });
+  });
+}
+
+function applyTextRegenToHtml(html) {
+  if (!textRegenReplacements.length) return html;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = `<main>${html}</main>`;
+  textRegenReplacements.forEach(({ originalText, newText }) => {
+    tmp.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, blockquote, td, th').forEach((el) => {
+      if (el.textContent.trim() === originalText) el.textContent = newText;
+    });
+  });
+  return tmp.querySelector('main').innerHTML;
+}
+
 function buildHtmlWithEditsAndAssets(assetReplacements) {
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
   const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
-  const html = store.applyEasyEditsToHtmlString(cachedCleanHtml, easyEdits);
+  // Apply text regen first so easyEdits can match text that was regen'd before being inline-edited
+  const baseHtml = applyTextRegenToHtml(cachedCleanHtml);
+  const html = store.applyEasyEditsToHtmlString(baseHtml, easyEdits);
 
   const container = document.createElement('div');
   container.innerHTML = `<main>${html}</main>`;
@@ -254,19 +288,25 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     for (const img of allImages) {
       const src = (img.getAttribute('src') || '').split('?')[0]?.split('#')[0] ?? '';
       if (src === regen.originalSrc || (regenFilename && src.split('/').pop() === regenFilename)) {
-        const relUrl = toDaMediaUrl(regen.targetUrl);
-        img.setAttribute('src', relUrl);
-        if (img.hasAttribute('srcset')) img.setAttribute('srcset', relUrl);
-        const picture = img.closest('picture');
-        if (picture) {
-          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', relUrl));
-        }
+        const uploadMarqueeBlock = img.closest('.upload-marquee');
+        const targets = uploadMarqueeBlock
+          ? Array.from(uploadMarqueeBlock.querySelectorAll('picture > img'))
+          : [img];
+        targets.forEach((targetImg) => {
+          targetImg.setAttribute('src', regen.targetUrl);
+          if (targetImg.hasAttribute('srcset')) targetImg.setAttribute('srcset', regen.targetUrl);
+          const picture = targetImg.closest('picture');
+          if (picture) {
+            picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', regen.targetUrl));
+          }
+        });
         break;
       }
     }
   }
 
   rewriteMediaUrls(container);
+  rewriteCcSharedPaths(container);
   const mainEl = container.querySelector('main');
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
@@ -496,10 +536,32 @@ export function applyRemoteCollabSnapshot(snapshot) {
   commentsPanel.applyRemoteCollabSnapshot(snapshot);
 }
 
+export function registerTextRegenReplacement(originalText, newText) {
+  const existing = textRegenReplacements.findIndex((r) => r.originalText === originalText);
+  if (existing >= 0) textRegenReplacements[existing].newText = newText;
+  else textRegenReplacements.push({ originalText, newText });
+  sessionSave('stream-text-regen', textRegenReplacements);
+}
+
 export function registerRegenReplacement(originalSrc, newUrl) {
   const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
   if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
   else regenReplacements.push({ originalSrc, targetUrl: newUrl });
+  sessionSave('stream-image-regen', regenReplacements);
+}
+
+export function reapplyTextRegenToDom() {
+  if (!textRegenReplacements.length) return;
+  const TEXT_SEL = 'main p, main h1, main h2, main h3, main h4, main h5, main h6, main li, main blockquote, main td, main th';
+  textRegenReplacements.forEach(({ originalText, newText }) => {
+    document.querySelectorAll(TEXT_SEL).forEach((el) => {
+      if (el.textContent.trim() === originalText) el.textContent = newText;
+    });
+  });
+}
+
+export function getImageRegenReplacements() {
+  return [...regenReplacements];
 }
 
 export function preparePendingRemoteEditsRefresh() {

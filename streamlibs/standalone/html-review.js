@@ -26,6 +26,9 @@ import {
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   registerRegenReplacement,
+  registerTextRegenReplacement,
+  reapplyTextRegenToDom,
+  getImageRegenReplacements,
 } from '../operations/annotation.js';
 
 /**
@@ -170,7 +173,11 @@ function ensureRegenButton() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const newText = json?.response?.text || json.text || json.content || json.result || '';
-      if (newText && el.isConnected) el.textContent = newText;
+      if (newText && el.isConnected) {
+        const originalText = el.textContent.trim();
+        el.textContent = newText;
+        registerTextRegenReplacement(originalText, newText);
+      }
     } catch (err) {
       console.error('[stream-html-review] content-regeneration failed', err);
     } finally {
@@ -300,14 +307,13 @@ async function urlToBase64(url) {
 }
 
 function restoreRegenImages() {
-  document.querySelectorAll('img[data-regen-src]').forEach((img) => {
-    img.src = img.dataset.regenSrc;
-    delete img.dataset.regenSrc;
+  document.querySelectorAll('img[data-stream-original-src]').forEach((img) => {
+    const original = img.getAttribute('data-stream-original-src');
+    if (original) img.src = original;
     const picture = img.closest('picture');
     if (picture) {
-      picture.querySelectorAll('source[data-regen-srcset]').forEach((src) => {
-        src.srcset = src.dataset.regenSrcset;
-        delete src.dataset.regenSrcset;
+      picture.querySelectorAll('source[data-stream-original-src]').forEach((src) => {
+        src.srcset = src.getAttribute('data-stream-original-src') || src.srcset;
       });
     }
   });
@@ -439,21 +445,35 @@ function ensureImgRegenElements() {
       const json = await res.json();
       const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
       if (newUrl && img.isConnected) {
-        const originalSrc = img.src;
-        registerRegenReplacement(originalSrc, newUrl);
-
-        const picture = img.closest('picture');
         const base64 = await urlToBase64(newUrl);
         const displaySrc = base64 || newUrl;
 
-        img.dataset.regenSrc = newUrl;
-        img.src = displaySrc;
-
-        if (picture) {
-          picture.querySelectorAll('source').forEach((src) => {
-            src.dataset.regenSrcset = newUrl;
-            src.srcset = displaySrc;
+        const uploadMarqueeBlock = img.closest('.upload-marquee');
+        if (uploadMarqueeBlock) {
+          uploadMarqueeBlock.querySelectorAll('picture').forEach((pic) => {
+            if (!pic.querySelector('source')) return;
+            const picImg = pic.querySelector('img');
+            if (picImg) {
+              registerRegenReplacement(picImg.getAttribute('data-stream-original-src') || picImg.src, newUrl);
+              picImg.setAttribute('data-stream-original-src', newUrl);
+              picImg.src = displaySrc;
+            }
+            pic.querySelectorAll('source').forEach((source) => {
+              source.setAttribute('data-stream-original-src', newUrl);
+              source.srcset = displaySrc;
+            });
           });
+        } else {
+          const pic = img.closest('picture');
+          registerRegenReplacement(img.getAttribute('data-stream-original-src') || img.src, newUrl);
+          img.setAttribute('data-stream-original-src', newUrl);
+          img.src = displaySrc;
+          if (pic) {
+            pic.querySelectorAll('source').forEach((source) => {
+              source.setAttribute('data-stream-original-src', newUrl);
+              source.srcset = displaySrc;
+            });
+          }
         }
       }
     } catch (err) {
@@ -722,6 +742,39 @@ async function startAnnotationFromInit(payload) {
     throw err;
   }
   state.annotationStarted = true;
+
+  // Re-apply persisted regen changes to the live DOM after annotation restarts
+  reapplyTextRegenToDom();
+  const imageRegens = getImageRegenReplacements();
+  if (imageRegens.length) {
+    imageRegens.forEach(async ({ originalSrc, targetUrl }) => {
+      const base64 = await urlToBase64(targetUrl);
+      if (!base64) return;
+      const displaySrc = base64;
+      const regenFilename = (originalSrc.split('?')[0]?.split('#')[0] ?? '').split('/').pop();
+      document.querySelectorAll('main picture').forEach((pic) => {
+        const picImg = pic.querySelector('img');
+        if (!picImg) return;
+        const src = picImg.src;
+        if (src !== originalSrc && (!regenFilename || src.split('/').pop().split('?')[0] !== regenFilename)) return;
+        const uploadMarqueeBlock = picImg.closest('.upload-marquee');
+        const pictures = uploadMarqueeBlock
+          ? Array.from(uploadMarqueeBlock.querySelectorAll('picture'))
+          : [pic];
+        pictures.forEach((p) => {
+          const pImg = p.querySelector('img');
+          if (pImg) {
+            pImg.setAttribute('data-stream-original-src', targetUrl);
+            pImg.src = displaySrc;
+          }
+          p.querySelectorAll('source').forEach((s) => {
+            s.setAttribute('data-stream-original-src', targetUrl);
+            s.srcset = displaySrc;
+          });
+        });
+      });
+    });
+  }
 
   const panelEl = document.querySelector('.annotation-comments-panel');
   console.log('[stream-html-review] annotation mounted', {
