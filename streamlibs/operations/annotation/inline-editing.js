@@ -680,6 +680,7 @@ export default function createInlineEditingController({
 
   function registerNewEditableElement(element) {
     if (!annotationUI.inlineMode || !annotationUI.mediumEditorInstance) return;
+    if (!(element instanceof HTMLElement) || isInsideStreamFragment(element)) return;
     const elementRef = store.ensureElementRef(element);
     annotationUI.editableElements.push(element);
     annotationUI.inlineElementSnapshot.set(elementRef, {
