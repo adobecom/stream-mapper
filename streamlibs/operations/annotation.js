@@ -281,13 +281,13 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     const metadataDiv = document.createElement('div');
     metadataDiv.className = 'metadata';
     metadataDiv.innerHTML = pageMetadataDom.innerHTML;
-    metadataDiv.querySelectorAll('p').forEach(p => {
+    metadataDiv.querySelectorAll('p').forEach((p) => {
       const ptag = p;
-      [...ptag.attributes].forEach(attr => {
+      [...ptag.attributes].forEach((attr) => {
         ptag.removeAttribute(attr.name);
       });
     });
-    metadataDiv.querySelectorAll('img').forEach(img => {
+    metadataDiv.querySelectorAll('img').forEach((img) => {
       const daSrc = img.getAttribute('data-stream-original-src');
       img.setAttribute('src', daSrc);
     });

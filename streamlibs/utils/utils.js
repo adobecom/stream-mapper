@@ -178,8 +178,7 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
     brokenAreas.forEach(async (brokenArea) => {
       if (brokenArea.classList.contains('metadata')) {
         brokenArea.remove();
-      }
-      else {
+      } else {
         brokenArea.insertAdjacentHTML('afterend', placeholderHtml);
         brokenArea.remove();
       }
