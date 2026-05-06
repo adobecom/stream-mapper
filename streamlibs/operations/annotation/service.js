@@ -41,7 +41,8 @@ function normalizeAnchorElementPath(elementPath) {
 }
 
 function getAnnotationCollabId() {
-  const collabId = window.streamConfig?.collabId;
+  const cfg = window.streamConfig || {};
+  const collabId = cfg.collabId ?? cfg.collab_id;
   return `${collabId || ''}`.trim();
 }
 
