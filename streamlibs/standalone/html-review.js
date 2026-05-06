@@ -18,12 +18,14 @@ import {
   initializeTokens,
   ensureStreamMapperForStandalone,
   setLibs,
+  getConfig,
 } from '../utils/utils.js';
 import {
   annotationOperationOnHostPage,
   saveAnnotationChanges,
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
+  registerRegenReplacement,
 } from '../operations/annotation.js';
 
 /**
@@ -93,7 +95,7 @@ function getBlockName(el) {
 function getRegenEndpoint() {
   const ep = (window.streamConfig && window.streamConfig.streamServiceEP) || '';
   if (ep) return `${ep.replace(/\/$/, '')}/api/content-regeneration`;
-  return 'http://localhost:8081/api/content-regeneration';
+  return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api/content-regeneration';
 }
 
 const regenState = {
@@ -277,6 +279,40 @@ const IMAGE_REGEN_STYLES = `
 .stream-img-prompt-submit:disabled { background: #888; cursor: wait; }
 `;
 
+async function urlToBase64(url) {
+  try {
+    const config = await getConfig();
+    const rawToken = config?.streamMapper?.daToken || (window.streamConfig && window.streamConfig.token) || '';
+    const token = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+    const res = await fetch(url, token ? { headers: { Authorization: token } } : {});
+    if (!res.ok) throw new Error(`${res.status}`);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('[stream-html-review] urlToBase64 failed', url, err);
+    return null;
+  }
+}
+
+function restoreRegenImages() {
+  document.querySelectorAll('img[data-regen-src]').forEach((img) => {
+    img.src = img.dataset.regenSrc;
+    delete img.dataset.regenSrc;
+    const picture = img.closest('picture');
+    if (picture) {
+      picture.querySelectorAll('source[data-regen-srcset]').forEach((src) => {
+        src.srcset = src.dataset.regenSrcset;
+        delete src.dataset.regenSrcset;
+      });
+    }
+  });
+}
+
 function getImageRegenEndpoint() {
   return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api/image-generation';
 }
@@ -401,12 +437,23 @@ function ensureImgRegenElements() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      const newUrl = json?.response?.url || json.url || json.image_url || json.imageUrl || '';
+      const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
       if (newUrl && img.isConnected) {
-        img.src = newUrl;
+        const originalSrc = img.src;
+        registerRegenReplacement(originalSrc, newUrl);
+
         const picture = img.closest('picture');
+        const base64 = await urlToBase64(newUrl);
+        const displaySrc = base64 || newUrl;
+
+        img.dataset.regenSrc = newUrl;
+        img.src = displaySrc;
+
         if (picture) {
-          picture.querySelectorAll('source').forEach((src) => { src.srcset = newUrl; });
+          picture.querySelectorAll('source').forEach((src) => {
+            src.dataset.regenSrcset = newUrl;
+            src.srcset = displaySrc;
+          });
         }
       }
     } catch (err) {
