@@ -278,7 +278,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   if (pageMetadataDom) {
     cachedPageMetadataHtml = pageMetadataDom.innerHTML;
     mainEl.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.closest('div');
+      const parentSection = el.parentElement;
       el.remove();
       if (parentSection.children.length === 0) parentSection.remove();
     });
