@@ -523,3 +523,4 @@ export async function refreshAnnotationFloatingUI() {
   });
   commentsPanel.renderThreadMarkers({ resolveTargets: true });
 }
+
