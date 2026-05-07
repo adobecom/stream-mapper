@@ -326,6 +326,13 @@ export async function annotationOperation(options = {}) {
     mainEl.querySelectorAll(':scope > div').forEach((div) => {
       if (!div.dataset.source) div.dataset.source = 'da';
     });
+  }
+
+  if (!cachedCleanHtml) {
+    cachedCleanHtml = mainEl.innerHTML || '';
+  }
+
+  if (window.streamConfig?.source === 'da') {
     const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
     for (const root of insertedFragments) {
       // eslint-disable-next-line no-await-in-loop
@@ -333,9 +340,6 @@ export async function annotationOperation(options = {}) {
     }
   }
 
-  if (!cachedCleanHtml) {
-    cachedCleanHtml = mainEl.innerHTML || '';
-  }
   await miloLoadArea();
 
   // initialize page metadata

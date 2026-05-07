@@ -2096,6 +2096,24 @@ export default function createCommentsPanelController({
       const card = target.closest('.annotation-panel-comment');
 
       if (card instanceof HTMLElement && card.classList.contains('annotation-panel-asset-item')) {
+        if (target.closest('.annotation-asset-actions')) return;
+        let elementPath = null;
+        const { localAssetId, assetId } = card.dataset;
+        if (localAssetId) {
+          const local = (annotationState.store.localAssets || []).find((a) => a.localId === localAssetId);
+          if (local?.targetImg instanceof HTMLElement) {
+            local.targetImg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return;
+          }
+          elementPath = local?.elementPath || null;
+        } else if (assetId) {
+          const asset = (annotationState.store.assets || []).find((a) => String(a.id) === String(assetId));
+          elementPath = asset?.elementPath || null;
+        }
+        if (elementPath && annotationUI.mainEl) {
+          const el = annotationUI.mainEl.querySelector(elementPath);
+          if (el instanceof HTMLElement) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
         return;
       }
 
