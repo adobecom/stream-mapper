@@ -123,6 +123,7 @@ export function createFigmaLoaderReporter() {
     completeDesignLoading() {
       stopMappingTimer();
       setMappingProgress(LOADER_PROGRESS_STEPS.FIGMA_DESIGN_DONE);
+      // eslint-disable-next-line max-len
       emitLoaderProgress(LOADER_PROGRESS_STEPS.FIGMA_DESIGN_DONE, LOADER_STEP_MESSAGES.FIGMA_DESIGN_LOADED);
     },
     markNoComponents() {
@@ -149,6 +150,7 @@ export function createFigmaLoaderReporter() {
             LOADER_PROGRESS_STEPS.BLOCKS_DONE,
             LOADER_PROGRESS_STEPS.BLOCKS_START + (detailsResponses * detailIncrement),
           );
+          // eslint-disable-next-line max-len
           emitLoaderProgress(nextProgress, getBlocksCreationMessage(detailsResponses, totalDetailsCalls));
         },
       };
