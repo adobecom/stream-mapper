@@ -262,7 +262,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const reviewId = getReviewId();
       const raw = window.sessionStorage.getItem(ANNOTATION_STORE_KEY);
       if (!raw) {
-        annotationState.store = { threads: [], easyEdits: [], assets: [], localAssets: [] };
+        annotationState.store = {
+          threads: [], easyEdits: [], assets: [], localAssets: [],
+        };
         return;
       }
       const parsed = JSON.parse(raw) || {};
@@ -276,7 +278,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       annotationState.store = parseAnnotationPayload(parsed);
       rebuildEditThreadsFromEasyEdits();
     } catch (error) {
-      annotationState.store = { threads: [], easyEdits: [], assets: [], localAssets: [] };
+      annotationState.store = {
+        threads: [], easyEdits: [], assets: [], localAssets: [],
+      };
     }
   }
 
@@ -982,6 +986,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     annotationState.store.easyEdits.forEach((edit) => {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
+      if (target.closest('[data-class="fragment"]')) return;
 
       if (edit.editType === 'image-alt') {
         target.setAttribute('alt', edit.to || '');

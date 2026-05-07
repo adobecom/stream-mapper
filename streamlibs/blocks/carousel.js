@@ -66,6 +66,7 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
             carouselValueDiv.textContent = `${CAROUSEL_TEXT_PREFIX}-${carouselCounter}`;
           }
         }
+        // eslint-disable-next-line max-len
         if (properties.medias.length > 0 && properties.cards.length === 0 && properties.bricks.length === 0) {
           properties.medias.forEach((media) => {
             const mediaDiv = div.cloneNode(true);
