@@ -277,7 +277,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
   if (pageMetadataDom) {
     cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-    
     mainEl.querySelectorAll('.metadata').forEach((el) => {
       const parentSection = el.closest('div');
       el.remove();
