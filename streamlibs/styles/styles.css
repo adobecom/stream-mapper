@@ -1013,6 +1013,7 @@ img.da-process-wait {
   .da-panel > [data-source="figma"],
   .da-panel > [data-source="da"] {
     position: relative;
+    min-height: 100px;
   }
 
   .da-panel > [data-source="figma"]::before {
