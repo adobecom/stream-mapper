@@ -463,8 +463,10 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
 
   const latestByPath = new Map();
   for (const asset of (annotationState.store.assets || [])) {
+    // eslint-disable-next-line no-continue
     if (!asset.originalSrc || !asset.daUrl) continue;
     const existing = latestByPath.get(asset.elementPath);
+    // eslint-disable-next-line max-len
     if (!existing || (asset.createdAt && new Date(asset.createdAt) > new Date(existing.createdAt || 0))) {
       latestByPath.set(asset.elementPath, asset);
     }
