@@ -18,6 +18,7 @@ import requestParentCollabRefresh from './annotation/collab-sync.js';
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 let cachedCleanHtml = '';
+const regenReplacements = [];
 let cachedPageMetadataHtml = null;
 const store = createAnnotationStore({ annotationState, annotationUI });
 const annotationService = createAnnotationServiceClient();
@@ -222,6 +223,40 @@ function extractFilename(url) {
   return (url.split('?')[0]?.split('#')[0] ?? '').split('/').pop() || '';
 }
 
+function toDaMediaUrl(url) {
+  if (!url) return url;
+  try {
+    const filename = new URL(url).pathname.split('/').pop();
+    if (!filename) return url;
+    return `./media_${filename}`;
+  } catch {
+    return url;
+  }
+}
+
+function rewriteAttr(el, attr, origin) {
+  const val = el.getAttribute(attr);
+  if (!val) return;
+  if (val.startsWith('data:')) {
+    el.setAttribute('data-regen-src', val);
+    return;
+  }
+  if (origin && val.startsWith('./media')) {
+    el.setAttribute(attr, `${origin}/${val.slice(2)}`);
+  }
+}
+
+function rewriteMediaUrls(container) {
+  const origin = (typeof window !== 'undefined' && window.location?.origin) || '';
+  container.querySelectorAll('img').forEach((img) => {
+    rewriteAttr(img, 'src', origin);
+    if (img.hasAttribute('srcset')) rewriteAttr(img, 'srcset', origin);
+  });
+  container.querySelectorAll('source').forEach((source) => {
+    rewriteAttr(source, 'srcset', origin);
+  });
+}
+
 function buildHtmlWithEditsAndAssets(assetReplacements) {
   const payload = store.getStoredAnnotationPayload() || annotationState.store;
   const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
@@ -272,6 +307,25 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     }
   }
 
+  for (const regen of regenReplacements) {
+    const regenFilename = extractFilename(regen.originalSrc);
+    const allImages = container.querySelectorAll('img');
+    for (const img of allImages) {
+      const src = (img.getAttribute('src') || '').split('?')[0]?.split('#')[0] ?? '';
+      if (src === regen.originalSrc || (regenFilename && src.split('/').pop() === regenFilename)) {
+        const relUrl = toDaMediaUrl(regen.targetUrl);
+        img.setAttribute('src', relUrl);
+        if (img.hasAttribute('srcset')) img.setAttribute('srcset', relUrl);
+        const picture = img.closest('picture');
+        if (picture) {
+          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', relUrl));
+        }
+        break;
+      }
+    }
+  }
+
+  rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
@@ -301,6 +355,33 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   }
 
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
+}
+
+async function finishAnnotationSession(mainEl, {
+  preserveRemoteEditState,
+  shouldRestoreInlineMode,
+}) {
+  await commentsPanel.setupAnnotationUI(mainEl, {
+    preserveRemoteEditState,
+  });
+  if (annotationState.latestRemoteCollabSnapshot) {
+    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
+      includeEdits: false,
+    });
+  }
+  store.rebindEasyEditsToCurrentDom();
+  store.applyEasyEditsToDom();
+  store.saveAnnotationStore();
+  if (shouldRestoreInlineMode) {
+    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
+    if (!didEnableInlineMode) {
+      commentsPanel.renderThreadMarkers({ resolveTargets: true });
+      commentsPanel.renderCommentsPanel();
+    }
+  } else {
+    commentsPanel.renderThreadMarkers({ resolveTargets: true });
+    commentsPanel.renderCommentsPanel();
+  }
 }
 
 export async function annotationOperation(options = {}) {
@@ -383,27 +464,67 @@ export async function annotationOperation(options = {}) {
   metadataSeparator.append(metadataActions);
   mainEl.append(metadataSeparator);
 
-  await commentsPanel.setupAnnotationUI(mainEl, {
+  await finishAnnotationSession(mainEl, {
     preserveRemoteEditState,
+    shouldRestoreInlineMode,
   });
-  if (annotationState.latestRemoteCollabSnapshot) {
-    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
-      includeEdits: false,
-    });
+}
+
+/**
+ * Annotation on an existing decorated page (tenant AEM): uses current <main>, no miloLoadArea / preview replacement.
+ */
+export async function annotationOperationOnHostPage(options = {}) {
+  const {
+    preserveRemoteEditState = false,
+    refreshBaselineHtml = false,
+  } = options;
+  const previousAnnotationMode = annotationUI.annotationMode || 'comments';
+  const shouldRestoreInlineMode = annotationUI.inlineMode
+    && window.streamConfig?.inlineEditingAllowed !== false;
+
+  inlineEditing.resetInlineEditModeState();
+  annotationUI.annotationMode = shouldRestoreInlineMode ? 'edit' : previousAnnotationMode;
+  document.body.classList.add('annotation-mode');
+  if (!preserveRemoteEditState) {
+    annotationState.latestSavedEditsUpdatedAt = null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = false;
   }
-  store.rebindEasyEditsToCurrentDom();
-  store.applyEasyEditsToDom();
-  store.saveAnnotationStore();
-  if (shouldRestoreInlineMode) {
-    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
-    if (!didEnableInlineMode) {
-      commentsPanel.renderThreadMarkers({ resolveTargets: true });
-      commentsPanel.renderCommentsPanel();
+
+  const mainEl = document.querySelector('main');
+  if (!mainEl) {
+    throw new Error('annotationOperationOnHostPage: no <main> found on page');
+  }
+
+  if (!cachedCleanHtml || refreshBaselineHtml) {
+    cachedCleanHtml = mainEl.innerHTML || '';
+  }
+
+  await finishAnnotationSession(mainEl, {
+    preserveRemoteEditState,
+    shouldRestoreInlineMode,
+  });
+}
+
+/** da.live edit URL → repo path (e.g. adobecom/...); leaves plain paths unchanged. */
+function normalizePersistUrlForDaApi(raw) {
+  const s = `${raw || ''}`.trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) {
+    return s.replace(/^\/+/, '');
+  }
+  try {
+    const u = new URL(s);
+    if (u.hash?.startsWith('#/')) {
+      return decodeURIComponent(u.hash.slice(2)).replace(/^\/+/, '');
     }
-  } else {
-    commentsPanel.renderThreadMarkers({ resolveTargets: true });
-    commentsPanel.renderCommentsPanel();
+    if (u.hostname.includes('da.live') && u.pathname && u.pathname !== '/') {
+      return decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    }
+  } catch {
+    /* ignore */
   }
+  return s;
 }
 
 export async function persistAnnotationChangesToDA() {
@@ -439,7 +560,16 @@ export async function persistAnnotationChangesToDA() {
 
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
-  await postData(window.streamConfig.pageUrl, daCompatibleHtml, {
+  const cfg = window.streamConfig || {};
+  const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
+  if (!rawPushUrl) {
+    throw new Error(
+      'persistAnnotationChangesToDA: streamConfig.pageUrl is required (set via STREAM_HTML_REVIEW_INIT).',
+    );
+  }
+  const pushUrl = normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl;
+
+  await postData(pushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
 }
@@ -509,6 +639,12 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
 
 export function applyRemoteCollabSnapshot(snapshot) {
   commentsPanel.applyRemoteCollabSnapshot(snapshot);
+}
+
+export function registerRegenReplacement(originalSrc, newUrl) {
+  const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
+  if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
+  else regenReplacements.push({ originalSrc, targetUrl: newUrl });
 }
 
 export function preparePendingRemoteEditsRefresh() {
