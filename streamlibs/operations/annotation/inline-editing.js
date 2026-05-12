@@ -25,6 +25,12 @@ export default function createInlineEditingController({
     'append-blockquote',
   ]);
 
+  /** Milo / stream fragment roots — inline edits must not apply here (DA-sourced embeds). */
+  function isInsideStreamFragment(element) {
+    if (!(element instanceof Element)) return false;
+    return Boolean(element.closest('[data-class="fragment"]'));
+  }
+
   function normalizeInlineFormattingHtml(html = '') {
     const template = document.createElement('template');
     template.innerHTML = html;
@@ -106,6 +112,7 @@ export default function createInlineEditingController({
         if (!(el instanceof HTMLElement)) return false;
         if (!el.textContent || !el.textContent.trim()) return false;
         if (el.closest('.annotation-comments-panel') || el.closest('.annotation-floating-popup')) return false;
+        if (isInsideStreamFragment(el)) return false;
         return true;
       });
     const candidateSet = new Set(candidates);
@@ -130,6 +137,7 @@ export default function createInlineEditingController({
       .filter((el) => {
         if (!(el instanceof HTMLImageElement)) return false;
         if (el.closest('.annotation-comments-panel') || el.closest('.annotation-floating-popup')) return false;
+        if (isInsideStreamFragment(el)) return false;
         return true;
       });
   }
@@ -285,11 +293,13 @@ export default function createInlineEditingController({
 
     for (let idx = 0; idx < candidateNodes.length; idx += 1) {
       const node = candidateNodes[idx];
-      if (node instanceof HTMLImageElement) return node;
+      if (node instanceof HTMLImageElement) {
+        if (!isInsideStreamFragment(node)) return node;
+      }
       if (node instanceof Element || node?.parentElement instanceof HTMLElement) {
         const element = node instanceof HTMLElement ? node : node?.parentElement;
         const img = element?.closest('img');
-        if (img instanceof HTMLImageElement) return img;
+        if (img instanceof HTMLImageElement && !isInsideStreamFragment(img)) return img;
       }
     }
     return null;
@@ -308,6 +318,7 @@ export default function createInlineEditingController({
 
   async function persistSingleImageAltChange(imageElement) {
     if (!(imageElement instanceof HTMLImageElement) || !annotationUI.mainEl) return;
+    if (isInsideStreamFragment(imageElement)) return;
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
@@ -355,6 +366,7 @@ export default function createInlineEditingController({
 
   function openInlineAltPopup(imageElement) {
     if (!(imageElement instanceof HTMLImageElement)) return;
+    if (isInsideStreamFragment(imageElement)) return;
     closeInlineAltPopup();
 
     const popup = document.createElement('div');
@@ -441,6 +453,7 @@ export default function createInlineEditingController({
       if (!annotationUI.inlineMode) return;
       const { target } = event;
       if (!(target instanceof HTMLImageElement)) return;
+      if (isInsideStreamFragment(target)) return;
       annotationUI.inlineSelectedImageEl = target;
       openInlineAltPopup(target);
     };
@@ -475,6 +488,7 @@ export default function createInlineEditingController({
         const imageElement = getSelectedImageForMediumEditor()
           || annotationUI.inlineSelectedImageEl;
         if (!(imageElement instanceof HTMLImageElement)) return;
+        if (isInsideStreamFragment(imageElement)) return;
         openInlineAltPopup(imageElement);
       },
     });
@@ -664,9 +678,30 @@ export default function createInlineEditingController({
     store.saveAnnotationStore();
   }
 
+  function registerNewEditableElement(element) {
+    if (!annotationUI.inlineMode || !annotationUI.mediumEditorInstance) return;
+    if (!(element instanceof HTMLElement) || isInsideStreamFragment(element)) return;
+    const elementRef = store.ensureElementRef(element);
+    annotationUI.editableElements.push(element);
+    annotationUI.inlineElementSnapshot.set(elementRef, {
+      originalHtml: normalizeInlineFormattingHtml(element.innerHTML),
+      originalText: element.textContent || '',
+    });
+    element.classList.add('annotation-inline-editable');
+    const blurHandler = () => { trackInlineEditChange(element); };
+    const focusHandler = () => { setActiveInlineEditableElement(element); };
+    annotationUI.inlineBlurHandlers.set(elementRef, blurHandler);
+    annotationUI.inlineFocusHandlers.set(elementRef, focusHandler);
+    element.addEventListener('blur', blurHandler, true);
+    element.addEventListener('focus', focusHandler, true);
+    element.addEventListener('click', focusHandler, true);
+    annotationUI.mediumEditorInstance.addElements([element]);
+  }
+
   return {
     disableInlineEditMode,
     enableInlineEditMode,
+    registerNewEditableElement,
     resetInlineEditModeState,
     syncInlineEditsBeforePersist,
   };

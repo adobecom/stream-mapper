@@ -35,6 +35,7 @@ export default function createAssetServiceClient() {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
+      // eslint-disable-next-line no-console
       console.error(`[asset-service] Request failed: ${response.status} ${path}`, errorBody);
       throw new Error(`Asset service request failed: ${response.status} — ${errorBody}`);
     }

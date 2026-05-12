@@ -1,5 +1,9 @@
+/* eslint-disable no-console */
+/* eslint-disable function-paren-newline */
+/* eslint-disable no-restricted-syntax */
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
+import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
 import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
@@ -15,6 +19,7 @@ const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 let cachedCleanHtml = '';
 const regenReplacements = [];
+let cachedPageMetadataHtml = null;
 const store = createAnnotationStore({ annotationState, annotationUI });
 const annotationService = createAnnotationServiceClient();
 const assetService = createAssetServiceClient();
@@ -42,6 +47,11 @@ const inlineEditing = createInlineEditingController({
 commentsPanel.setInlineModeHandlers({
   enableInlineEditMode: inlineEditing.enableInlineEditMode,
   disableInlineEditMode: inlineEditing.disableInlineEditMode,
+});
+
+assetsPanel.setOnAssetsChanged(() => {
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
 });
 
 function normalizeDAImages(root) {
@@ -75,11 +85,24 @@ async function initializePreview() {
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
+  const metadataEle = document.createElement('div');
+  metadataEle.classList.add('page-metadata');
+  if (cachedPageMetadataHtml !== null) {
+    metadataEle.innerHTML = cachedPageMetadataHtml;
+  } else {
+    const metadataBlocks = htmlDom.querySelectorAll('div.metadata');
+    if (metadataBlocks) {
+      metadataBlocks.forEach((mb) => {
+        metadataEle.innerHTML += mb.innerHTML;
+      });
+    }
+  }
   if (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN') {
     mainEle.innerHTML = htmlDom.innerHTML;
   } else {
     mainEle.innerHTML = htmlDom;
   }
+  document.body.append(metadataEle);
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
 }
@@ -130,19 +153,54 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
     const withoutParams = originalSrc.split('?')[0]?.split('#')[0] ?? '';
     const filename = withoutParams.split('/').pop() || '';
 
+    const candidates = [];
     for (const img of allImages) {
       const src = img.getAttribute('src') || '';
       if (src && withoutParams && src.includes(withoutParams)) {
-        return img.closest('picture') || img;
+        candidates.push(img);
       }
     }
-    if (filename) {
+    if (candidates.length === 0 && filename) {
       for (const img of allImages) {
         const src = (img.getAttribute('src') || '').split('?')[0]?.split('#')[0] ?? '';
         if (src.split('/').pop() === filename) {
-          return img.closest('picture') || img;
+          candidates.push(img);
         }
       }
+    }
+
+    if (candidates.length === 1) {
+      return candidates[0].closest('picture') || candidates[0];
+    }
+
+    if (candidates.length > 1 && elementProps) {
+      const sectionIndex = typeof elementProps.sectionIndex === 'number' ? elementProps.sectionIndex : -1;
+      const blockClass = typeof elementProps.blockClass === 'string' ? elementProps.blockClass : '';
+      const blockIndex = typeof elementProps.blockIndex === 'number' ? elementProps.blockIndex : 0;
+
+      if (sectionIndex >= 0) {
+        const sections = Array.from(main.children).filter((el) => el.tagName === 'DIV');
+        const section = sections[sectionIndex];
+        if (section) {
+          let block = null;
+          if (blockClass) {
+            const matching = Array.from(section.querySelectorAll(`:scope > div.${blockClass}`));
+            block = matching[blockIndex] ?? matching[0] ?? null;
+          }
+          if (!block) {
+            const divs = Array.from(section.children).filter((el) => el.tagName === 'DIV');
+            block = divs[blockIndex] ?? null;
+          }
+          if (block) {
+            const blockCandidate = candidates.find((img) => block.contains(img));
+            if (blockCandidate) return blockCandidate.closest('picture') || blockCandidate;
+          }
+        }
+      }
+    }
+
+    if (candidates.length > 0) {
+      return candidates[0].closest('picture') || candidates[0];
     }
   }
 
@@ -213,6 +271,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     );
     if (element) {
       replaceAssetUrl(element, asset.targetUrl);
+      // eslint-disable-next-line no-continue
       continue;
     }
 
@@ -268,6 +327,33 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
 
   rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
+
+  const pageMetadataDom = document.body.querySelector('main .page-metadata');
+  if (pageMetadataDom) {
+    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
+    mainEl.querySelectorAll('.metadata').forEach((el) => {
+      const parentSection = el.parentElement;
+      el.remove();
+      if (parentSection.children.length === 0) parentSection.remove();
+    });
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'metadata';
+    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    metadataDiv.querySelectorAll('p').forEach((p) => {
+      const ptag = p;
+      [...ptag.attributes].forEach((attr) => {
+        ptag.removeAttribute(attr.name);
+      });
+    });
+    metadataDiv.querySelectorAll('img').forEach((img) => {
+      const daSrc = img.getAttribute('data-stream-original-src');
+      img.setAttribute('src', daSrc);
+    });
+    const divWrapper = document.createElement('div');
+    divWrapper.append(metadataDiv);
+    mainEl.appendChild(divWrapper);
+  }
+
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
 
@@ -315,13 +401,68 @@ export async function annotationOperation(options = {}) {
     annotationState.hasLoadedInitialEditsSnapshot = false;
   }
   await initializePreview();
-  if (!cachedCleanHtml) {
-    const preDecorMainEl = document.querySelector('main');
-    cachedCleanHtml = preDecorMainEl?.innerHTML || '';
-  }
-  await miloLoadArea();
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
+
+  if (window.streamConfig?.source === 'da') {
+    mainEl.querySelectorAll(':scope > div').forEach((div) => {
+      if (!div.dataset.source) div.dataset.source = 'da';
+    });
+  }
+
+  if (!cachedCleanHtml) {
+    cachedCleanHtml = mainEl.innerHTML || '';
+  }
+
+  if (window.streamConfig?.source === 'da') {
+    const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
+    for (const root of insertedFragments) {
+      // eslint-disable-next-line no-await-in-loop
+      await miloLoadArea(root);
+    }
+  }
+
+  await miloLoadArea();
+
+  // initialize page metadata
+  const metadataDom = document.body.querySelector('.page-metadata');
+  const metadataSeparator = document.createElement('div');
+  metadataSeparator.classList.add('section');
+  metadataSeparator.classList.add('stream-annotation-page-metadata');
+  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
+  metadataSeparator.append(metadataDom);
+
+  function addAndRegisterRow(row) {
+    metadataDom.append(row);
+    row.querySelectorAll('p').forEach((p) => {
+      inlineEditing.registerNewEditableElement(p);
+    });
+  }
+
+  const addTextBtn = document.createElement('button');
+  addTextBtn.className = 'stream-annotation-add-metadata-row';
+  addTextBtn.textContent = '+ Add text/link row';
+  addTextBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
+    addAndRegisterRow(row);
+  });
+
+  const addImageBtn = document.createElement('button');
+  addImageBtn.className = 'stream-annotation-add-metadata-row';
+  addImageBtn.textContent = '+ Add image row';
+  addImageBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
+    addAndRegisterRow(row);
+  });
+
+  const metadataActions = document.createElement('div');
+  metadataActions.className = 'stream-annotation-metadata-actions';
+  metadataActions.append(addTextBtn);
+  metadataActions.append(addImageBtn);
+  metadataSeparator.append(metadataActions);
+  mainEl.append(metadataSeparator);
 
   await finishAnnotationSession(mainEl, {
     preserveRemoteEditState,
@@ -454,21 +595,25 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
     }
   }
 
-  const assetReplacements = [];
+  const latestByPath = new Map();
   for (const asset of (annotationState.store.assets || [])) {
-    if (asset.originalSrc && asset.daUrl) {
-      assetReplacements.push({
-        elementPath: asset.elementPath,
-        elementProps: asset.elementProps,
-        originalSrc: asset.originalSrc,
-        daUrl: asset.daUrl,
-        targetUrl: asset.daUrl,
-      });
+    // eslint-disable-next-line no-continue
+    if (!asset.originalSrc || !asset.daUrl) continue;
+    const existing = latestByPath.get(asset.elementPath);
+    // eslint-disable-next-line max-len
+    if (!existing || (asset.createdAt && new Date(asset.createdAt) > new Date(existing.createdAt || 0))) {
+      latestByPath.set(asset.elementPath, asset);
     }
   }
+  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
+    elementPath: asset.elementPath,
+    elementProps: asset.elementProps,
+    originalSrc: asset.originalSrc,
+    daUrl: asset.daUrl,
+    targetUrl: asset.daUrl,
+  }));
 
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
-
 
   await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
     suppressErrorPage: true,

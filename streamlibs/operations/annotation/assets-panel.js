@@ -1,3 +1,7 @@
+/* eslint-disable no-underscore-dangle */
+/* eslint-disable no-console */
+/* eslint-disable no-use-before-define */
+/* eslint-disable no-restricted-syntax */
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
@@ -16,6 +20,17 @@ export default function createAssetsPanelController({
 }) {
   let fileInputEl = null;
   let pendingUploadTarget = null;
+  let onAssetsChanged = null;
+
+  function setOnAssetsChanged(handler) {
+    onAssetsChanged = typeof handler === 'function' ? handler : null;
+  }
+
+  function notifyAssetsChanged() {
+    if (typeof onAssetsChanged === 'function') {
+      onAssetsChanged();
+    }
+  }
 
   function getFileInput() {
     if (!fileInputEl) {
@@ -24,6 +39,7 @@ export default function createAssetsPanelController({
       fileInputEl.accept = 'image/png,image/jpeg';
       fileInputEl.style.display = 'none';
       document.body.appendChild(fileInputEl);
+      // eslint-disable-next-line no-use-before-define
       fileInputEl.addEventListener('change', handleFileSelected);
     }
     return fileInputEl;
@@ -47,6 +63,7 @@ export default function createAssetsPanelController({
     const isOwner = isCurrentUserCollabOwner();
 
     if (isOwner && annotationUI.annotationMode === 'assets') {
+      // eslint-disable-next-line no-use-before-define
       if (!annotationUI.assetSelectMode) enterSelectMode();
     }
 
@@ -89,8 +106,9 @@ export default function createAssetsPanelController({
 
   function buildLocalAssetCard(localAsset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment annotation-asset-card-local';
+    card.className = 'annotation-panel-comment annotation-panel-asset-item annotation-asset-card-local';
     card.dataset.localAssetId = localAsset.localId;
+    if (localAsset.createdAt) card.dataset.createdAt = localAsset.createdAt;
 
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
@@ -121,14 +139,15 @@ export default function createAssetsPanelController({
 
   function buildRemoteAssetCard(asset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment';
+    card.className = 'annotation-panel-comment annotation-panel-asset-item';
     card.dataset.assetId = asset.id;
+    if (asset.createdAt) card.dataset.createdAt = asset.createdAt;
 
     const isApplied = annotationUI.appliedAssets.has(asset.id);
 
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
-    username.textContent = window.streamConfig?.username || 'Collaborator';
+    username.textContent = asset.username || 'Collaborator';
     card.appendChild(username);
 
     const text = document.createElement('p');
@@ -188,6 +207,7 @@ export default function createAssetsPanelController({
       const img = event.target.closest('img');
       if (!img) return;
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
+      if (img.closest('[data-class="fragment"]')) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -268,12 +288,14 @@ export default function createAssetsPanelController({
       createdAt: new Date().toISOString(),
     };
 
+    // eslint-disable-next-line max-len
     const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
     annotationState.store.localAssets = annotationState.store.localAssets
       .filter((a) => a.elementPath !== elementPath);
     for (const old of supersededLocal) {
       annotationUI.appliedAssets.delete(old.localId);
     }
+    // eslint-disable-next-line max-len
     const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
     annotationState.store.assets = (annotationState.store.assets || [])
       .filter((a) => a.elementPath !== elementPath);
@@ -285,7 +307,7 @@ export default function createAssetsPanelController({
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
-    renderAssetsPanel();
+    notifyAssetsChanged();
   }
 
   function readFileAsDataUrl(file) {
@@ -308,7 +330,7 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.delete(localId);
 
     annotationState.store.localAssets.splice(idx, 1);
-    renderAssetsPanel();
+    notifyAssetsChanged();
   }
 
   function applyAssetPreviewToImg(targetImg, base64Data, asset) {
@@ -345,14 +367,17 @@ export default function createAssetsPanelController({
     if (!isCurrentUserCollabOwner()) return;
 
     try {
+      // eslint-disable-next-line no-underscore-dangle
       let base64Data = asset._base64Data;
       if (!base64Data) {
         const content = await assetService.getAssetContent(asset.id);
         if (!content?.data) {
+          // eslint-disable-next-line no-console
           console.warn('[assets-panel] Could not fetch asset content for', asset.id);
           return;
         }
         base64Data = content.data;
+        // eslint-disable-next-line no-underscore-dangle
         asset._base64Data = base64Data;
       }
 
@@ -374,7 +399,7 @@ export default function createAssetsPanelController({
       }
 
       applyAssetPreviewToImg(targetImg, base64Data, asset);
-      renderAssetsPanel();
+      notifyAssetsChanged();
     } catch (err) {
       console.error('[assets-panel] Apply asset failed:', err);
     }
@@ -385,8 +410,6 @@ export default function createAssetsPanelController({
 
     annotationUI.layerEl.querySelectorAll('.annotation-asset-marker')
       .forEach((m) => m.remove());
-
-    if (annotationUI.annotationMode !== 'assets') return;
 
     const assetsByPath = new Map();
     for (const asset of (annotationState.store.assets || [])) {
@@ -411,7 +434,7 @@ export default function createAssetsPanelController({
       const rect = targetEl.getBoundingClientRect();
       if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
-      let top = Math.max(0, Math.round(rect.top - 8));
+      const top = Math.max(0, Math.round(rect.top - 8));
       let left = Math.max(MIN_LEFT, Math.round(rect.right - 8));
       let slotKey = `${top}:${left}`;
       while (occupiedSlots.has(slotKey) && left > MIN_LEFT) {
@@ -483,7 +506,7 @@ export default function createAssetsPanelController({
       }
 
       annotationState.store.assets = annotationState.store.assets.filter((a) => a.id !== asset.id);
-      renderAssetsPanel();
+      notifyAssetsChanged();
     } catch (err) {
       console.error('[assets-panel] Delete failed:', err);
     }
@@ -518,6 +541,7 @@ export default function createAssetsPanelController({
 
     for (const localAsset of localAssets) {
       try {
+        // eslint-disable-next-line no-await-in-loop
         const asset = await assetService.uploadAsset(
           localAsset.file,
           localAsset.elementPath,
@@ -528,6 +552,7 @@ export default function createAssetsPanelController({
         );
         if (!asset) {
           console.warn('[assets-panel] Upload returned null for local asset:', localAsset.localId);
+          // eslint-disable-next-line no-continue
           continue;
         }
 
@@ -542,6 +567,9 @@ export default function createAssetsPanelController({
             elementPath: asset.elementPath,
             targetImg: applied.targetImg,
           });
+          if (applied.targetImg && asset.daUrl) {
+            applied.targetImg.dataset.streamOriginalSrc = asset.daUrl;
+          }
         }
 
         uploadedIds.push(asset.id);
@@ -578,6 +606,7 @@ export default function createAssetsPanelController({
     annotationState.store.assets = merged;
 
     for (const [assetId, applied] of annotationUI.appliedAssets) {
+      // eslint-disable-next-line no-continue
       if (String(assetId).startsWith('local-')) continue;
       const asset = merged.find((a) => a.id === assetId);
       if (!asset || asset.status !== 'pending') {
@@ -605,15 +634,26 @@ export default function createAssetsPanelController({
     pendingUploadTarget = null;
   }
 
+  function getAssetTimestamp(asset) {
+    if (!asset) return 0;
+    const value = asset.updatedAt || asset.createdAt || 0;
+    const ts = new Date(value).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
   return {
     applyAssetToPage,
+    buildLocalAssetCard,
+    buildRemoteAssetCard,
     cleanup,
     clearAppliedAssets,
     enterSelectMode,
     exitSelectMode,
     getAppliedAssetIds,
+    getAssetTimestamp,
     renderAssetMarkers,
     renderAssetsPanel,
+    setOnAssetsChanged,
     updateAssetsFromSnapshot,
     uploadLocalAssets,
   };

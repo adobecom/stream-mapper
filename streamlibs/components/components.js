@@ -317,27 +317,27 @@ export function handleProductLockup(value, areaEl) {
   if (productName) areaEl.innerHTML += productName;
 }
 
+function parseArrangement(arrangement) {
+  const parts = arrangement.split(' ');
+  if (parts.length < 2) {
+    // eslint-disable-next-line no-console
+    console.warn(`[masonry] skipping unrecognized span: "${arrangement}"`);
+    return null;
+  }
+  const spanValue = parseInt(parts[1].trim(), 10);
+  if (Number.isNaN(spanValue) || spanValue < 1 || spanValue > 12) {
+    // eslint-disable-next-line no-console
+    console.warn(`[masonry] skipping invalid span value in: "${arrangement}"`);
+    return null;
+  }
+  return { span: spanValue === 12 ? 'full-width' : arrangement.toLowerCase(), spanValue };
+}
+
 export function handleMasonrysWithSectionMetadata(secEl, blockEl, masonryArrangement) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'masonry');
-  let sum = 0;
-  let masonryStyle = '';
-  // eslint-disable-next-line no-restricted-syntax
-  for (const arrangement of masonryArrangement) {
-    const a = arrangement.toLowerCase();
-    const intPart = parseInt(arrangement.split(' ')[1].trim(), 10);
-    sum += intPart;
-    if (sum < 12) {
-      masonryStyle += `${a}, `;
-    } else if (sum > 12) {
-      masonryStyle += `\n${a}`;
-      sum = 0;
-    } else if (sum === 12 && intPart === 12) {
-      masonryStyle += 'full-width\n';
-      sum = 0;
-    } else if (sum === 12) {
-      masonryStyle += `${a}\n`;
-      sum = 0;
-    }
-  }
-  styleLoc.innerHTML = masonryStyle;
+  const spans = masonryArrangement.map(parseArrangement).filter(Boolean).map(({ span }) => span);
+  if (!spans.length) { styleLoc.replaceChildren(); return; }
+  const p = document.createElement('p');
+  p.textContent = spans.join(', ');
+  styleLoc.replaceChildren(p);
 }

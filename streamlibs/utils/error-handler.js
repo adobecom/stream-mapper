@@ -32,7 +32,7 @@ export function showErrorPage(context = '', preMessage = 'Oops! Something broke 
 }
 
 // eslint-disable-next-line no-unused-vars
-export function handleError(error, context = '', preMessage='Oops! Something broke while') {
+export function handleError(error, context = '', preMessage = 'Oops! Something broke while') {
   // eslint-disable-next-line no-console
   console.log(error);
   showErrorPage(context, preMessage);
