@@ -303,6 +303,7 @@ async function urlToBase64(url) {
   }
 }
 
+// eslint-disable-next-line no-unused-vars
 function restoreRegenImages() {
   document.querySelectorAll('img[data-regen-src]').forEach((img) => {
     img.src = img.dataset.regenSrc;
