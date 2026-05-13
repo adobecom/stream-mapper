@@ -188,6 +188,7 @@ function ensureRegenButton() {
 }
 
 function showRegenBtn(el) {
+  if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
   cancelHideRegenBtn();
   regenState.target = el;
   const btn = ensureRegenButton();
@@ -489,6 +490,7 @@ function openImgPromptOverlay(img) {
 }
 
 function showImgRegenBtn(img) {
+  if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
   imgRegenState.target = img;
