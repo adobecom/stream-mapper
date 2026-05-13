@@ -188,6 +188,7 @@ function ensureRegenButton() {
 }
 
 function showRegenBtn(el) {
+  if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
   cancelHideRegenBtn();
   regenState.target = el;
   const btn = ensureRegenButton();
@@ -302,6 +303,7 @@ async function urlToBase64(url) {
   }
 }
 
+// eslint-disable-next-line no-unused-vars
 function restoreRegenImages() {
   document.querySelectorAll('img[data-regen-src]').forEach((img) => {
     img.src = img.dataset.regenSrc;
@@ -489,6 +491,7 @@ function openImgPromptOverlay(img) {
 }
 
 function showImgRegenBtn(img) {
+  if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
   imgRegenState.target = img;
