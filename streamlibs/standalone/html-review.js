@@ -1,3 +1,5 @@
+/* eslint-disable prefer-destructuring */
+/* eslint-disable no-console */
 /**
  * Stream HTML Review (tenant-side).
  *
@@ -79,6 +81,7 @@ const CONTENT_REGEN_STYLES = `
 .stream-regen-btn svg { width: 15px; height: 15px; fill: #fff; }
 `;
 
+// eslint-disable-next-line max-len
 /** Walk up from el to find the first ancestor directly inside a .section div; return its first class. */
 function getBlockName(el) {
   let cur = el;
@@ -660,6 +663,7 @@ function buildStreamConfigFromInit(payload) {
     streamServiceEP: incoming.streamServiceEP || prev.streamServiceEP || '',
     token: incoming.token || prev.token || '',
     jiraId: incoming.jiraId || prev.jiraId || '',
+    collabRole: incoming.collabRole || prev.collabRole || new URLSearchParams(window.location.search).get('collabRole') || 'reviewer',
   };
 }
 
@@ -834,6 +838,7 @@ if (!state.initialized) {
           source: 'da',
           operation: 'htmlRendererStandaloneAnnotation',
           inlineEditingAllowed: params.get('inlineEditingAllowed') !== 'false',
+          collabRole: params.get('collabRole') || 'reviewer',
         };
         console.log('[stream-html-review] self-INIT', selfStreamConfig);
         // Defer until after capture has started so cachedCleanHtml is populated.
