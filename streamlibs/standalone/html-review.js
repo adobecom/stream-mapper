@@ -1,3 +1,4 @@
+/* eslint-disable prefer-destructuring */
 /* eslint-disable no-console */
 /**
  * Stream HTML Review (tenant-side).
@@ -80,6 +81,7 @@ const CONTENT_REGEN_STYLES = `
 .stream-regen-btn svg { width: 15px; height: 15px; fill: #fff; }
 `;
 
+// eslint-disable-next-line max-len
 /** Walk up from el to find the first ancestor directly inside a .section div; return its first class. */
 function getBlockName(el) {
   let cur = el;
