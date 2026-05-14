@@ -313,7 +313,7 @@ function restoreRegenImages() {
 }
 
 function getImageRegenEndpoint() {
-  return `${getMapperEnvEP()}/api/content-regeneration`;
+  return `${getMapperEnvEP()}/api/image-regeneration`;
 }
 
 const imgRegenState = {
