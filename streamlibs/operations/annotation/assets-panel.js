@@ -621,6 +621,48 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.clear();
   }
 
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
+    if (!targetImg || !file || !base64Data) return;
+
+    const anchorTarget = targetImg.closest('picture') || targetImg;
+    const { elementPath, elementProps } = store.buildEditElementAnchor(anchorTarget);
+    const elementRef = store.ensureElementRef(anchorTarget);
+
+    if (!elementPath) return;
+
+    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const localAsset = {
+      localId,
+      file,
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+      elementPath,
+      elementRef,
+      elementProps,
+      originalSrc,
+      base64Data,
+      targetImg,
+      createdAt: new Date().toISOString(),
+    };
+
+    const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
+    annotationState.store.localAssets = annotationState.store.localAssets
+      .filter((a) => a.elementPath !== elementPath);
+    for (const old of supersededLocal) annotationUI.appliedAssets.delete(old.localId);
+
+    const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
+    annotationState.store.assets = (annotationState.store.assets || [])
+      .filter((a) => a.elementPath !== elementPath);
+    for (const old of supersededRemote) annotationUI.appliedAssets.delete(old.id);
+
+    annotationState.store.localAssets.push(localAsset);
+    applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+    notifyAssetsChanged();
+  }
+
   function cleanup() {
     exitSelectMode();
     removeAllPendingIndicators();
@@ -651,6 +693,7 @@ export default function createAssetsPanelController({
     exitSelectMode,
     getAppliedAssetIds,
     getAssetTimestamp,
+    registerLocalAssetFromRegen,
     renderAssetMarkers,
     renderAssetsPanel,
     setOnAssetsChanged,

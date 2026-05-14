@@ -4,7 +4,7 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
-import { miloLoadArea } from '../utils/utils.js';
+import { miloLoadArea, getConfig } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -501,7 +501,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   if (!cachedCleanHtml || refreshBaselineHtml) {
-    cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
+    cachedCleanHtml = mainEl.innerHTML || baselineHtml || '';
   }
 
   await finishAnnotationSession(mainEl, {
@@ -645,10 +645,92 @@ export function applyRemoteCollabSnapshot(snapshot) {
   commentsPanel.applyRemoteCollabSnapshot(snapshot);
 }
 
+export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') {
+  if (!(element instanceof HTMLElement) || !annotationUI.mainEl) return;
+
+  const elementRef = store.ensureElementRef(element);
+  const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
+  const baselineText = snapshot?.originalText || fromText;
+  const baselineHtml = snapshot?.originalHtml || fromHtml;
+
+  const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
+  const segments = store.getChangedSegments(baselineText, toText);
+
+  const existing = store.getEasyEditByElement(
+    elementRef,
+    editAnchor.elementPath,
+    editAnchor.elementProps,
+  );
+  const editRecord = {
+    id: existing?.id || store.generateId('easy-edit'),
+    editType: 'text',
+    attrName: '',
+    elementPath: editAnchor.elementPath,
+    elementProps: editAnchor.elementProps,
+    elementRef,
+    from: baselineText,
+    to: toText,
+    fromHtml: baselineHtml,
+    toHtml: toText,
+    changedFrom: segments.changedFrom,
+    changedTo: segments.changedTo,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const persistedEdit = store.upsertEasyEdit(editRecord);
+
+  const editThread = store.getEditThreadByElementPath(
+    persistedEdit?.elementPath,
+    persistedEdit?.elementProps,
+  );
+  if (editThread) {
+    annotationState.activeThreadId = editThread.id;
+    annotationState.activeMessageId = '';
+    annotationState.activeEditId = '';
+  }
+  store.saveAnnotationStore();
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
+}
+
 export function registerRegenReplacement(originalSrc, newUrl) {
   const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
   if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
   else regenReplacements.push({ originalSrc, targetUrl: newUrl });
+}
+
+/* eslint-disable no-console */
+export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
+  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
+
+  const cfg = await getConfig();
+  const rawToken = cfg?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+
+  let blob;
+  try {
+    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
+    const res = await fetch(generatedUrl, fetchOpts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    blob = await res.blob();
+  } catch (err) {
+    console.warn('[annotation] Could not fetch generated image', err);
+    return;
+  }
+
+  const mimeType = blob.type || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  const base64Data = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!base64Data) return;
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data);
 }
 
 export function preparePendingRemoteEditsRefresh() {

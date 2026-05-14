@@ -20,14 +20,14 @@ import {
   initializeTokens,
   ensureStreamMapperForStandalone,
   setLibs,
-  getConfig,
 } from '../utils/utils.js';
 import {
   annotationOperationOnHostPage,
   saveAnnotationChanges,
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
-  registerRegenReplacement,
+  recordTextRegenAsEdit,
+  recordImageRegenAsLocalAsset,
 } from '../operations/annotation.js';
 
 /**
@@ -161,6 +161,7 @@ function ensureRegenButton() {
     btn.classList.add('stream-regen-loading');
     btn.title = 'Regenerating…';
 
+    const fromHtml = el.innerHTML;
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -173,7 +174,10 @@ function ensureRegenButton() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const newText = json?.response?.text || json.text || json.content || json.result || '';
-      if (newText && el.isConnected) el.textContent = newText;
+      if (newText && el.isConnected) {
+        el.textContent = newText;
+        recordTextRegenAsEdit(el, text, newText, fromHtml);
+      }
     } catch (err) {
       console.error('[stream-html-review] content-regeneration failed', err);
     } finally {
@@ -189,6 +193,7 @@ function ensureRegenButton() {
 
 function showRegenBtn(el) {
   if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
+  if (!document.body.classList.contains('annotation-inline-edit-mode')) return;
   cancelHideRegenBtn();
   regenState.target = el;
   const btn = ensureRegenButton();
@@ -282,26 +287,6 @@ const IMAGE_REGEN_STYLES = `
 .stream-img-prompt-submit:hover:not(:disabled) { background: #0d66d0; }
 .stream-img-prompt-submit:disabled { background: #888; cursor: wait; }
 `;
-
-async function urlToBase64(url) {
-  try {
-    const config = await getConfig();
-    const rawToken = config?.streamMapper?.daToken || (window.streamConfig && window.streamConfig.token) || '';
-    const token = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
-    const res = await fetch(url, token ? { headers: { Authorization: token } } : {});
-    if (!res.ok) throw new Error(`${res.status}`);
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('[stream-html-review] urlToBase64 failed', url, err);
-    return null;
-  }
-}
 
 // eslint-disable-next-line no-unused-vars
 function restoreRegenImages() {
@@ -444,22 +429,7 @@ function ensureImgRegenElements() {
       const json = await res.json();
       const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
       if (newUrl && img.isConnected) {
-        const originalSrc = img.src;
-        registerRegenReplacement(originalSrc, newUrl);
-
-        const picture = img.closest('picture');
-        const base64 = await urlToBase64(newUrl);
-        const displaySrc = base64 || newUrl;
-
-        img.dataset.regenSrc = newUrl;
-        img.src = displaySrc;
-
-        if (picture) {
-          picture.querySelectorAll('source').forEach((src) => {
-            src.dataset.regenSrcset = newUrl;
-            src.srcset = displaySrc;
-          });
-        }
+        await recordImageRegenAsLocalAsset(img, newUrl);
       }
     } catch (err) {
       console.error('[stream-html-review] image-generation failed', err);
@@ -492,6 +462,7 @@ function openImgPromptOverlay(img) {
 
 function showImgRegenBtn(img) {
   if (window.streamConfig.operation !== 'htmlRendererStandaloneAnnotation') return;
+  if (!document.body.classList.contains('annotation-asset-select-mode')) return;
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
   imgRegenState.target = img;
@@ -652,7 +623,6 @@ function buildStreamConfigFromInit(payload) {
   const incoming = (payload && typeof payload === 'object') ? payload : {};
   const prev = window.streamConfig || {};
   const collabId = incoming.collabId || incoming.collab_id || prev.collabId || prev.collab_id || '';
-  const pageUrl = `${incoming.pageUrl || incoming.targetUrl || prev.pageUrl || prev.targetUrl || ''}`.trim();
 
   return {
     ...prev,
@@ -661,8 +631,8 @@ function buildStreamConfigFromInit(payload) {
     source: incoming.source || prev.source || 'da',
     collabId,
     collab_id: collabId,
-    pageUrl,
-    targetUrl: pageUrl,
+    pageUrl: incoming.targetUrl,
+    targetUrl: incoming.pageUrl,
     streamServiceEP: incoming.streamServiceEP || prev.streamServiceEP || '',
     token: incoming.token || prev.token || '',
     jiraId: incoming.jiraId || prev.jiraId || '',
@@ -759,7 +729,6 @@ function attachMessageListener() {
       });
       return;
     }
-
     if (data.type === MESSAGE.init) {
       try {
         await startAnnotationFromInit(data.streamConfig || {});
