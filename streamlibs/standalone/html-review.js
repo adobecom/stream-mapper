@@ -723,7 +723,10 @@ async function startAnnotationFromInit(payload) {
 
   console.log('[stream-html-review] step:annotationOperationOnHostPage');
   try {
-    await annotationOperationOnHostPage({ refreshBaselineHtml: !state.annotationStarted });
+    await annotationOperationOnHostPage({
+      refreshBaselineHtml: !state.annotationStarted,
+      baselineHtml: state.cleanMainHtml || undefined,
+    });
   } catch (err) {
     console.error('[stream-html-review] annotationOperationOnHostPage failed', err);
     throw err;

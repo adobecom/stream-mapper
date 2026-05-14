@@ -241,8 +241,11 @@ function rewriteAttr(el, attr, origin) {
     el.setAttribute('data-regen-src', val);
     return;
   }
-  if (origin && val.startsWith('./media')) {
+  if (!origin) return;
+  if (val.startsWith('./media')) {
     el.setAttribute(attr, `${origin}/${val.slice(2)}`);
+  } else if (val.startsWith('/') && !val.startsWith('//')) {
+    el.setAttribute(attr, `${origin}${val}`);
   }
 }
 
@@ -477,6 +480,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   const {
     preserveRemoteEditState = false,
     refreshBaselineHtml = false,
+    baselineHtml = null,
   } = options;
   const previousAnnotationMode = annotationUI.annotationMode || 'comments';
   const shouldRestoreInlineMode = annotationUI.inlineMode
@@ -497,7 +501,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   if (!cachedCleanHtml || refreshBaselineHtml) {
-    cachedCleanHtml = mainEl.innerHTML || '';
+    cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
   }
 
   await finishAnnotationSession(mainEl, {
