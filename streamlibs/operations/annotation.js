@@ -543,10 +543,22 @@ function normalizePersistUrlForDaApi(raw) {
 export async function persistAnnotationChangesToDA() {
   await inlineEditing.syncInlineEditsBeforePersist();
 
+  let newlyUploadedIds = [];
   try {
-    await assetsPanel.uploadLocalAssets();
+    newlyUploadedIds = await assetsPanel.uploadLocalAssets();
   } catch (err) {
     console.error('[annotation] Upload of local assets failed before promote:', err);
+  }
+
+  const fromApplied = assetsPanel.getAppliedAssetIds();
+  const appliedAssetIds = [...new Set([...fromApplied, ...newlyUploadedIds])];
+  if (appliedAssetIds.length > 0) {
+    try {
+      await assetService.batchDecideAssets(appliedAssetIds, 'accepted');
+      assetsPanel.clearAppliedAssets();
+    } catch (err) {
+      console.error('[annotation] Batch decide failed:', err);
+    }
   }
 
   let promotedAssets = [];
@@ -557,36 +569,51 @@ export async function persistAnnotationChangesToDA() {
     console.error('[annotation] Batch promote failed:', err);
   }
 
-  const allAssets = [...(annotationState.store.assets || [])];
   for (const promoted of promotedAssets) {
-    const existing = allAssets.find((a) => a.id === promoted.id);
+    const existing = (annotationState.store.assets || []).find((a) => a.id === promoted.id);
     if (existing) Object.assign(existing, promoted);
-    else allAssets.push(promoted);
+    else annotationState.store.assets.push(promoted);
   }
-  const assetReplacements = [];
-  for (const asset of allAssets) {
-    const finalUrl = asset.finalDaUrl || asset.daUrl;
-    if (asset.originalSrc && finalUrl) {
-      assetReplacements.push({
-        elementPath: asset.elementPath,
-        elementProps: asset.elementProps,
-        originalSrc: asset.originalSrc,
-        daUrl: asset.daUrl,
-        targetUrl: finalUrl,
-      });
+
+  const latestByPath = new Map();
+  for (const asset of (annotationState.store.assets || [])) {
+    // eslint-disable-next-line no-continue
+    if (!asset.originalSrc || !asset.daUrl) continue;
+    const existing = latestByPath.get(asset.elementPath);
+    // eslint-disable-next-line max-len
+    if (!existing || (asset.createdAt && new Date(asset.createdAt) > new Date(existing.createdAt || 0))) {
+      latestByPath.set(asset.elementPath, asset);
     }
   }
 
-  // Update image-src easyEdits to use the final promoted DA URL so the
-  // correct URL ends up in the pushed HTML.
-  for (const asset of allAssets) {
+  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
+    elementPath: asset.elementPath,
+    elementProps: asset.elementProps,
+    originalSrc: asset.originalSrc,
+    daUrl: asset.daUrl,
+    targetUrl: asset.finalDaUrl || asset.daUrl,
+  }));
+
+  for (const asset of latestByPath.values()) {
     const finalUrl = asset.finalDaUrl || asset.daUrl;
-    if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
+    // eslint-disable-next-line no-continue
+    if (!asset.elementPath || !finalUrl) continue;
     const existingEdit = store.getEasyEditByElement(
       asset.elementRef || '', asset.elementPath, asset.elementProps,
     );
-    if (existingEdit?.editType === 'image-src') {
-      store.upsertEasyEdit({ ...existingEdit, to: finalUrl, updatedAt: new Date().toISOString() });
+    if (!existingEdit || existingEdit.editType === 'image-src') {
+      store.upsertEasyEdit({
+        ...(existingEdit || {}),
+        editType: 'image-src',
+        elementPath: asset.elementPath,
+        elementProps: asset.elementProps || {},
+        elementRef: asset.elementRef || '',
+        from: existingEdit?.from || asset.originalSrc,
+        to: finalUrl,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
+      });
     }
   }
 

@@ -95,10 +95,19 @@ function getBlockName(el) {
   return '';
 }
 
+function getMapperEnvEP() {
+  const { origin } = window.location;
+  if (origin.includes('dev--')) return 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
+  if (origin.includes('dev02--')) return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io';
+  if (origin.includes('stage--')) return 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-32c93a.cloud.adobe.io';
+  if (origin.includes('main--')) return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-ab8ae6.cloud.adobe.io';
+  return 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
+}
+
 function getRegenEndpoint() {
   const ep = (window.streamConfig && window.streamConfig.streamServiceEP) || '';
   if (ep) return `${ep.replace(/\/$/, '')}/api/content-regeneration`;
-  return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api/content-regeneration';
+  return `${getMapperEnvEP()}/api/content-regeneration`;
 }
 
 const regenState = {
@@ -304,7 +313,7 @@ function restoreRegenImages() {
 }
 
 function getImageRegenEndpoint() {
-  return 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api/image-generation';
+  return `${getMapperEnvEP()}/api/content-regeneration`;
 }
 
 const imgRegenState = {
