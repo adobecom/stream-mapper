@@ -510,7 +510,17 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   if (!cachedCleanHtml || refreshBaselineHtml) {
-    cachedCleanHtml = mainEl.innerHTML || baselineHtml || '';
+    if (window.streamConfig?.source === 'da') {
+      try {
+        const daMain = await fetchDAContent(window.streamConfig.contentUrl);
+        cachedCleanHtml = daMain?.innerHTML || '';
+      } catch (err) {
+        console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
+        cachedCleanHtml = '';
+      }
+    } else {
+      cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
+    }
   }
 
   await finishAnnotationSession(mainEl, {
