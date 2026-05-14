@@ -337,7 +337,9 @@ export default function createAssetsPanelController({
     if (!targetImg || !base64Data) return;
 
     if (!targetImg.dataset.originalSrc) {
-      targetImg.dataset.originalSrc = targetImg.src;
+      // Store the attribute value (not the resolved .src property) so it
+      // matches the literal src string in cachedCleanHtml for reliable lookup.
+      targetImg.dataset.originalSrc = targetImg.getAttribute('src') || targetImg.src;
     }
 
     targetImg.src = base64Data;
@@ -622,15 +624,20 @@ export default function createAssetsPanelController({
   }
 
   async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
-    if (!targetImg || !file || !base64Data) return;
+    if (!targetImg || !file || !base64Data) return null;
 
     const anchorTarget = targetImg.closest('picture') || targetImg;
     const { elementPath, elementProps } = store.buildEditElementAnchor(anchorTarget);
     const elementRef = store.ensureElementRef(anchorTarget);
 
-    if (!elementPath) return;
+    if (!elementPath) return null;
 
-    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    // Use the stored attribute value (set by applyAssetPreviewToImg on a previous regen)
+    // or the current src attribute (before this regen overwrites it).  Both are attribute
+    // values so they match the literal src string in cachedCleanHtml.
+    const originalSrc = targetImg.getAttribute('data-original-src')
+      || targetImg.getAttribute('src')
+      || '';
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const localAsset = {
@@ -661,6 +668,9 @@ export default function createAssetsPanelController({
     annotationState.store.localAssets.push(localAsset);
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
     notifyAssetsChanged();
+    return {
+      elementPath, elementProps, elementRef, originalSrc,
+    };
   }
 
   function cleanup() {

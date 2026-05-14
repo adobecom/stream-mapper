@@ -261,8 +261,7 @@ function rewriteMediaUrls(container) {
 }
 
 function buildHtmlWithEditsAndAssets(assetReplacements) {
-  const payload = store.getStoredAnnotationPayload() || annotationState.store;
-  const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
+  const easyEdits = annotationState.store.easyEdits || [];
   const html = store.applyEasyEditsToHtmlString(cachedCleanHtml, easyEdits);
 
   const container = document.createElement('div');
@@ -308,6 +307,16 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
         }
       }
     }
+  }
+
+  // Apply image-src easyEdits — these drive regen replacements and take
+  // priority over the assetReplacements pass above because they carry the
+  // final promoted/uploaded URL and the reliable original src for matching.
+  const imageSrcEdits = (annotationState.store.easyEdits || [])
+    .filter((e) => e?.editType === 'image-src' && e.to);
+  for (const edit of imageSrcEdits) {
+    const element = findAssetElement(container, edit.elementPath, edit.elementProps, edit.from);
+    if (element) replaceAssetUrl(element, edit.to);
   }
 
   for (const regen of regenReplacements) {
@@ -534,6 +543,12 @@ function normalizePersistUrlForDaApi(raw) {
 export async function persistAnnotationChangesToDA() {
   await inlineEditing.syncInlineEditsBeforePersist();
 
+  try {
+    await assetsPanel.uploadLocalAssets();
+  } catch (err) {
+    console.error('[annotation] Upload of local assets failed before promote:', err);
+  }
+
   let promotedAssets = [];
   try {
     const result = await assetService.batchPromote();
@@ -559,6 +574,19 @@ export async function persistAnnotationChangesToDA() {
         daUrl: asset.daUrl,
         targetUrl: finalUrl,
       });
+    }
+  }
+
+  // Update image-src easyEdits to use the final promoted DA URL so the
+  // correct URL ends up in the pushed HTML.
+  for (const asset of allAssets) {
+    const finalUrl = asset.finalDaUrl || asset.daUrl;
+    if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
+    const existingEdit = store.getEasyEditByElement(
+      asset.elementRef || '', asset.elementPath, asset.elementProps,
+    );
+    if (existingEdit?.editType === 'image-src') {
+      store.upsertEasyEdit({ ...existingEdit, to: finalUrl, updatedAt: new Date().toISOString() });
     }
   }
 
@@ -616,6 +644,29 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
     daUrl: asset.daUrl,
     targetUrl: asset.daUrl,
   }));
+
+  // Record each uploaded regen asset as an image-src easyEdit so the
+  // change is tracked in history and drives reliable DOM replacement.
+  for (const asset of latestByPath.values()) {
+    if (!asset.elementPath || !asset.daUrl) continue; // eslint-disable-line no-continue
+    const existingEdit = store.getEasyEditByElement(
+      asset.elementRef || '', asset.elementPath, asset.elementProps,
+    );
+    if (!existingEdit || existingEdit.editType === 'image-src') {
+      store.upsertEasyEdit({
+        ...(existingEdit || {}),
+        editType: 'image-src',
+        elementPath: asset.elementPath,
+        elementProps: asset.elementProps || {},
+        elementRef: asset.elementRef || '',
+        from: existingEdit?.from || asset.originalSrc,
+        to: asset.daUrl,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
 
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
