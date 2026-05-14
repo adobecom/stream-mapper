@@ -482,9 +482,6 @@ export async function annotationOperation(options = {}) {
   });
 }
 
-/**
- * Annotation on an existing decorated page (tenant AEM): uses current <main>, no miloLoadArea / preview replacement.
- */
 export async function annotationOperationOnHostPage(options = {}) {
   const {
     preserveRemoteEditState = false,
