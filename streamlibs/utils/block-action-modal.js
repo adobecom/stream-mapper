@@ -399,7 +399,10 @@ async function replaceBlocksInPreview(fragmentPath, options = {}) {
       const targetEl = findActualBlock(idEl);
       stripBlockChromeAndDetachIds(idEl, targetEl);
       if (idx === 0) firstEl = targetEl;
-      else targetEl.remove();
+      else {
+        targetEl.remove();
+        if (idEl !== targetEl) idEl.remove();
+      }
     });
 
     const fragmentEl = document.createElement('div');
@@ -432,8 +435,12 @@ async function replaceBlocksInPreview(fragmentPath, options = {}) {
 
     sectionEl.appendChild(targetEl.cloneNode(true));
 
-    if (!firstEl) firstEl = targetEl;
-    else targetEl.remove();
+    if (!firstEl) {
+      firstEl = targetEl;
+    } else {
+      targetEl.remove();
+      if (idEl !== targetEl) idEl.remove();
+    }
   });
 
   fragmentEl.appendChild(sectionEl);
