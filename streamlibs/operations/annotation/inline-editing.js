@@ -229,10 +229,6 @@ export default function createInlineEditingController({
     const hasExplicitFormattingIntent = annotationState.explicitFormattingElementRefs
       .has(elementRef);
     if (!didTextChange && didHtmlChange && !hasExplicitFormattingIntent) {
-      annotationUI.inlineElementSnapshot.set(elementRef, {
-        originalHtml: currentHtml,
-        originalText: currentText,
-      });
       return;
     }
 
@@ -274,10 +270,6 @@ export default function createInlineEditingController({
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
 
-    annotationUI.inlineElementSnapshot.set(elementRef, {
-      originalHtml: currentHtml,
-      originalText: currentText,
-    });
     clearExplicitFormattingIntent(elementRef);
   }
 

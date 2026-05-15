@@ -8,7 +8,8 @@ function normalizeToken(token) {
 }
 
 function getAnnotationCollabId() {
-  const collabId = window.streamConfig?.collabId;
+  const cfg = window.streamConfig || {};
+  const collabId = cfg.collabId ?? cfg.collab_id;
   return `${collabId || ''}`.trim();
 }
 
@@ -88,13 +89,13 @@ export default function createAssetServiceClient() {
   }
 
   async function batchPromote() {
-    return withSyncIndicator('Promoting assets to DA...', async () => {
-      const collabId = getAnnotationCollabId();
-      if (!collabId) throw new Error('No active collab');
-      return assetServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/promote`, {
-        method: 'POST',
-      });
-    });
+    const collabId = getAnnotationCollabId();
+    if (!collabId) {
+      return { promoted: [] };
+    }
+    return withSyncIndicator('Promoting assets to DA...', async () => assetServiceFetch(`/api/collabs/${encodeURIComponent(collabId)}/promote`, {
+      method: 'POST',
+    }));
   }
 
   async function deleteAsset(assetId) {

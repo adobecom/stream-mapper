@@ -23,6 +23,7 @@ const LIBS = '/libs';
 function getMapperEnv() {
   const { origin } = window.location;
   if (origin.includes('dev--')) return 'dev';
+  if (origin.includes('dev02--')) return 'dev02';
   if (origin.includes('stage--')) return 'stage';
   if (origin.includes('main--')) return 'prod';
   return 'dev';
@@ -71,6 +72,20 @@ const CONFIG = {
   dev: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
+      figmaMappingUrl: '/api/fig-comps',
+      figmaBlockContentUrl: '/api/fig-comp-details',
+      pushToDaUrl: '/api/push-html',
+      blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
+      figmaAuthToken: '',
+      daToken: '',
+      preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
+      sidekickLoginUrl: '/drafts/stream/tools/sidekick-controller?milolibs=stream-dev',
+      allowMessagesFromDomains: ['*', 'https://440859-stream*.adobeio-static.net'],
+    },
+  },
+  dev02: {
+    streamMapper: {
+      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',
