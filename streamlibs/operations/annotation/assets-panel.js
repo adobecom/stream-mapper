@@ -337,7 +337,9 @@ export default function createAssetsPanelController({
     if (!targetImg || !base64Data) return;
 
     if (!targetImg.dataset.originalSrc) {
-      targetImg.dataset.originalSrc = targetImg.src;
+      // Store the attribute value (not the resolved .src property) so it
+      // matches the literal src string in cachedCleanHtml for reliable lookup.
+      targetImg.dataset.originalSrc = targetImg.getAttribute('src') || targetImg.src;
     }
 
     targetImg.src = base64Data;
@@ -621,6 +623,56 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.clear();
   }
 
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
+    if (!targetImg || !file || !base64Data) return null;
+
+    const anchorTarget = targetImg.closest('picture') || targetImg;
+    const { elementPath, elementProps } = store.buildEditElementAnchor(anchorTarget);
+    const elementRef = store.ensureElementRef(anchorTarget);
+
+    if (!elementPath) return null;
+
+    // Use the stored attribute value (set by applyAssetPreviewToImg on a previous regen)
+    // or the current src attribute (before this regen overwrites it).  Both are attribute
+    // values so they match the literal src string in cachedCleanHtml.
+    const originalSrc = targetImg.getAttribute('data-original-src')
+      || targetImg.getAttribute('src')
+      || '';
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    const localAsset = {
+      localId,
+      file,
+      filename: file.name,
+      mimeType: file.type,
+      size: file.size,
+      elementPath,
+      elementRef,
+      elementProps,
+      originalSrc,
+      base64Data,
+      targetImg,
+      createdAt: new Date().toISOString(),
+    };
+
+    const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
+    annotationState.store.localAssets = annotationState.store.localAssets
+      .filter((a) => a.elementPath !== elementPath);
+    for (const old of supersededLocal) annotationUI.appliedAssets.delete(old.localId);
+
+    const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
+    annotationState.store.assets = (annotationState.store.assets || [])
+      .filter((a) => a.elementPath !== elementPath);
+    for (const old of supersededRemote) annotationUI.appliedAssets.delete(old.id);
+
+    annotationState.store.localAssets.push(localAsset);
+    applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+    notifyAssetsChanged();
+    return {
+      elementPath, elementProps, elementRef, originalSrc,
+    };
+  }
+
   function cleanup() {
     exitSelectMode();
     removeAllPendingIndicators();
@@ -651,6 +703,7 @@ export default function createAssetsPanelController({
     exitSelectMode,
     getAppliedAssetIds,
     getAssetTimestamp,
+    registerLocalAssetFromRegen,
     renderAssetMarkers,
     renderAssetsPanel,
     setOnAssetsChanged,

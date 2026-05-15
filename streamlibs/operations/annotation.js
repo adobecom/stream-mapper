@@ -4,7 +4,7 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
-import { miloLoadArea } from '../utils/utils.js';
+import { miloLoadArea, getConfig } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -18,6 +18,7 @@ import requestParentCollabRefresh from './annotation/collab-sync.js';
 const annotationState = createAnnotationState();
 const annotationUI = createAnnotationUI();
 let cachedCleanHtml = '';
+const regenReplacements = [];
 let cachedPageMetadataHtml = null;
 const store = createAnnotationStore({ annotationState, annotationUI });
 const annotationService = createAnnotationServiceClient();
@@ -222,9 +223,45 @@ function extractFilename(url) {
   return (url.split('?')[0]?.split('#')[0] ?? '').split('/').pop() || '';
 }
 
+function toDaMediaUrl(url) {
+  if (!url) return url;
+  try {
+    const filename = new URL(url).pathname.split('/').pop();
+    if (!filename) return url;
+    return `./media_${filename}`;
+  } catch {
+    return url;
+  }
+}
+
+function rewriteAttr(el, attr, origin) {
+  const val = el.getAttribute(attr);
+  if (!val) return;
+  if (val.startsWith('data:')) {
+    el.setAttribute('data-regen-src', val);
+    return;
+  }
+  if (!origin) return;
+  if (val.startsWith('./media')) {
+    el.setAttribute(attr, `${origin}/${val.slice(2)}`);
+  } else if (val.startsWith('/') && !val.startsWith('//')) {
+    el.setAttribute(attr, `${origin}${val}`);
+  }
+}
+
+function rewriteMediaUrls(container) {
+  const origin = (typeof window !== 'undefined' && window.location?.origin) || '';
+  container.querySelectorAll('img').forEach((img) => {
+    rewriteAttr(img, 'src', origin);
+    if (img.hasAttribute('srcset')) rewriteAttr(img, 'srcset', origin);
+  });
+  container.querySelectorAll('source').forEach((source) => {
+    rewriteAttr(source, 'srcset', origin);
+  });
+}
+
 function buildHtmlWithEditsAndAssets(assetReplacements) {
-  const payload = store.getStoredAnnotationPayload() || annotationState.store;
-  const easyEdits = payload?.easyEdits || annotationState.store.easyEdits || [];
+  const easyEdits = annotationState.store.easyEdits || [];
   const html = store.applyEasyEditsToHtmlString(cachedCleanHtml, easyEdits);
 
   const container = document.createElement('div');
@@ -272,6 +309,35 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     }
   }
 
+  // Apply image-src easyEdits — these drive regen replacements and take
+  // priority over the assetReplacements pass above because they carry the
+  // final promoted/uploaded URL and the reliable original src for matching.
+  const imageSrcEdits = (annotationState.store.easyEdits || [])
+    .filter((e) => e?.editType === 'image-src' && e.to);
+  for (const edit of imageSrcEdits) {
+    const element = findAssetElement(container, edit.elementPath, edit.elementProps, edit.from);
+    if (element) replaceAssetUrl(element, edit.to);
+  }
+
+  for (const regen of regenReplacements) {
+    const regenFilename = extractFilename(regen.originalSrc);
+    const allImages = container.querySelectorAll('img');
+    for (const img of allImages) {
+      const src = (img.getAttribute('src') || '').split('?')[0]?.split('#')[0] ?? '';
+      if (src === regen.originalSrc || (regenFilename && src.split('/').pop() === regenFilename)) {
+        const relUrl = toDaMediaUrl(regen.targetUrl);
+        img.setAttribute('src', relUrl);
+        if (img.hasAttribute('srcset')) img.setAttribute('srcset', relUrl);
+        const picture = img.closest('picture');
+        if (picture) {
+          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', relUrl));
+        }
+        break;
+      }
+    }
+  }
+
+  rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
@@ -301,6 +367,33 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   }
 
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
+}
+
+async function finishAnnotationSession(mainEl, {
+  preserveRemoteEditState,
+  shouldRestoreInlineMode,
+}) {
+  await commentsPanel.setupAnnotationUI(mainEl, {
+    preserveRemoteEditState,
+  });
+  if (annotationState.latestRemoteCollabSnapshot) {
+    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
+      includeEdits: false,
+    });
+  }
+  store.rebindEasyEditsToCurrentDom();
+  store.applyEasyEditsToDom();
+  store.saveAnnotationStore();
+  if (shouldRestoreInlineMode) {
+    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
+    if (!didEnableInlineMode) {
+      commentsPanel.renderThreadMarkers({ resolveTargets: true });
+      commentsPanel.renderCommentsPanel();
+    }
+  } else {
+    commentsPanel.renderThreadMarkers({ resolveTargets: true });
+    commentsPanel.renderCommentsPanel();
+  }
 }
 
 export async function annotationOperation(options = {}) {
@@ -383,31 +476,97 @@ export async function annotationOperation(options = {}) {
   metadataSeparator.append(metadataActions);
   mainEl.append(metadataSeparator);
 
-  await commentsPanel.setupAnnotationUI(mainEl, {
+  await finishAnnotationSession(mainEl, {
     preserveRemoteEditState,
+    shouldRestoreInlineMode,
   });
-  if (annotationState.latestRemoteCollabSnapshot) {
-    commentsPanel.applyRemoteCollabSnapshot(annotationState.latestRemoteCollabSnapshot, {
-      includeEdits: false,
-    });
+}
+
+export async function annotationOperationOnHostPage(options = {}) {
+  const {
+    preserveRemoteEditState = false,
+    refreshBaselineHtml = false,
+    baselineHtml = null,
+  } = options;
+  const previousAnnotationMode = annotationUI.annotationMode || 'comments';
+  const shouldRestoreInlineMode = annotationUI.inlineMode
+    && window.streamConfig?.inlineEditingAllowed !== false;
+
+  inlineEditing.resetInlineEditModeState();
+  annotationUI.annotationMode = shouldRestoreInlineMode ? 'edit' : previousAnnotationMode;
+  document.body.classList.add('annotation-mode');
+  if (!preserveRemoteEditState) {
+    annotationState.latestSavedEditsUpdatedAt = null;
+    annotationState.pendingRemoteEditsSnapshot = null;
+    annotationState.hasLoadedInitialEditsSnapshot = false;
   }
-  store.rebindEasyEditsToCurrentDom();
-  store.applyEasyEditsToDom();
-  store.saveAnnotationStore();
-  if (shouldRestoreInlineMode) {
-    const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
-    if (!didEnableInlineMode) {
-      commentsPanel.renderThreadMarkers({ resolveTargets: true });
-      commentsPanel.renderCommentsPanel();
+
+  const mainEl = document.querySelector('main');
+  if (!mainEl) {
+    throw new Error('annotationOperationOnHostPage: no <main> found on page');
+  }
+
+  if (!cachedCleanHtml || refreshBaselineHtml) {
+    if (window.streamConfig?.source === 'da') {
+      try {
+        const daMain = await fetchDAContent(window.streamConfig.contentUrl);
+        cachedCleanHtml = daMain?.innerHTML || '';
+      } catch (err) {
+        console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
+        cachedCleanHtml = '';
+      }
+    } else {
+      cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
     }
-  } else {
-    commentsPanel.renderThreadMarkers({ resolveTargets: true });
-    commentsPanel.renderCommentsPanel();
   }
+
+  await finishAnnotationSession(mainEl, {
+    preserveRemoteEditState,
+    shouldRestoreInlineMode,
+  });
+}
+
+/** da.live edit URL → repo path (e.g. adobecom/...); leaves plain paths unchanged. */
+function normalizePersistUrlForDaApi(raw) {
+  const s = `${raw || ''}`.trim();
+  if (!s) return '';
+  if (!/^https?:\/\//i.test(s)) {
+    return s.replace(/^\/+/, '');
+  }
+  try {
+    const u = new URL(s);
+    if (u.hash?.startsWith('#/')) {
+      return decodeURIComponent(u.hash.slice(2)).replace(/^\/+/, '');
+    }
+    if (u.hostname.includes('da.live') && u.pathname && u.pathname !== '/') {
+      return decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    }
+  } catch {
+    /* ignore */
+  }
+  return s;
 }
 
 export async function persistAnnotationChangesToDA() {
   await inlineEditing.syncInlineEditsBeforePersist();
+
+  let newlyUploadedIds = [];
+  try {
+    newlyUploadedIds = await assetsPanel.uploadLocalAssets();
+  } catch (err) {
+    console.error('[annotation] Upload of local assets failed before promote:', err);
+  }
+
+  const fromApplied = assetsPanel.getAppliedAssetIds();
+  const appliedAssetIds = [...new Set([...fromApplied, ...newlyUploadedIds])];
+  if (appliedAssetIds.length > 0) {
+    try {
+      await assetService.batchDecideAssets(appliedAssetIds, 'accepted');
+      assetsPanel.clearAppliedAssets();
+    } catch (err) {
+      console.error('[annotation] Batch decide failed:', err);
+    }
+  }
 
   let promotedAssets = [];
   try {
@@ -417,29 +576,66 @@ export async function persistAnnotationChangesToDA() {
     console.error('[annotation] Batch promote failed:', err);
   }
 
-  const allAssets = [...(annotationState.store.assets || [])];
   for (const promoted of promotedAssets) {
-    const existing = allAssets.find((a) => a.id === promoted.id);
+    const existing = (annotationState.store.assets || []).find((a) => a.id === promoted.id);
     if (existing) Object.assign(existing, promoted);
-    else allAssets.push(promoted);
+    else annotationState.store.assets.push(promoted);
   }
-  const assetReplacements = [];
-  for (const asset of allAssets) {
+
+  const latestByPath = new Map();
+  for (const asset of (annotationState.store.assets || [])) {
+    // eslint-disable-next-line no-continue
+    if (!asset.originalSrc || !asset.daUrl) continue;
+    const existing = latestByPath.get(asset.elementPath);
+    // eslint-disable-next-line max-len
+    if (!existing || (asset.createdAt && new Date(asset.createdAt) > new Date(existing.createdAt || 0))) {
+      latestByPath.set(asset.elementPath, asset);
+    }
+  }
+
+  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
+    elementPath: asset.elementPath,
+    elementProps: asset.elementProps,
+    originalSrc: asset.originalSrc,
+    daUrl: asset.daUrl,
+    targetUrl: asset.finalDaUrl || asset.daUrl,
+  }));
+
+  for (const asset of latestByPath.values()) {
     const finalUrl = asset.finalDaUrl || asset.daUrl;
-    if (asset.originalSrc && finalUrl) {
-      assetReplacements.push({
+    // eslint-disable-next-line no-continue
+    if (!asset.elementPath || !finalUrl) continue;
+    const existingEdit = store.getEasyEditByElement(
+      asset.elementRef || '', asset.elementPath, asset.elementProps,
+    );
+    if (!existingEdit || existingEdit.editType === 'image-src') {
+      store.upsertEasyEdit({
+        ...(existingEdit || {}),
+        editType: 'image-src',
         elementPath: asset.elementPath,
-        elementProps: asset.elementProps,
-        originalSrc: asset.originalSrc,
-        daUrl: asset.daUrl,
-        targetUrl: finalUrl,
+        elementProps: asset.elementProps || {},
+        elementRef: asset.elementRef || '',
+        from: existingEdit?.from || asset.originalSrc,
+        to: finalUrl,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
       });
     }
   }
 
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
-  await postData(window.streamConfig.pageUrl, daCompatibleHtml, {
+  const cfg = window.streamConfig || {};
+  const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
+  if (!rawPushUrl) {
+    throw new Error(
+      'persistAnnotationChangesToDA: streamConfig.pageUrl is required (set via STREAM_HTML_REVIEW_INIT).',
+    );
+  }
+  const pushUrl = normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl;
+
+  await postData(pushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
 }
@@ -483,6 +679,29 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
     targetUrl: asset.daUrl,
   }));
 
+  // Record each uploaded regen asset as an image-src easyEdit so the
+  // change is tracked in history and drives reliable DOM replacement.
+  for (const asset of latestByPath.values()) {
+    if (!asset.elementPath || !asset.daUrl) continue; // eslint-disable-line no-continue
+    const existingEdit = store.getEasyEditByElement(
+      asset.elementRef || '', asset.elementPath, asset.elementProps,
+    );
+    if (!existingEdit || existingEdit.editType === 'image-src') {
+      store.upsertEasyEdit({
+        ...(existingEdit || {}),
+        editType: 'image-src',
+        elementPath: asset.elementPath,
+        elementProps: asset.elementProps || {},
+        elementRef: asset.elementRef || '',
+        from: existingEdit?.from || asset.originalSrc,
+        to: asset.daUrl,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  }
+
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   await postData(window.streamConfig.targetUrl, daCompatibleHtml, {
@@ -509,6 +728,94 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
 
 export function applyRemoteCollabSnapshot(snapshot) {
   commentsPanel.applyRemoteCollabSnapshot(snapshot);
+}
+
+export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') {
+  if (!(element instanceof HTMLElement) || !annotationUI.mainEl) return;
+
+  const elementRef = store.ensureElementRef(element);
+  const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
+  const baselineText = snapshot?.originalText || fromText;
+  const baselineHtml = snapshot?.originalHtml || fromHtml;
+
+  const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
+  const segments = store.getChangedSegments(baselineText, toText);
+
+  const existing = store.getEasyEditByElement(
+    elementRef,
+    editAnchor.elementPath,
+    editAnchor.elementProps,
+  );
+  const editRecord = {
+    id: existing?.id || store.generateId('easy-edit'),
+    editType: 'text',
+    attrName: '',
+    elementPath: editAnchor.elementPath,
+    elementProps: editAnchor.elementProps,
+    elementRef,
+    from: baselineText,
+    to: toText,
+    fromHtml: baselineHtml,
+    toHtml: toText,
+    changedFrom: segments.changedFrom,
+    changedTo: segments.changedTo,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const persistedEdit = store.upsertEasyEdit(editRecord);
+
+  const editThread = store.getEditThreadByElementPath(
+    persistedEdit?.elementPath,
+    persistedEdit?.elementProps,
+  );
+  if (editThread) {
+    annotationState.activeThreadId = editThread.id;
+    annotationState.activeMessageId = '';
+    annotationState.activeEditId = '';
+  }
+  store.saveAnnotationStore();
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
+}
+
+export function registerRegenReplacement(originalSrc, newUrl) {
+  const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
+  if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
+  else regenReplacements.push({ originalSrc, targetUrl: newUrl });
+}
+
+/* eslint-disable no-console */
+export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
+  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
+
+  const cfg = await getConfig();
+  const rawToken = cfg?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+
+  let blob;
+  try {
+    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
+    const res = await fetch(generatedUrl, fetchOpts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    blob = await res.blob();
+  } catch (err) {
+    console.warn('[annotation] Could not fetch generated image', err);
+    return;
+  }
+
+  const mimeType = blob.type || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  const base64Data = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!base64Data) return;
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data);
 }
 
 export function preparePendingRemoteEditsRefresh() {

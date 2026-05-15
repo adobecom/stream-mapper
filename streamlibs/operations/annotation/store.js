@@ -167,6 +167,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       changedTo: `${edit.changedTo || ''}`,
       updatedAt: edit.updatedAt || new Date().toISOString(),
       authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
+      changeHistory: Array.isArray(edit.changeHistory) ? edit.changeHistory : [],
     };
   }
 
@@ -206,6 +207,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function getEditPanelMessage(edit) {
+    if (edit.editType === 'image-src') {
+      const fromLabel = truncateInlineEditText(edit.from, 40);
+      const toLabel = edit.to ? truncateInlineEditText(edit.to, 40) : 'pending upload';
+      return `replaced image src "${fromLabel}" -> "${toLabel}"`;
+    }
     if (edit.editType === 'image-alt') {
       return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
     }
@@ -224,6 +230,38 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   function buildEditThreadFromEasyEdit(edit) {
     const normalizedEdit = normalizeEasyEdit(edit);
     const authorUsername = normalizedEdit.authorUsername || DEFAULT_USERNAME;
+    const history = normalizedEdit.changeHistory || [];
+
+    const messages = [];
+    let prevTo = normalizedEdit.from;
+    let prevToHtml = normalizedEdit.fromHtml;
+
+    history.forEach((entry, i) => {
+      messages.push({
+        id: `${normalizedEdit.id}-history-${i}`,
+        username: authorUsername,
+        text: getEditPanelMessage({
+          ...normalizedEdit,
+          from: prevTo,
+          to: entry.to,
+          fromHtml: prevToHtml,
+          toHtml: entry.toHtml || '',
+        }),
+        kind: 'comment',
+        createdAt: entry.updatedAt || null,
+      });
+      prevTo = entry.to;
+      prevToHtml = entry.toHtml || '';
+    });
+
+    messages.push({
+      id: `${normalizedEdit.id}-message`,
+      username: authorUsername,
+      text: getEditPanelMessage(normalizedEdit),
+      kind: 'comment',
+      createdAt: normalizedEdit.updatedAt || null,
+    });
+
     return {
       id: normalizedEdit.id,
       threadType: 'edit',
@@ -232,21 +270,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       elementProps: normalizedEdit.elementProps,
       status: COMMENT_STATUSES[0],
       username: authorUsername,
-      messages: [
-        {
-          id: `${normalizedEdit.id}-message`,
-          username: authorUsername,
-          text: getEditPanelMessage(normalizedEdit),
-          kind: 'comment',
-          createdAt: normalizedEdit.updatedAt || null,
-        },
-      ],
+      messages,
     };
   }
 
   function rebuildEditThreadsFromEasyEdits() {
     const nextEditThreads = annotationState.store.easyEdits
-      .filter((edit) => edit && typeof edit === 'object')
+      .filter((edit) => edit && typeof edit === 'object' && edit.editType !== 'image-src')
       .map((edit) => buildEditThreadFromEasyEdit(edit));
     const preservedThreads = annotationState.store.threads.filter(
       (thread) => (thread?.threadType || 'comment') !== 'edit',
@@ -322,6 +352,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     easyEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
 
+      // image-src replacements are applied in the DOM phase of buildHtmlWithEditsAndAssets
+      if (edit.editType === 'image-src') return;
+
       if (edit.editType === 'image-alt') {
         const fromAlt = `${edit.from || ''}`;
         const toAlt = `${edit.to || ''}`;
@@ -343,8 +376,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const toText = `${edit.to || ''}`;
 
       if (fromHtml) {
-        updatedHtml = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
-        return;
+        const replaced = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
+        if (replaced !== updatedHtml) { updatedHtml = replaced; return; }
+        // fromHtml didn't match cachedCleanHtml, fall through to fromText
       }
       if (fromText) {
         updatedHtml = replaceFirstOccurrence(updatedHtml, fromText, toText);
@@ -866,9 +900,17 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         )
     ));
     if (index > -1) {
+      const existing = annotationState.store.easyEdits[index];
+      const history = [...(existing.changeHistory || [])];
+      if (existing.to !== normalizedEditRecord.to) {
+        history.push({ to: existing.to, toHtml: existing.toHtml, updatedAt: existing.updatedAt });
+      }
       annotationState.store.easyEdits[index] = {
-        ...annotationState.store.easyEdits[index],
+        ...existing,
         ...normalizedEditRecord,
+        from: existing.from,
+        fromHtml: existing.fromHtml,
+        changeHistory: history,
       };
       const didPruneNestedEdits = pruneNestedTextEasyEdits();
       if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
@@ -987,6 +1029,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
+
+      if (edit.editType === 'image-src') return;
 
       if (edit.editType === 'image-alt') {
         target.setAttribute('alt', edit.to || '');

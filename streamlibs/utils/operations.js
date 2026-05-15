@@ -10,6 +10,7 @@ export {
 export { preflightOperation } from '../operations/preflight/preflight.js';
 export {
   annotationOperation,
+  annotationOperationOnHostPage,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
   refreshAnnotationFloatingUI,
