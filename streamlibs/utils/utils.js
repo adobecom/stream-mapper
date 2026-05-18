@@ -214,6 +214,15 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
   handler();
 }
 
+export function getMapperEnv() {
+  const { origin } = window.location;
+  if (origin.includes('dev--')) return 'dev';
+  if (origin.includes('dev02--')) return 'dev02';
+  if (origin.includes('stage--')) return 'stage';
+  if (origin.includes('main--')) return 'prod';
+  return 'dev';
+}
+
 export async function miloLoadArea(area = document) {
   await transformImages();
   window['page-load-ok-milo']?.remove();

@@ -20,6 +20,7 @@ import {
   getConfig,
   miloLoadArea,
   setLibs,
+  getMapperEnv,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import { showGlobalSnackbar } from './utils/snackbar.js';
@@ -42,6 +43,7 @@ import {
   ANNOTATION_MESSAGES,
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
+  CONFIG,
 } from './utils/constants.js';
 import {
   initializeLoader,
@@ -424,8 +426,10 @@ export async function refreshAnnotationCanvas() {
 
 (async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
-  setLibs('/libs');
-  if ((searchParams.get('daRenderingApp') === 'stream') || searchParams.get('darenderingapp') === 'stream') {
-    await initPreviewer();
-  }
+  if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
+  const miloLibs = setLibs('/libs');
+  const { setConfig } = await import(`${miloLibs}/utils/utils.js`);
+  // eslint-disable-next-line no-unused-vars
+  const config = setConfig({ ...CONFIG, ...CONFIG[getMapperEnv()], miloLibs });
+  await initPreviewer();
 }());
