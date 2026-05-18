@@ -35,6 +35,7 @@ import {
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
 } from './utils/operations.js';
+import { attachRegenHandlers } from './operations/ai-seo-annotation.js';
 import {
   ANNOTATION_REFRESH_EVENT,
   ANNOTATION_READY_EVENT,
@@ -52,6 +53,11 @@ import {
 import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
+
+function isAnnotationOp() {
+  const { operation } = window.streamConfig || {};
+  return operation === 'annotation' || operation === 'aiSeoAnnotation';
+}
 
 function notifyParentPushToDaResult(success, detailMessage) {
   if (!window.parent || window.parent === window) return;
@@ -154,6 +160,7 @@ export async function initiatePreviewer(forceOperation = null) {
     case 'aiSeoAnnotation':
       updateLoader(100, 'Loading Page');
       await annotationOperation();
+      attachRegenHandlers();
       hideLoader();
       notifyAnnotationReady();
       break;
@@ -272,7 +279,7 @@ async function setupMessageListener() {
       }, event.origin);
     }
     if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
-      if (window.streamConfig.operation !== 'annotation') return;
+      if (!isAnnotationOp()) return;
       const collabPageUrl = event.data?.payload?.collab?.pageUrl;
       if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
       applyRemoteCollabSnapshot(event.data.payload || {});
@@ -326,7 +333,7 @@ export async function persist() {
     notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    if (window.streamConfig.operation === 'annotation') {
+    if (isAnnotationOp()) {
       await persistAnnotationChangesToDA();
     } else {
       await persistOnTarget();
@@ -345,7 +352,7 @@ export async function persist() {
 }
 
 export async function saveChanges() {
-  const isAnnotationOperation = window.streamConfig.operation === 'annotation';
+  const isAnnotationOperation = isAnnotationOp();
   try {
     updateLoader({
       message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
@@ -398,7 +405,7 @@ export async function saveChanges() {
 }
 
 export async function refreshAnnotationCanvas() {
-  if (window.streamConfig.operation !== 'annotation') return;
+  if (!isAnnotationOp()) return;
 
   try {
     updateLoader({
