@@ -76,7 +76,8 @@ async function getDADom() {
     return html;
   }
   if (source === 'da') {
-    const html = await fetchDAContent(window.streamConfig.contentUrl);
+    const cfg = window.streamConfig;
+    const html = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
     normalizeDAImages(html);
     return html;
   }
@@ -403,7 +404,7 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     // eslint-disable-next-line no-continue
     if (!asset.originalSrc || !asset.daUrl) continue;
     const existing = latestByPath.get(asset.elementPath);
-    const isNewer = asset.createdAt
+    const isNewer = existing && asset.createdAt
       && new Date(asset.createdAt) > new Date(existing.createdAt || 0);
     if (!existing || isNewer) {
       latestByPath.set(asset.elementPath, asset);
@@ -540,7 +541,8 @@ export async function annotationOperationOnHostPage(options = {}) {
   if (!cachedCleanHtml || refreshBaselineHtml) {
     if (window.streamConfig?.source === 'da') {
       try {
-        const daMain = await fetchDAContent(window.streamConfig.contentUrl);
+        const cfg = window.streamConfig;
+        const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
         cachedCleanHtml = daMain?.innerHTML || '';
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);

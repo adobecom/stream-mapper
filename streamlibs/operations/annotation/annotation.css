@@ -13,6 +13,15 @@ body.annotation-mode {
   color: #000;
 }
 
+
+body.annotation-mode header {
+    display: none;
+}
+
+body.annotation-mode footer {
+    display: none;
+}
+
 body.annotation-mode main {
   overflow: scroll;
   scrollbar-width: none;

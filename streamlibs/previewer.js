@@ -159,7 +159,7 @@ export async function initiatePreviewer(forceOperation = null) {
       notifyAnnotationReady();
       break;
     case 'aiSeoAnnotation':
-      updateLoader(100, 'Loading Page');
+      updateLoader({ percentage: 100, message: 'Loading Page' });
       await annotationOperationOnHostPage();
       attachRegenHandlers();
       hideLoader();
@@ -283,6 +283,8 @@ async function setupMessageListener() {
       if (!isAnnotationOp()) return;
       const collabPageUrl = event.data?.payload?.collab?.pageUrl;
       if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
+      const collabDraftLocation = event.data?.payload?.collab?.draftLocation;
+      if (collabDraftLocation) window.streamConfig.draftLocation = collabDraftLocation;
       applyRemoteCollabSnapshot(event.data.payload || {});
     }
   });
@@ -322,6 +324,7 @@ export default async function initPreviewer() {
     startReview: previewParams.startReview || previewParams.startreview || false,
     inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
     collabRole: previewParams.collabRole || null,
+    draftLocation: previewParams.collab?.draftLocation || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -436,9 +439,18 @@ export async function refreshAnnotationCanvas() {
   }
 }
 
+function loadCssFiles(filePath) {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = filePath;
+  link.dataset.streamMapperStyles = '';
+  document.head.appendChild(link);
+}
+
 (async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
-  // eslint-disable-next-line no-unused-vars
+  const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
+  loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
   await initPreviewer();
 }());
