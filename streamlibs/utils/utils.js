@@ -39,14 +39,10 @@ export function initializeTokens(token) {
   window.streamConfig.streamMapper.daToken = normalized;
 }
 
-/** Default stream annotation service (prod); override via host init e.g. streamServiceEP. */
-export const DEFAULT_STREAM_MAPPER_SERVICE_EP = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
-
-/** Ensure window.streamConfig.streamMapper exists for annotation services when running outside mapper preview shell. */
 export function ensureStreamMapperForStandalone(overrides = {}) {
   const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
   const existing = window.streamConfig?.streamMapper || {};
-  const serviceEP = streamServiceEP || existing.serviceEP || DEFAULT_STREAM_MAPPER_SERVICE_EP;
+  const serviceEP = streamServiceEP || existing.serviceEP;
   if (!window.streamConfig) window.streamConfig = {};
   window.streamConfig.streamMapper = {
     serviceEP,
@@ -57,7 +53,6 @@ export function ensureStreamMapperForStandalone(overrides = {}) {
     figmaAuthToken: '',
     daToken: '',
     ...existing,
-    serviceEP,
   };
 }
 
