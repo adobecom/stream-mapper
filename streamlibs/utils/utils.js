@@ -206,8 +206,6 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
   handler();
 }
 
-//'https://stream-stage--da-cc--adobecom.aem.live/drafts/sirin/ai-headshot-generator?martech=off&mepButton=off&storeId=DFHgEDZT&daRenderingApp=stream&mapperOrigin=https%3A%2F%2Fmathuria--stream-mapper--adobecom.aem.page&reload=eCsTEPmv'
-
 export function getMapperEnv() {
   const { origin } = window.location;
   let mapperOrigin = origin;
