@@ -4,12 +4,7 @@ import {
   recordImageRegenAsLocalAsset,
 } from '../annotation.js';
 
-// ---------------------------------------------------------------------------
-// Content (text) regeneration
-// ---------------------------------------------------------------------------
-
 // eslint-disable-next-line max-len
-/** Walk up from el to find the first ancestor directly inside a .section div; return its first class. */
 function getBlockName(el) {
   let cur = el;
   while (cur && cur !== document.body) {
@@ -119,7 +114,6 @@ function showRegenBtn(el) {
   regenState.target = el;
   const btn = ensureRegenButton();
   const r = el.getBoundingClientRect();
-  // Anchor to the top-right corner of the hovered element, slightly inset
   btn.style.top = `${Math.max(4, r.top + 2)}px`;
   btn.style.left = `${r.right - 32}px`;
   btn.classList.add('stream-regen-visible');
@@ -140,18 +134,12 @@ function attachContentRegenHandlers() {
   main.addEventListener('mouseout', (e) => {
     const to = e.relatedTarget;
     if (regenState.btn && (to === regenState.btn || regenState.btn.contains(to))) return;
-    // Ignore child-to-child transitions within the same text element
     if (regenState.target && regenState.target.contains(to)) return;
     scheduleHideRegenBtn();
   });
 
-  // Hide on scroll so the button doesn't drift from its target
   window.addEventListener('scroll', hideRegenBtn, { passive: true });
 }
-
-// ---------------------------------------------------------------------------
-// Image regeneration
-// ---------------------------------------------------------------------------
 
 function getImageRegenEndpoint() {
   return `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
@@ -296,9 +284,8 @@ function ensureImgRegenElements() {
 function openImgPromptOverlay(img) {
   ensureImgRegenElements();
   imgRegenState.target = img;
-  const overlay = imgRegenState.overlay;
+  const { overlay } = imgRegenState;
   overlay.classList.add('stream-img-prompt-visible');
-  // Position after making visible so offsetWidth/Height are available
   requestAnimationFrame(() => {
     positionOverlayNearImage(overlay, img);
     overlay.querySelector('.stream-img-prompt-input').focus();
@@ -312,7 +299,7 @@ function showImgRegenBtn(img) {
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
   imgRegenState.target = img;
-  const btn = imgRegenState.btn;
+  const { btn } = imgRegenState;
   const r = img.getBoundingClientRect();
   btn.style.top = `${Math.max(4, r.top + 6)}px`;
   btn.style.left = `${r.right - 38}px`;
