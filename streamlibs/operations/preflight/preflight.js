@@ -53,6 +53,18 @@ async function startSidekickLogin(origin, previewUrl) {
   window.addEventListener('message', handler);
 }
 
+function addPfContainer() {
+  document.body.innerHTML += `
+    <div class="preflight-operation-container" id="preflight-operation-container" style="display: none;">
+      <h1>Please login to Sidekick to continue the preflight check.
+      </h1>
+      <div class="preflight-operation-actions">
+        <div><a href="#" id="login-with-sidekick-btn">Login to Sidekick</a></div>
+        <div><a href="#" id="retry-preflight-check-btn">Retry Preflight</a></div>
+      </div>
+    </div>`;
+}
+
 // eslint-disable-next-line consistent-return
 export async function preflightOperation() {
   let previewUrl = window.streamConfig.operation === 'preflight' && window.streamConfig.preflightUrl ? window.streamConfig.preflightUrl : null;
@@ -61,7 +73,9 @@ export async function preflightOperation() {
   if (origin.includes('aem.page')) {
     const isLoginRequired = await isSidekickLoginRequired(origin);
     if (isLoginRequired) {
-      document.querySelector('#preflight-operation-container').style.display = 'flex';
+      const pfContainer = document.querySelector('#preflight-operation-container');
+      if (pfContainer) pfContainer.style.display = 'flex';
+      else addPfContainer();
       setTimeout(async () => {
         await startSidekickLogin(origin, previewUrl);
       }, 2000);
