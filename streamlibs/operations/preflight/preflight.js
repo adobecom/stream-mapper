@@ -1,5 +1,5 @@
 /* eslint-disable import/prefer-default-export */
-import { getConfig, ackCodeGeneration } from '../../utils/utils.js';
+import { ackCodeGeneration } from '../../utils/utils.js';
 import { handleError } from '../../utils/error-handler.js';
 import { previewDAPage } from '../../sources/da.js';
 
@@ -24,15 +24,15 @@ async function getPreviewUrl() {
 }
 
 async function loadPreflightController(origin, previewUrl) {
-  const config = await getConfig();
-  window.location.href = `${origin}${config.streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
+  const { streamMapper } = window.streamConfig;
+  window.location.href = `${origin}${streamMapper.preflightUrl}&url=${encodeURIComponent(previewUrl)}`;
 }
 
 async function startSidekickLogin(origin, previewUrl) {
-  const config = await getConfig();
+  const { streamMapper } = window.streamConfig;
   const redirectRef = encodeURIComponent(window.location.origin);
   const ackCode = ackCodeGeneration();
-  const loginUrl = config.streamMapper.sidekickLoginUrl;
+  const loginUrl = streamMapper.sidekickLoginUrl;
   // Try to open and attach opener
   document.querySelector('#retry-preflight-check-btn').addEventListener('click', () => {
     window.location.reload();

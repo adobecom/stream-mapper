@@ -1,4 +1,3 @@
-import { getConfig } from '../../utils/utils.js';
 import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
 
 function normalizeToken(token) {
@@ -15,7 +14,7 @@ function getAnnotationCollabId() {
 
 export default function createAssetServiceClient() {
   async function assetServiceFetch(path, options = {}) {
-    const resolvedServiceEndpoint = `${(await getConfig())?.streamMapper?.serviceEP || ''}`.trim();
+    const resolvedServiceEndpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}`.trim();
     if (!resolvedServiceEndpoint) return null;
 
     const headers = {

@@ -17,7 +17,6 @@ import {
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
-  getConfig,
   miloLoadArea,
   setLibs,
   getMapperEnv,
@@ -202,8 +201,7 @@ async function requestStreamConfigFromParent() {
     };
   }
 
-  const config = await getConfig();
-  const allowedOrigins = config.streamMapper.allowMessagesFromDomains || [];
+  const allowedOrigins = CONFIG[getMapperEnv()].streamMapper.allowMessagesFromDomains || [];
 
   // Ask parent for preview parameters using storeId
   return new Promise((resolve) => {
@@ -233,8 +231,7 @@ async function requestStreamConfigFromParent() {
 
 async function setupMessageListener() {
   window.addEventListener('message', async (event) => {
-    const config = await getConfig();
-    const allowedOrigins = config.streamMapper.allowMessagesFromDomains;
+    const allowedOrigins = window.streamConfig.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
       return regex.test(event.origin);
@@ -296,6 +293,8 @@ export default async function initPreviewer() {
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
+    streamMapper: { ...CONFIG[getMapperEnv()].streamMapper },
+    figmaServiceRetry: CONFIG.figmaServiceRetry,
     source: previewParams.source,
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
@@ -427,9 +426,6 @@ export async function refreshAnnotationCanvas() {
 (async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
-  const miloLibs = setLibs('/libs');
-  const { setConfig } = await import(`${miloLibs}/utils/utils.js`);
   // eslint-disable-next-line no-unused-vars
-  const config = setConfig({ ...CONFIG, ...CONFIG[getMapperEnv()], miloLibs });
   await initPreviewer();
 }());

@@ -31,25 +31,24 @@ export async function getConfig() {
   return miloGetConfig();
 }
 
-export async function initializeTokens(token) {
+export function initializeTokens(token) {
   if (token == null || `${token}`.trim() === '') return;
-  const config = await getConfig();
-  if (!config.streamMapper) config.streamMapper = {};
+  if (!window.streamConfig?.streamMapper) return;
   const normalized = `${token}`.trim().startsWith('Bearer ') ? token : `Bearer ${token}`;
-  config.streamMapper.figmaAuthToken = normalized;
-  config.streamMapper.daToken = normalized;
+  window.streamConfig.streamMapper.figmaAuthToken = normalized;
+  window.streamConfig.streamMapper.daToken = normalized;
 }
 
 /** Default stream annotation service (prod); override via host init e.g. streamServiceEP. */
 export const DEFAULT_STREAM_MAPPER_SERVICE_EP = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
 
-/** Ensure Milo config.streamMapper.* exists for annotation services when running outside mapper preview shell. */
-export async function ensureStreamMapperForStandalone(overrides = {}) {
-  const config = await getConfig();
+/** Ensure window.streamConfig.streamMapper exists for annotation services when running outside mapper preview shell. */
+export function ensureStreamMapperForStandalone(overrides = {}) {
   const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
-  const existing = config.streamMapper || {};
+  const existing = window.streamConfig?.streamMapper || {};
   const serviceEP = streamServiceEP || existing.serviceEP || DEFAULT_STREAM_MAPPER_SERVICE_EP;
-  config.streamMapper = {
+  if (!window.streamConfig) window.streamConfig = {};
+  window.streamConfig.streamMapper = {
     serviceEP,
     pushToDaUrl: '/api/push-html',
     figmaMappingUrl: '/api/fig-comps',
@@ -60,7 +59,6 @@ export async function ensureStreamMapperForStandalone(overrides = {}) {
     ...existing,
     serviceEP,
   };
-  return config;
 }
 
 export function extractByPattern(tag, pattern) {
@@ -174,14 +172,13 @@ function persistOriginalImageUrl(img, url) {
 export async function transformImages() {
   const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
   if (imgs.length === 0) return;
-  const config = await getConfig();
-  if (!config?.streamMapper?.daToken) return;
+  if (!window.streamConfig?.streamMapper?.daToken) return;
   await Promise.all(
     Array.from(imgs).map(async (img) => {
       const url = img.getAttribute('src');
       if (!url) return;
       try {
-        const dataUrl = await fetchImageAsBase64(url, config.streamMapper.daToken);
+        const dataUrl = await fetchImageAsBase64(url, window.streamConfig.streamMapper.daToken);
         persistOriginalImageUrl(img, url);
         img.src = dataUrl;
         const picture = img.closest('picture');

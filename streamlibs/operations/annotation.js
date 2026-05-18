@@ -4,7 +4,7 @@
 import { fetchFigmaContent } from '../sources/figma.js';
 import { fetchDAContent } from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
-import { miloLoadArea, getConfig } from '../utils/utils.js';
+import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
@@ -788,8 +788,7 @@ export function registerRegenReplacement(originalSrc, newUrl) {
 export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
   if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
 
-  const cfg = await getConfig();
-  const rawToken = cfg?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
   const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
 
   let blob;
