@@ -35,8 +35,8 @@ import {
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
+  attachRegenHandlers,
 } from './utils/operations.js';
-import { attachRegenHandlers } from './operations/aiSeoAnnotation/ai-seo-annotation.js';
 import {
   ANNOTATION_REFRESH_EVENT,
   ANNOTATION_READY_EVENT,
@@ -379,9 +379,12 @@ export async function saveChanges() {
         message: LOADER_STEP_MESSAGES.START_PAINTING,
         percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
       });
-      await annotationOperation({
-        preserveRemoteEditState: true,
-      });
+      if (window.streamConfig.operation === 'aiSeoAnnotation') {
+        await annotationOperationOnHostPage({ preserveRemoteEditState: true });
+        attachRegenHandlers();
+      } else {
+        await annotationOperation({ preserveRemoteEditState: true });
+      }
     } else {
       await persistOnTarget();
     }
@@ -415,9 +418,12 @@ export async function refreshAnnotationCanvas() {
     });
     hideDOMElements([document.querySelector('main')]);
     preparePendingRemoteEditsRefresh();
-    await annotationOperation({
-      preserveRemoteEditState: true,
-    });
+    if (window.streamConfig.operation === 'aiSeoAnnotation') {
+      await annotationOperationOnHostPage({ preserveRemoteEditState: true });
+      attachRegenHandlers();
+    } else {
+      await annotationOperation({ preserveRemoteEditState: true });
+    }
     showDOMElements([document.querySelector('main')]);
     await refreshAnnotationFloatingUI();
     hideLoader();

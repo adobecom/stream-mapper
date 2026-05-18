@@ -17,3 +17,6 @@ export {
   saveAnnotationChanges,
   annotationOperationOnHostPage,
 } from '../operations/annotation.js';
+export {
+  default as attachRegenHandlers,
+} from '../operations/aiSeoAnnotation/ai-seo-annotation.js';

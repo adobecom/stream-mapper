@@ -1,6 +1,5 @@
 /* eslint-disable no-console */
 import {
-  annotationOperation,
   recordTextRegenAsEdit,
   recordImageRegenAsLocalAsset,
 } from '../annotation.js';
@@ -8,28 +7,6 @@ import {
 // ---------------------------------------------------------------------------
 // Content (text) regeneration
 // ---------------------------------------------------------------------------
-
-const CONTENT_REGEN_STYLES = `
-.stream-regen-btn {
-  position: fixed;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  background: #1473e6;
-  border: none;
-  cursor: pointer;
-  z-index: 2147483500;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  padding: 0;
-  transition: transform 0.1s, background 0.15s;
-}
-.stream-regen-btn:hover { transform: scale(1.12); background: #0d66d0; }
-.stream-regen-btn.stream-regen-visible { display: flex; }
-.stream-regen-btn.stream-regen-loading { background: #888; cursor: wait; pointer-events: none; }
-.stream-regen-btn svg { width: 15px; height: 15px; fill: #fff; }
-`;
 
 // eslint-disable-next-line max-len
 /** Walk up from el to find the first ancestor directly inside a .section div; return its first class. */
@@ -74,11 +51,6 @@ function cancelHideRegenBtn() {
 
 function ensureRegenButton() {
   if (regenState.btn) return regenState.btn;
-
-  const style = document.createElement('style');
-  style.id = 'stream-regen-inline-styles';
-  style.textContent = CONTENT_REGEN_STYLES;
-  document.head.appendChild(style);
 
   const btn = document.createElement('button');
   btn.className = 'stream-regen-btn';
@@ -181,77 +153,6 @@ function attachContentRegenHandlers() {
 // Image regeneration
 // ---------------------------------------------------------------------------
 
-const IMAGE_REGEN_STYLES = `
-.stream-img-regen-btn {
-  position: fixed;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px; height: 32px;
-  border-radius: 50%;
-  background: #1473e6;
-  border: none;
-  cursor: pointer;
-  z-index: 2147483500;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-  padding: 0;
-  transition: transform 0.1s, background 0.15s;
-}
-.stream-img-regen-btn:hover { transform: scale(1.1); background: #0d66d0; }
-.stream-img-regen-btn.stream-img-regen-visible { display: flex; }
-.stream-img-regen-btn svg { width: 16px; height: 16px; fill: #fff; }
-
-.stream-img-prompt-overlay {
-  position: fixed;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.22);
-  padding: 14px 16px;
-  z-index: 2147483600;
-  display: none;
-  flex-direction: column;
-  gap: 10px;
-  width: 300px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-.stream-img-prompt-overlay.stream-img-prompt-visible { display: flex; }
-.stream-img-prompt-overlay label { font-size: 13px; font-weight: 600; color: #222; margin: 0; }
-.stream-img-prompt-input {
-  border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px;
-  font-size: 13px; resize: vertical; min-height: 64px;
-  outline: none; font-family: inherit; color: #222;
-  line-height: 1.4;
-}
-.stream-img-prompt-input:focus { border-color: #1473e6; }
-.stream-img-prompt-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.stream-img-prompt-cancel {
-  padding: 6px 14px; border-radius: 6px; border: 1px solid #ccc;
-  background: #fff; cursor: pointer; font-size: 13px; color: #555;
-}
-.stream-img-prompt-cancel:hover { background: #f4f4f4; }
-.stream-img-prompt-submit {
-  padding: 6px 14px; border-radius: 6px; border: none;
-  background: #1473e6; color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
-}
-.stream-img-prompt-submit:hover:not(:disabled) { background: #0d66d0; }
-.stream-img-prompt-submit:disabled { background: #888; cursor: wait; }
-`;
-
-// eslint-disable-next-line no-unused-vars
-function restoreRegenImages() {
-  document.querySelectorAll('img[data-regen-src]').forEach((img) => {
-    img.src = img.dataset.regenSrc;
-    delete img.dataset.regenSrc;
-    const picture = img.closest('picture');
-    if (picture) {
-      picture.querySelectorAll('source[data-regen-srcset]').forEach((src) => {
-        src.srcset = src.dataset.regenSrcset;
-        delete src.dataset.regenSrcset;
-      });
-    }
-  });
-}
-
 function getImageRegenEndpoint() {
   return `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
 }
@@ -310,11 +211,6 @@ function positionOverlayNearImage(overlay, img) {
 
 function ensureImgRegenElements() {
   if (imgRegenState.btn) return;
-
-  const style = document.createElement('style');
-  style.id = 'stream-img-regen-styles';
-  style.textContent = IMAGE_REGEN_STYLES;
-  document.head.appendChild(style);
 
   // Floating icon button
   const btn = document.createElement('button');
@@ -457,18 +353,7 @@ function attachImageRegenHandlers() {
 // Public API
 // ---------------------------------------------------------------------------
 
-/**
- * Attaches both text and image regen handlers to <main>.
- */
-export function attachRegenHandlers() {
+export default function attachRegenHandlers() {
   attachContentRegenHandlers();
   attachImageRegenHandlers();
-}
-
-/**
- * Full aiSeoAnnotation operation: runs annotation then wires regen UI.
- */
-export async function aiSeoAnnotationOperation() {
-  await annotationOperation();
-  attachRegenHandlers();
 }
