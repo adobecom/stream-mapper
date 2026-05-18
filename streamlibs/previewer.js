@@ -150,6 +150,12 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
+    case 'aiSeoReview':
+      updateLoader(100, 'Loading Page');
+      await annotationOperation();
+      hideLoader();
+      notifyAnnotationReady();
+      break;
     default:
       break;
   }
