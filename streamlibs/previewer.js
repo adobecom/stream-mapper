@@ -18,7 +18,6 @@ import {
   fixRelativeLinks,
   initializeTokens,
   miloLoadArea,
-  setLibs,
   getMapperEnv,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';

@@ -206,12 +206,19 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
   handler();
 }
 
+//'https://stream-stage--da-cc--adobecom.aem.live/drafts/sirin/ai-headshot-generator?martech=off&mepButton=off&storeId=DFHgEDZT&daRenderingApp=stream&mapperOrigin=https%3A%2F%2Fmathuria--stream-mapper--adobecom.aem.page&reload=eCsTEPmv'
+
 export function getMapperEnv() {
   const { origin } = window.location;
-  if (origin.includes('dev--')) return 'dev';
-  if (origin.includes('dev02--')) return 'dev02';
-  if (origin.includes('stage--')) return 'stage';
-  if (origin.includes('main--')) return 'prod';
+  let mapperOrigin = origin;
+  const params = new URLSearchParams(window.location.href);
+  if (params.get('daRenderingApp') || params.get('darenderingapp')) {
+    mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
+  }
+  if (mapperOrigin.includes('https://dev--')) return 'dev';
+  if (mapperOrigin.includes('https://dev02--')) return 'dev02';
+  if (mapperOrigin.includes('https://stage--')) return 'stage';
+  if (mapperOrigin.includes('https://main--')) return 'prod';
   return 'dev';
 }
 
