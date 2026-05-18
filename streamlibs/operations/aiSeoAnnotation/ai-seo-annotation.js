@@ -3,7 +3,7 @@ import {
   annotationOperation,
   recordTextRegenAsEdit,
   recordImageRegenAsLocalAsset,
-} from './annotation.js';
+} from '../annotation.js';
 
 // ---------------------------------------------------------------------------
 // Content (text) regeneration

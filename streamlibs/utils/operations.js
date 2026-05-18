@@ -15,4 +15,5 @@ export {
   refreshAnnotationFloatingUI,
   persistAnnotationChangesToDA,
   saveAnnotationChanges,
+  annotationOperationOnHostPage,
 } from '../operations/annotation.js';

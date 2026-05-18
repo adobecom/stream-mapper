@@ -29,13 +29,14 @@ import {
   handleBackToEditor,
   preflightOperation,
   annotationOperation,
+  annotationOperationOnHostPage,
   refreshAnnotationFloatingUI,
   saveAnnotationChanges,
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
 } from './utils/operations.js';
-import { attachRegenHandlers } from './operations/ai-seo-annotation.js';
+import { attachRegenHandlers } from './operations/aiSeoAnnotation/ai-seo-annotation.js';
 import {
   ANNOTATION_REFRESH_EVENT,
   ANNOTATION_READY_EVENT,
@@ -159,7 +160,7 @@ export async function initiatePreviewer(forceOperation = null) {
       break;
     case 'aiSeoAnnotation':
       updateLoader(100, 'Loading Page');
-      await annotationOperation();
+      await annotationOperationOnHostPage();
       attachRegenHandlers();
       hideLoader();
       notifyAnnotationReady();
