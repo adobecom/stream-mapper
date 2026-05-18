@@ -19,6 +19,7 @@ import {
   initializeTokens,
   getConfig,
   miloLoadArea,
+  setLibs,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import { showGlobalSnackbar } from './utils/snackbar.js';
@@ -423,6 +424,7 @@ export async function refreshAnnotationCanvas() {
 
 (async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
+  setLibs('/libs');
   if ((searchParams.get('daRenderingApp') === 'stream') || searchParams.get('darenderingapp') === 'stream') {
     await initPreviewer();
   }
