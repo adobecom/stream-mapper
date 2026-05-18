@@ -150,7 +150,7 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
-    case 'aiSeoReview':
+    case 'aiSeoAnnotation':
       updateLoader(100, 'Loading Page');
       await annotationOperation();
       hideLoader();
@@ -420,3 +420,10 @@ export async function refreshAnnotationCanvas() {
     throw error;
   }
 }
+
+(async function selfRender() {
+  const searchParams = new URLSearchParams(window.location.search);
+  if ((searchParams.get('daRenderingApp') === 'stream') || searchParams.get('darenderingapp') === 'stream') {
+    await initPreviewer();
+  }
+}());
