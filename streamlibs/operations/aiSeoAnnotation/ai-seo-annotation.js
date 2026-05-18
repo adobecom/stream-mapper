@@ -69,7 +69,7 @@ function ensureRegenButton() {
     if (!text) return;
 
     const block = getBlockName(el);
-    const threadId = new URLSearchParams(window.location.search).get('thread_id') || '';
+    const threadId = window.streamConfig?.threadId || '';
     const token = (window.streamConfig && window.streamConfig.token) || '';
     const endpoint = getRegenEndpoint();
 
