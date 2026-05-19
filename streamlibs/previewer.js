@@ -17,8 +17,8 @@ import {
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
-  getConfig,
   miloLoadArea,
+  getMapperEnv,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import { showGlobalSnackbar } from './utils/snackbar.js';
@@ -29,11 +29,13 @@ import {
   handleBackToEditor,
   preflightOperation,
   annotationOperation,
+  annotationOperationOnHostPage,
   refreshAnnotationFloatingUI,
   saveAnnotationChanges,
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
+  attachRegenHandlers,
 } from './utils/operations.js';
 import {
   ANNOTATION_REFRESH_EVENT,
@@ -41,6 +43,7 @@ import {
   ANNOTATION_MESSAGES,
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
+  CONFIG,
 } from './utils/constants.js';
 import {
   initializeLoader,
@@ -51,6 +54,11 @@ import {
 import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
+
+function isAnnotationOp() {
+  const { operation } = window.streamConfig || {};
+  return operation === 'annotation' || operation === 'aiSeoAnnotation';
+}
 
 function notifyParentPushToDaResult(success, detailMessage) {
   if (!window.parent || window.parent === window) return;
@@ -150,6 +158,13 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
+    case 'aiSeoAnnotation':
+      updateLoader({ percentage: 100, message: 'Loading Page' });
+      await annotationOperationOnHostPage();
+      attachRegenHandlers();
+      hideLoader();
+      notifyAnnotationReady();
+      break;
     default:
       break;
   }
@@ -193,8 +208,7 @@ async function requestStreamConfigFromParent() {
     };
   }
 
-  const config = await getConfig();
-  const allowedOrigins = config.streamMapper.allowMessagesFromDomains || [];
+  const allowedOrigins = CONFIG[getMapperEnv()].streamMapper.allowMessagesFromDomains || [];
 
   // Ask parent for preview parameters using storeId
   return new Promise((resolve) => {
@@ -224,8 +238,7 @@ async function requestStreamConfigFromParent() {
 
 async function setupMessageListener() {
   window.addEventListener('message', async (event) => {
-    const config = await getConfig();
-    const allowedOrigins = config.streamMapper.allowMessagesFromDomains;
+    const allowedOrigins = window.streamConfig.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
       return regex.test(event.origin);
@@ -267,9 +280,11 @@ async function setupMessageListener() {
       }, event.origin);
     }
     if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
-      if (window.streamConfig.operation !== 'annotation') return;
+      if (!isAnnotationOp()) return;
       const collabPageUrl = event.data?.payload?.collab?.pageUrl;
       if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
+      const collabDraftLocation = event.data?.payload?.collab?.draftLocation;
+      if (collabDraftLocation) window.streamConfig.draftLocation = collabDraftLocation;
       applyRemoteCollabSnapshot(event.data.payload || {});
     }
   });
@@ -287,6 +302,8 @@ export default async function initPreviewer() {
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
+    streamMapper: { ...CONFIG[getMapperEnv()].streamMapper },
+    figmaServiceRetry: CONFIG.figmaServiceRetry,
     source: previewParams.source,
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
@@ -307,6 +324,7 @@ export default async function initPreviewer() {
     startReview: previewParams.startReview || previewParams.startreview || false,
     inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
     collabRole: previewParams.collabRole || null,
+    draftLocation: previewParams.collab?.draftLocation || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -319,7 +337,7 @@ export async function persist() {
     notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    if (window.streamConfig.operation === 'annotation') {
+    if (isAnnotationOp()) {
       await persistAnnotationChangesToDA();
     } else {
       await persistOnTarget();
@@ -338,7 +356,7 @@ export async function persist() {
 }
 
 export async function saveChanges() {
-  const isAnnotationOperation = window.streamConfig.operation === 'annotation';
+  const isAnnotationOperation = isAnnotationOp();
   try {
     updateLoader({
       message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
@@ -364,9 +382,12 @@ export async function saveChanges() {
         message: LOADER_STEP_MESSAGES.START_PAINTING,
         percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
       });
-      await annotationOperation({
-        preserveRemoteEditState: true,
-      });
+      if (window.streamConfig.operation === 'aiSeoAnnotation') {
+        await annotationOperationOnHostPage({ preserveRemoteEditState: true });
+        attachRegenHandlers();
+      } else {
+        await annotationOperation({ preserveRemoteEditState: true });
+      }
     } else {
       await persistOnTarget();
     }
@@ -391,7 +412,7 @@ export async function saveChanges() {
 }
 
 export async function refreshAnnotationCanvas() {
-  if (window.streamConfig.operation !== 'annotation') return;
+  if (!isAnnotationOp()) return;
 
   try {
     updateLoader({
@@ -400,9 +421,12 @@ export async function refreshAnnotationCanvas() {
     });
     hideDOMElements([document.querySelector('main')]);
     preparePendingRemoteEditsRefresh();
-    await annotationOperation({
-      preserveRemoteEditState: true,
-    });
+    if (window.streamConfig.operation === 'aiSeoAnnotation') {
+      await annotationOperationOnHostPage({ preserveRemoteEditState: true });
+      attachRegenHandlers();
+    } else {
+      await annotationOperation({ preserveRemoteEditState: true });
+    }
     showDOMElements([document.querySelector('main')]);
     await refreshAnnotationFloatingUI();
     hideLoader();
@@ -414,3 +438,19 @@ export async function refreshAnnotationCanvas() {
     throw error;
   }
 }
+
+function loadCssFiles(filePath) {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = filePath;
+  link.dataset.streamMapperStyles = '';
+  document.head.appendChild(link);
+}
+
+(async function selfRender() {
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
+  const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
+  loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
+  await initPreviewer();
+}());
