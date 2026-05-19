@@ -43,8 +43,8 @@ import {
   ANNOTATION_MESSAGES,
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
-  CONFIG,
 } from './utils/constants.js';
+import { CONFIG } from './utils/config.js';
 import {
   initializeLoader,
   updateLoader,
