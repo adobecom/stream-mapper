@@ -77,7 +77,7 @@ async function getDADom() {
   }
   if (source === 'da') {
     const cfg = window.streamConfig;
-    const html = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
+    const html = await fetchDAContent(cfg.contentUrl || cfg.draftLocation);
     normalizeDAImages(html);
     return html;
   }
@@ -542,7 +542,7 @@ export async function annotationOperationOnHostPage(options = {}) {
     if (window.streamConfig?.source === 'da') {
       try {
         const cfg = window.streamConfig;
-        const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
+        const daMain = await fetchDAContent(cfg.contentUrl || cfg.draftLocation);
         cachedCleanHtml = daMain?.innerHTML || '';
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);

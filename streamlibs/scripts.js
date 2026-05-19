@@ -1,5 +1,5 @@
 import { setLibs, getMapperEnv } from './utils/utils.js';
-import { CONFIG } from './utils/constants.js';
+import { CONFIG } from './utils/config.js';
 
 // eslint-disable-next-line no-unused-vars
 function decorateArea(area = document) {
