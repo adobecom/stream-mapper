@@ -165,6 +165,10 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
+    case 'aiSeoPreview':
+      updateLoader({ percentage: 100, message: 'Loading Page' });
+      hideLoader();
+      break;
     default:
       break;
   }

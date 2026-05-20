@@ -113,6 +113,7 @@ export function updateLoader({ percentage, message } = {}) {
 
 export function hideLoader() {
   const { container } = getLoaderElements();
+  updateLoader({ percentage: 100, message: 'Done' });
   if (!container) {
     notifyParentPreviewInteractive(true);
     return;
