@@ -55,6 +55,27 @@ import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-a
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
 
+function normalizeDaPath(input = '') {
+  const val = String(input || '').trim().replace(/\.html$/i, '');
+  if (!val) return '';
+
+  // https://da.live/edit#/org/repo/path → org/repo/path
+  if (val.includes('da.live/edit#/')) {
+    const path = val.split('da.live/edit#/')[1] || '';
+    try { return decodeURIComponent(path); } catch { return path; }
+  }
+
+  // https://branch--repo--adobecom.aem.live/path or .aem.page/path → adobecom/repo/path
+  const aemMatch = val.match(/^https?:\/\/.+?--(.+?)--adobecom\.aem\.(?:live|page)(\/[^?#]*)?/i);
+  if (aemMatch) {
+    const repo = aemMatch[1];
+    const path = (aemMatch[2] || '').replace(/^\/+/, '').replace(/\.html$/i, '');
+    return path ? `adobecom/${repo}/${path}` : `adobecom/${repo}`;
+  }
+
+  return val;
+}
+
 function isAnnotationOp() {
   const { operation } = window.streamConfig || {};
   return operation === 'annotation' || operation === 'aiSeoAnnotation';
@@ -192,12 +213,19 @@ async function requestStreamConfigFromParent() {
 
   // If there is no parent window or no storeId, fall back to query params (legacy behavior)
   if (!window.parent || window.parent === window || !storeId) {
+    const source = getQueryParam('source');
+    const target = getQueryParam('target');
+    const isSourceDa = source?.toLowerCase() === 'da';
+    const isTargetDa = target?.toLowerCase() === 'da';
+    const rawPageUrl = getQueryParam('pageUrl') || getQueryParam('page_url');
+    const rawContentUrl = getQueryParam('contentUrl');
+    const rawTargetUrl = getQueryParam('targetUrl');
     return {
-      source: getQueryParam('source'),
-      contentUrl: getQueryParam('contentUrl'),
-      target: getQueryParam('target'),
-      targetUrl: getQueryParam('targetUrl'),
-      pageUrl: getQueryParam('pageUrl') || getQueryParam('page_url'),
+      source,
+      contentUrl: isSourceDa ? normalizeDaPath(rawContentUrl) : rawContentUrl,
+      target,
+      targetUrl: isTargetDa ? normalizeDaPath(rawTargetUrl) : rawTargetUrl,
+      pageUrl: normalizeDaPath(rawPageUrl) || null,
       token: getQueryParam('token'),
       profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
       collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
@@ -228,7 +256,17 @@ async function requestStreamConfigFromParent() {
       if (data.storeId && data.storeId !== storeId) return;
 
       window.removeEventListener('message', handler);
-      resolve(data.params);
+      const params = data.params || {};
+      const isSourceDa = params.source?.toLowerCase() === 'da';
+      const isTargetDa = params.target?.toLowerCase() === 'da';
+      if (params.pageUrl) params.pageUrl = normalizeDaPath(params.pageUrl);
+      if (params.collab?.pageUrl) params.collab.pageUrl = normalizeDaPath(params.collab.pageUrl);
+      if (isSourceDa && params.contentUrl) params.contentUrl = normalizeDaPath(params.contentUrl);
+      if (isTargetDa && params.targetUrl) params.targetUrl = normalizeDaPath(params.targetUrl);
+      if (params.collab?.draftLocation) {
+        params.collab.draftLocation = normalizeDaPath(params.collab.draftLocation) || null;
+      }
+      resolve(params);
     };
 
     window.addEventListener('message', handler);
@@ -286,9 +324,11 @@ async function setupMessageListener() {
     if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
       if (!isAnnotationOp()) return;
       const collabPageUrl = event.data?.payload?.collab?.pageUrl;
-      if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
+      if (collabPageUrl) window.streamConfig.pageUrl = normalizeDaPath(collabPageUrl);
       const collabDraftLocation = event.data?.payload?.collab?.draftLocation;
-      if (collabDraftLocation) window.streamConfig.draftLocation = collabDraftLocation;
+      if (collabDraftLocation) {
+        window.streamConfig.draftLocation = normalizeDaPath(collabDraftLocation) || null;
+      }
       applyRemoteCollabSnapshot(event.data.payload || {});
     }
   });
@@ -312,10 +352,11 @@ export default async function initPreviewer() {
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
-    pageUrl: previewParams.pageUrl
+    pageUrl: normalizeDaPath(
+      previewParams.pageUrl
       || previewParams.page_url
-      || previewParams.collab?.pageUrl
-      || null,
+      || previewParams.collab?.pageUrl,
+    ) || null,
     token: previewParams.token,
     profileId: previewParams.profileId || previewParams.profile_id || null,
     collabId: previewParams.collabId || previewParams.collab_id || null,
@@ -454,6 +495,7 @@ function loadCssFiles(filePath) {
 (async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
+  if (window.location.host.includes('stream-mapper--adobecom.aem')) return;
   const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
   loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
   await initPreviewer();
