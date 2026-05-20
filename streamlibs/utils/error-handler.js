@@ -5,7 +5,7 @@ export function showErrorPage(context = '', preMessage = 'Oops! Something broke 
           <div class="stream-error-card">
             <div class="stream-error-image-wrap">
               <img
-                src="${window.location.origin}/streamlibs/assets/error-image.webp"
+                src="https://main--stream-mapper--adobecom.aem.live/streamlibs/assets/error-image.webp"
                 alt="Something went wrong"
               >
             </div>
