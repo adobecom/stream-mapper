@@ -26,7 +26,7 @@ export const CONFIG = {
   },
   stage: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-32c93a.cloud.adobe.io',
+      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-d587ab.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',
