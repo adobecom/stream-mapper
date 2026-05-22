@@ -59,7 +59,7 @@ function wrapHTMLForDA(html) {
 export async function postData(url, html, options = {}) {
   const { streamMapper } = window.streamConfig;
   const wrappedHtml = wrapHTMLForDA(html);
-  const { suppressErrorPage = false } = options;
+  const { suppressErrorPage = false, versionLabel } = options;
   const { pageUrl } = window.streamConfig || {};
   const payloadUrl = url || pageUrl;
   try {
@@ -72,6 +72,7 @@ export async function postData(url, html, options = {}) {
       body: new URLSearchParams({
         htmlContent: wrappedHtml,
         url: payloadUrl,
+        ...(versionLabel ? { versionLabel } : {}),
       }),
     }, {
       donotShowErrorPage: suppressErrorPage,
@@ -90,13 +91,14 @@ export function targetCompatibleHtml(html) {
   return getDACompatibleHtml(html);
 }
 
-export async function persistOnTarget() {
+export async function persistOnTarget(versionLabel = null) {
   if (window.streamConfig?.target !== 'da') return;
   const { pageUrl, targetUrl, contentUrl } = window.streamConfig || {};
   // eslint-disable-next-line consistent-return, no-return-await
   return await postData(
     pageUrl || targetUrl,
     fetchTargetHtmlFromStore(contentUrl),
+    { versionLabel },
   );
 }
 
