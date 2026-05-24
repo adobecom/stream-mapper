@@ -84,7 +84,7 @@ async function getDADom() {
   return null;
 }
 
-// ── Empty section shells (e.g. block-7 after metadata moved to Page Metadata panel) ──
+// ── Empty section shells ──
 
 function pruneEmptyParentChain(node, boundary) {
   let current = node;
