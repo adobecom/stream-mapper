@@ -84,6 +84,45 @@ async function getDADom() {
   return null;
 }
 
+// ── Empty section shells (e.g. block-7 after metadata moved to Page Metadata panel) ──
+
+function pruneEmptyParentChain(node, boundary) {
+  let current = node;
+  while (current && current !== boundary) {
+    if (current.children.length > 0) break;
+    const parent = current.parentElement;
+    current.remove();
+    current = parent;
+  }
+}
+
+function removeEmptyMainSectionShells(rootEl) {
+  [...rootEl.children].forEach((child) => {
+    if (!(child instanceof HTMLElement) || !child.classList.contains('section')) return;
+    if (child.classList.contains('stream-annotation-page-metadata')) return;
+    const isEmpty = child.children.length === 0 && !(child.textContent || '').trim();
+    if (isEmpty) child.remove();
+  });
+}
+
+function readLivePageMetadataHtml() {
+  const inMain = document.body.querySelector('main .page-metadata');
+  if (inMain) return inMain.innerHTML;
+
+  const onBody = document.body.querySelector(':scope > .page-metadata');
+  if (onBody) return onBody.innerHTML;
+
+  const liveMain = document.querySelector('main');
+  if (!liveMain) return null;
+
+  const parts = [];
+  liveMain.querySelectorAll('div.metadata').forEach((block) => {
+    if (block.closest('.stream-annotation-page-metadata')) return;
+    parts.push(block.innerHTML);
+  });
+  return parts.length ? parts.join('') : null;
+}
+
 async function initializePreview() {
   document.body.querySelectorAll(':scope > header, :scope > main').forEach((el) => el.remove());
   const htmlDom = await getDADom();
@@ -310,27 +349,40 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
-  const pageMetadataDom = document.body.querySelector('main .page-metadata');
-  if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-    mainEl.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.parentElement;
-      el.remove();
-      if (parentSection.children.length === 0) parentSection.remove();
-    });
+  mainEl.querySelectorAll('.stream-annotation-page-metadata').forEach((el) => el.remove());
+
+  const liveMetadataHtml = readLivePageMetadataHtml();
+  if (liveMetadataHtml) {
+    cachedPageMetadataHtml = liveMetadataHtml;
+  }
+
+  [...mainEl.querySelectorAll('div.metadata')].forEach((block) => {
+    if (block.closest('.stream-annotation-page-metadata')) return;
+    const parent = block.parentElement;
+    block.remove();
+    if (parent) pruneEmptyParentChain(parent, mainEl);
+  });
+  removeEmptyMainSectionShells(mainEl);
+
+  const metadataHtml = liveMetadataHtml || cachedPageMetadataHtml;
+  if (metadataHtml) {
     const metadataDiv = document.createElement('div');
     metadataDiv.className = 'metadata';
-    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    metadataDiv.innerHTML = metadataHtml;
     metadataDiv.querySelectorAll('p').forEach((p) => {
       [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
     });
     metadataDiv.querySelectorAll('img').forEach((img) => {
-      img.setAttribute('src', img.getAttribute('data-stream-original-src'));
+      const originalSrc = img.getAttribute('data-stream-original-src');
+      if (originalSrc) img.setAttribute('src', originalSrc);
     });
-    const divWrapper = document.createElement('div');
-    divWrapper.append(metadataDiv);
-    mainEl.appendChild(divWrapper);
+    const sectionWrapper = document.createElement('div');
+    sectionWrapper.className = 'section';
+    sectionWrapper.append(metadataDiv);
+    mainEl.appendChild(sectionWrapper);
   }
+
+  removeEmptyMainSectionShells(mainEl);
 
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
@@ -477,8 +529,6 @@ export async function annotationOperation(options = {}) {
     });
   }
 
-  if (!cachedCleanHtml) cachedCleanHtml = mainEl.innerHTML || '';
-
   if (window.streamConfig?.source === 'da') {
     const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
     for (const root of insertedFragments) {
@@ -488,6 +538,9 @@ export async function annotationOperation(options = {}) {
   }
 
   await miloLoadArea();
+
+  removeEmptyMainSectionShells(mainEl);
+  if (!cachedCleanHtml) cachedCleanHtml = mainEl.innerHTML || '';
 
   const metadataDom = document.body.querySelector('.page-metadata');
   const metadataSeparator = document.createElement('div');
@@ -552,6 +605,8 @@ export async function annotationOperationOnHostPage(options = {}) {
       cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
     }
   }
+
+  removeEmptyMainSectionShells(mainEl);
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
 }
