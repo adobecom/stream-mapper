@@ -733,7 +733,7 @@ function isModalOpen() {
 /* ------------------------------------------------------------------ */
 
 export function setupBlockActionModal() {
-  if (['annotation', 'aiSeoAnnotation'].includes(window.streamConfig?.operation)) return;
+  if (window.streamConfig?.operation === 'annotation') return;
   mountBlockActionUi();
   const els = getModalElements();
   if (!els || els.container.dataset.bound === 'true') return;

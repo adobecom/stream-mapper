@@ -34,7 +34,7 @@ export default function createCommentsPanelController({
   assetsPanel,
 }) {
   const annotationService = createAnnotationServiceClient();
-  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
+  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
   let flushPendingCommentsPanelRefresh = () => {};

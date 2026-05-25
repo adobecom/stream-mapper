@@ -14,7 +14,7 @@ export default function createInlineEditingController({
   removePopup,
 }) {
   const annotationService = createAnnotationServiceClient();
-  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
+  const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false;
   const EXPLICIT_FORMATTING_TOOLBAR_ACTIONS = new Set([
     'bold',
     'italic',

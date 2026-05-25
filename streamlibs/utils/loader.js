@@ -10,35 +10,6 @@ let loaderPercentage = LOADER_PROGRESS_STEPS.START;
 let loaderMessage = LOADER_STEP_MESSAGES.INITIAL;
 let isListenerAttached = false;
 
-function ensureLoaderInDOM() {
-  if (document.querySelector('#loader-container')) return;
-  const container = document.createElement('div');
-  container.className = 'loader-container';
-  container.id = 'loader-container';
-  container.style.display = 'none';
-  container.innerHTML = `
-    <div class="loader-row-1">
-      <div class="loader-text">
-        <div class="loader-content" id="loader-content"></div>
-      </div>
-      <div class="loader-progress-row">
-        <div class="loader-progress-track">
-          <div
-            class="loader-progress-fill"
-            id="loader-progress-fill"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="0"
-          ></div>
-        </div>
-        <div class="loader-progress" id="loader-progress">0%</div>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(container);
-}
-
 function getLoaderElements() {
   return {
     messageArea: document.querySelector('#loader-content'),
@@ -94,7 +65,6 @@ export function notifyParentPreviewInteractive(ready) {
 }
 
 export function initializeLoader() {
-  ensureLoaderInDOM();
   if (!isListenerAttached) {
     window.addEventListener(LOADER_PROGRESS_EVENT, onLoaderProgressEvent);
     isListenerAttached = true;
@@ -113,7 +83,6 @@ export function updateLoader({ percentage, message } = {}) {
 
 export function hideLoader() {
   const { container } = getLoaderElements();
-  updateLoader({ percentage: 100, message: 'Done' });
   if (!container) {
     notifyParentPreviewInteractive(true);
     return;

@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { fetchTargetHtmlFromStore } from '../store/store.js';
+import { getConfig } from '../utils/utils.js';
 
 function replacePictureWithImg(html) {
   const parser = new DOMParser();
@@ -57,16 +58,16 @@ function wrapHTMLForDA(html) {
 }
 
 export async function postData(url, html, options = {}) {
-  const { streamMapper } = window.streamConfig;
+  const config = await getConfig();
   const wrappedHtml = wrapHTMLForDA(html);
   const { suppressErrorPage = false } = options;
   const { pageUrl } = window.streamConfig || {};
   const payloadUrl = url || pageUrl;
   try {
-    const response = await safeFetch(`${streamMapper.serviceEP}${streamMapper.pushToDaUrl}`, {
+    const response = await safeFetch(`${config.streamMapper.serviceEP}${config.streamMapper.pushToDaUrl}`, {
       method: 'POST',
       headers: {
-        Authorization: streamMapper.daToken,
+        Authorization: config.streamMapper.daToken,
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({

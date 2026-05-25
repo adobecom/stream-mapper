@@ -17,8 +17,8 @@ import {
   getQueryParam,
   fixRelativeLinks,
   initializeTokens,
+  getConfig,
   miloLoadArea,
-  getMapperEnv,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import { showGlobalSnackbar } from './utils/snackbar.js';
@@ -29,13 +29,11 @@ import {
   handleBackToEditor,
   preflightOperation,
   annotationOperation,
-  annotationOperationOnHostPage,
   refreshAnnotationFloatingUI,
   saveAnnotationChanges,
   persistAnnotationChangesToDA,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
-  attachRegenHandlers,
 } from './utils/operations.js';
 import {
   ANNOTATION_REFRESH_EVENT,
@@ -44,7 +42,6 @@ import {
   LOADER_PROGRESS_STEPS,
   LOADER_STEP_MESSAGES,
 } from './utils/constants.js';
-import { CONFIG } from './utils/config.js';
 import {
   initializeLoader,
   updateLoader,
@@ -54,32 +51,6 @@ import {
 import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
-
-function normalizeDaPath(input = '') {
-  const val = String(input || '').trim().replace(/\.html$/i, '');
-  if (!val) return '';
-
-  // https://da.live/edit#/org/repo/path → org/repo/path
-  if (val.includes('da.live/edit#/')) {
-    const path = val.split('da.live/edit#/')[1] || '';
-    try { return decodeURIComponent(path); } catch { return path; }
-  }
-
-  // https://branch--repo--adobecom.aem.live/path or .aem.page/path → adobecom/repo/path
-  const aemMatch = val.match(/^https?:\/\/.+?--(.+?)--adobecom\.aem\.(?:live|page)(\/[^?#]*)?/i);
-  if (aemMatch) {
-    const repo = aemMatch[1];
-    const path = (aemMatch[2] || '').replace(/^\/+/, '').replace(/\.html$/i, '');
-    return path ? `adobecom/${repo}/${path}` : `adobecom/${repo}`;
-  }
-
-  return val;
-}
-
-function isAnnotationOp() {
-  const { operation } = window.streamConfig || {};
-  return operation === 'annotation' || operation === 'aiSeoAnnotation';
-}
 
 function notifyParentPushToDaResult(success, detailMessage) {
   if (!window.parent || window.parent === window) return;
@@ -179,17 +150,6 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
-    case 'aiSeoAnnotation':
-      updateLoader({ percentage: 100, message: 'Loading Page' });
-      await annotationOperationOnHostPage();
-      attachRegenHandlers();
-      hideLoader();
-      notifyAnnotationReady();
-      break;
-    case 'aiSeoPreview':
-      updateLoader({ percentage: 100, message: 'Loading Page' });
-      hideLoader();
-      break;
     default:
       break;
   }
@@ -213,19 +173,12 @@ async function requestStreamConfigFromParent() {
 
   // If there is no parent window or no storeId, fall back to query params (legacy behavior)
   if (!window.parent || window.parent === window || !storeId) {
-    const source = getQueryParam('source');
-    const target = getQueryParam('target');
-    const isSourceDa = source?.toLowerCase() === 'da';
-    const isTargetDa = target?.toLowerCase() === 'da';
-    const rawPageUrl = getQueryParam('pageUrl') || getQueryParam('page_url');
-    const rawContentUrl = getQueryParam('contentUrl');
-    const rawTargetUrl = getQueryParam('targetUrl');
     return {
-      source,
-      contentUrl: isSourceDa ? normalizeDaPath(rawContentUrl) : rawContentUrl,
-      target,
-      targetUrl: isTargetDa ? normalizeDaPath(rawTargetUrl) : rawTargetUrl,
-      pageUrl: normalizeDaPath(rawPageUrl) || null,
+      source: getQueryParam('source'),
+      contentUrl: getQueryParam('contentUrl'),
+      target: getQueryParam('target'),
+      targetUrl: getQueryParam('targetUrl'),
+      pageUrl: getQueryParam('pageUrl') || getQueryParam('page_url'),
       token: getQueryParam('token'),
       profileId: getQueryParam('profileId') || getQueryParam('profile_id'),
       collabId: getQueryParam('collabId') || getQueryParam('collab_id'),
@@ -240,7 +193,8 @@ async function requestStreamConfigFromParent() {
     };
   }
 
-  const allowedOrigins = CONFIG[getMapperEnv()].streamMapper.allowMessagesFromDomains || [];
+  const config = await getConfig();
+  const allowedOrigins = config.streamMapper.allowMessagesFromDomains || [];
 
   // Ask parent for preview parameters using storeId
   return new Promise((resolve) => {
@@ -256,17 +210,7 @@ async function requestStreamConfigFromParent() {
       if (data.storeId && data.storeId !== storeId) return;
 
       window.removeEventListener('message', handler);
-      const params = data.params || {};
-      const isSourceDa = params.source?.toLowerCase() === 'da';
-      const isTargetDa = params.target?.toLowerCase() === 'da';
-      if (params.pageUrl) params.pageUrl = normalizeDaPath(params.pageUrl);
-      if (params.collab?.pageUrl) params.collab.pageUrl = normalizeDaPath(params.collab.pageUrl);
-      if (isSourceDa && params.contentUrl) params.contentUrl = normalizeDaPath(params.contentUrl);
-      if (isTargetDa && params.targetUrl) params.targetUrl = normalizeDaPath(params.targetUrl);
-      if (params.collab?.draftLocation) {
-        params.collab.draftLocation = normalizeDaPath(params.collab.draftLocation) || null;
-      }
-      resolve(params);
+      resolve(data.params);
     };
 
     window.addEventListener('message', handler);
@@ -280,7 +224,8 @@ async function requestStreamConfigFromParent() {
 
 async function setupMessageListener() {
   window.addEventListener('message', async (event) => {
-    const allowedOrigins = window.streamConfig.streamMapper.allowMessagesFromDomains;
+    const config = await getConfig();
+    const allowedOrigins = config.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
       const regex = new RegExp(`^${pattern.replace('*', '.*')}$`);
       return regex.test(event.origin);
@@ -322,13 +267,9 @@ async function setupMessageListener() {
       }, event.origin);
     }
     if (event.data.type === 'STREAM_COLLAB_SNAPSHOT') {
-      if (!isAnnotationOp()) return;
+      if (window.streamConfig.operation !== 'annotation') return;
       const collabPageUrl = event.data?.payload?.collab?.pageUrl;
-      if (collabPageUrl) window.streamConfig.pageUrl = normalizeDaPath(collabPageUrl);
-      const collabDraftLocation = event.data?.payload?.collab?.draftLocation;
-      if (collabDraftLocation) {
-        window.streamConfig.draftLocation = normalizeDaPath(collabDraftLocation) || null;
-      }
+      if (collabPageUrl) window.streamConfig.pageUrl = collabPageUrl;
       applyRemoteCollabSnapshot(event.data.payload || {});
     }
   });
@@ -346,17 +287,14 @@ export default async function initPreviewer() {
   const previewParams = await requestStreamConfigFromParent();
   if (getQueryParam('forceOperation')) previewParams.operation = getQueryParam('forceOperation');
   window.streamConfig = {
-    streamMapper: { ...CONFIG[getMapperEnv()].streamMapper },
-    figmaServiceRetry: CONFIG.figmaServiceRetry,
     source: previewParams.source,
     contentUrl: previewParams.contentUrl,
     target: previewParams.target,
     targetUrl: previewParams.targetUrl,
-    pageUrl: normalizeDaPath(
-      previewParams.pageUrl
+    pageUrl: previewParams.pageUrl
       || previewParams.page_url
-      || previewParams.collab?.pageUrl,
-    ) || null,
+      || previewParams.collab?.pageUrl
+      || null,
     token: previewParams.token,
     profileId: previewParams.profileId || previewParams.profile_id || null,
     collabId: previewParams.collabId || previewParams.collab_id || null,
@@ -369,7 +307,6 @@ export default async function initPreviewer() {
     startReview: previewParams.startReview || previewParams.startreview || false,
     inlineEditingAllowed: resolveInlineEditingAllowed(previewParams),
     collabRole: previewParams.collabRole || null,
-    draftLocation: previewParams.collab?.draftLocation || null,
   };
   await initializeTokens(window.streamConfig.token);
   await initiatePreviewer();
@@ -382,7 +319,7 @@ export async function persist() {
     notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
-    if (isAnnotationOp()) {
+    if (window.streamConfig.operation === 'annotation') {
       await persistAnnotationChangesToDA();
     } else {
       await persistOnTarget();
@@ -401,7 +338,7 @@ export async function persist() {
 }
 
 export async function saveChanges() {
-  const isAnnotationOperation = isAnnotationOp();
+  const isAnnotationOperation = window.streamConfig.operation === 'annotation';
   try {
     updateLoader({
       message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
@@ -427,12 +364,9 @@ export async function saveChanges() {
         message: LOADER_STEP_MESSAGES.START_PAINTING,
         percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
       });
-      if (window.streamConfig.operation === 'aiSeoAnnotation') {
-        await annotationOperationOnHostPage({ preserveRemoteEditState: true });
-        attachRegenHandlers();
-      } else {
-        await annotationOperation({ preserveRemoteEditState: true });
-      }
+      await annotationOperation({
+        preserveRemoteEditState: true,
+      });
     } else {
       await persistOnTarget();
     }
@@ -457,7 +391,7 @@ export async function saveChanges() {
 }
 
 export async function refreshAnnotationCanvas() {
-  if (!isAnnotationOp()) return;
+  if (window.streamConfig.operation !== 'annotation') return;
 
   try {
     updateLoader({
@@ -466,12 +400,9 @@ export async function refreshAnnotationCanvas() {
     });
     hideDOMElements([document.querySelector('main')]);
     preparePendingRemoteEditsRefresh();
-    if (window.streamConfig.operation === 'aiSeoAnnotation') {
-      await annotationOperationOnHostPage({ preserveRemoteEditState: true });
-      attachRegenHandlers();
-    } else {
-      await annotationOperation({ preserveRemoteEditState: true });
-    }
+    await annotationOperation({
+      preserveRemoteEditState: true,
+    });
     showDOMElements([document.querySelector('main')]);
     await refreshAnnotationFloatingUI();
     hideLoader();
@@ -483,20 +414,3 @@ export async function refreshAnnotationCanvas() {
     throw error;
   }
 }
-
-function loadCssFiles(filePath) {
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = filePath;
-  link.dataset.streamMapperStyles = '';
-  document.head.appendChild(link);
-}
-
-(async function selfRender() {
-  const searchParams = new URLSearchParams(window.location.search);
-  if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
-  if (window.location.host.includes('stream-mapper--adobecom.aem')) return;
-  const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
-  loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
-  await initPreviewer();
-}());

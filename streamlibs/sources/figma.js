@@ -26,8 +26,9 @@ function createPlaceholder() {
   return div;
 }
 
-function getFigmaRetryConfig() {
-  return window.streamConfig.figmaServiceRetry;
+async function getFigmaRetryConfig() {
+  const config = await import('../utils/utils.js').then((m) => m.getConfig());
+  return config.figmaServiceRetry;
 }
 
 function getRetryDelay(delays, attempt) {
@@ -79,15 +80,15 @@ async function fetchJsonWithRetry(url, options) {
 
 async function fetchFigmaMapping(figmaUrl) {
   try {
-    const { streamMapper } = window.streamConfig;
+    const config = await import('../utils/utils.js').then((m) => m.getConfig());
     const pagePath = window.streamConfig.targetUrl.startsWith('/') ? window.streamConfig.targetUrl.slice(1) : window.streamConfig.targetUrl;
     return await fetchJsonWithRetry(
-      `${streamMapper.serviceEP}${streamMapper.figmaMappingUrl}`,
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaMappingUrl}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: streamMapper.figmaAuthToken,
+          Authorization: config.streamMapper.figmaAuthToken,
         },
         body: JSON.stringify({
           figmaUrl,
@@ -143,14 +144,14 @@ async function fetchContent(contentUrl) {
 
 async function fetchBlockContent(figId, id, figmaUrl) {
   try {
-    const { streamMapper } = window.streamConfig;
+    const config = await import('../utils/utils.js').then((m) => m.getConfig());
     return await fetchJsonWithRetry(
-      `${streamMapper.serviceEP}${streamMapper.figmaBlockContentUrl}`,
+      `${config.streamMapper.serviceEP}${config.streamMapper.figmaBlockContentUrl}`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: streamMapper.figmaAuthToken,
+          Authorization: config.streamMapper.figmaAuthToken,
         },
         body: JSON.stringify({ figmaUrl, figId, id }),
       },

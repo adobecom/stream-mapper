@@ -1,3 +1,4 @@
+import { getConfig } from '../../utils/utils.js';
 import { ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
 import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
 import { normalizeCommentStatus } from './store.js';
@@ -158,7 +159,7 @@ function normalizeEditsSnapshot(data) {
 
 export default function createAnnotationServiceClient() {
   async function annotationServiceFetch(path, options = {}) {
-    const resolvedServiceEndpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}`.trim();
+    const resolvedServiceEndpoint = `${(await getConfig())?.streamMapper?.serviceEP || ''}`.trim();
     const collabId = getAnnotationCollabId();
     if (!resolvedServiceEndpoint || !collabId) return null;
 

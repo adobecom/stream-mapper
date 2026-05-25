@@ -1,24 +1,24 @@
 export function showErrorPage(context = '', preMessage = 'Oops! Something broke while') {
   const safeContext = (context || 'processing your request').replace(/[<>]/g, '');
   document.body.innerHTML = `
-      <div class="stream-error-page">
-          <div class="stream-error-card">
-            <div class="stream-error-image-wrap">
+      <div class="enigma-error-page">
+          <div class="enigma-error-card">
+            <div class="enigma-error-image-wrap">
               <img
-                src="https://main--stream-mapper--adobecom.aem.live/streamlibs/assets/error-image.webp"
+                src="${window.location.origin}/streamlibs/assets/error-image.webp"
                 alt="Something went wrong"
               >
             </div>
-            <div class="stream-error-copy">
-                <h1 class="stream-error-title">${preMessage} ${safeContext}</h1>
-                <p class="stream-retry-line">
-                  <span class="stream-retry-text">Give it another go?</span>
-                  <button type="button" id="stream-retry-btn" class="stream-retry-btn">Yes Retry</button>
+            <div class="enigma-error-copy">
+                <h1 class="enigma-error-title">${preMessage} ${safeContext}</h1>
+                <p class="enigma-retry-line">
+                  <span class="enigma-retry-text">Give it another go?</span>
+                  <button type="button" id="enigma-retry-btn" class="enigma-retry-btn">Yes Retry</button>
                 </p>
             </div>
           </div>
       </div>`;
-  const retryButton = document.querySelector('#stream-retry-btn');
+  const retryButton = document.querySelector('#enigma-retry-btn');
   retryButton?.addEventListener('click', () => {
     retryButton.disabled = true;
     retryButton.classList.add('is-loading');
@@ -52,19 +52,21 @@ export async function safeFetch(url, options = {}, customSettings = {}) {
 }
 
 export async function safeJsonFetch(componentJSONUrl, options = {}) {
-  const { streamMapper } = window.streamConfig || {};
-  const url = `${streamMapper?.blockMappingsUrl}/${componentJSONUrl}`;
+  const { getConfig } = await import('./utils.js');
+  const config = await getConfig();
+  const url = `${config.streamMapper.blockMappingsUrl}/${componentJSONUrl}`;
   const response = await safeFetch(url, options, { donotShowErrorPage: true });
   // eslint-disable-next-line no-return-await
   return await response.json();
 }
 
 export async function safeTemplateFetch(templateUrl, options = {}) {
-  const { streamMapper } = window.streamConfig || {};
+  const { getConfig } = await import('./utils.js');
+  const config = await getConfig();
   // If templateUrl is already a full URL, use it directly; otherwise construct from config
   const url = templateUrl.startsWith('http://') || templateUrl.startsWith('https://')
     ? templateUrl
-    : `${streamMapper?.blockTemplatesUrl}/${templateUrl}`;
+    : `${config.streamMapper.blockTemplatesUrl || config.streamMapper.blockTemplatesUrl}/${templateUrl}`;
   const response = await safeFetch(url, options, { donotShowErrorPage: true });
   // eslint-disable-next-line no-return-await
   return await response.text();

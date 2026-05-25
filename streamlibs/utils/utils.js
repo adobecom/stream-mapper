@@ -31,20 +31,25 @@ export async function getConfig() {
   return miloGetConfig();
 }
 
-export function initializeTokens(token) {
+export async function initializeTokens(token) {
   if (token == null || `${token}`.trim() === '') return;
-  if (!window.streamConfig?.streamMapper) return;
+  const config = await getConfig();
+  if (!config.streamMapper) config.streamMapper = {};
   const normalized = `${token}`.trim().startsWith('Bearer ') ? token : `Bearer ${token}`;
-  window.streamConfig.streamMapper.figmaAuthToken = normalized;
-  window.streamConfig.streamMapper.daToken = normalized;
+  config.streamMapper.figmaAuthToken = normalized;
+  config.streamMapper.daToken = normalized;
 }
 
-export function ensureStreamMapperForStandalone(overrides = {}) {
+/** Default stream annotation service (prod); override via host init e.g. streamServiceEP. */
+export const DEFAULT_STREAM_MAPPER_SERVICE_EP = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io';
+
+/** Ensure Milo config.streamMapper.* exists for annotation services when running outside mapper preview shell. */
+export async function ensureStreamMapperForStandalone(overrides = {}) {
+  const config = await getConfig();
   const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
-  const existing = window.streamConfig?.streamMapper || {};
-  const serviceEP = streamServiceEP || existing.serviceEP;
-  if (!window.streamConfig) window.streamConfig = {};
-  window.streamConfig.streamMapper = {
+  const existing = config.streamMapper || {};
+  const serviceEP = streamServiceEP || existing.serviceEP || DEFAULT_STREAM_MAPPER_SERVICE_EP;
+  config.streamMapper = {
     serviceEP,
     pushToDaUrl: '/api/push-html',
     figmaMappingUrl: '/api/fig-comps',
@@ -53,7 +58,9 @@ export function ensureStreamMapperForStandalone(overrides = {}) {
     figmaAuthToken: '',
     daToken: '',
     ...existing,
+    serviceEP,
   };
+  return config;
 }
 
 export function extractByPattern(tag, pattern) {
@@ -167,13 +174,14 @@ function persistOriginalImageUrl(img, url) {
 export async function transformImages() {
   const imgs = document.querySelectorAll('img[src^="https://content.da.live"]');
   if (imgs.length === 0) return;
-  if (!window.streamConfig?.streamMapper?.daToken) return;
+  const config = await getConfig();
+  if (!config?.streamMapper?.daToken) return;
   await Promise.all(
     Array.from(imgs).map(async (img) => {
       const url = img.getAttribute('src');
       if (!url) return;
       try {
-        const dataUrl = await fetchImageAsBase64(url, window.streamConfig.streamMapper.daToken);
+        const dataUrl = await fetchImageAsBase64(url, config.streamMapper.daToken);
         persistOriginalImageUrl(img, url);
         img.src = dataUrl;
         const picture = img.closest('picture');
@@ -204,20 +212,6 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
     if (!document.querySelector('#page-load-ok-milo')) setTimeout(handler, 5000);
   };
   handler();
-}
-
-export function getMapperEnv() {
-  const { origin } = window.location;
-  let mapperOrigin = origin;
-  const params = new URLSearchParams(window.location.href);
-  if (params.get('daRenderingApp') || params.get('darenderingapp')) {
-    mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
-  }
-  if (mapperOrigin.includes('https://dev--')) return 'dev';
-  if (mapperOrigin.includes('https://dev02--')) return 'dev02';
-  if (mapperOrigin.includes('https://stage--')) return 'stage';
-  if (mapperOrigin.includes('https://main--')) return 'prod';
-  return 'dev';
 }
 
 export async function miloLoadArea(area = document) {
