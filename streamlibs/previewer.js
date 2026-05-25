@@ -289,7 +289,7 @@ async function setupMessageListener() {
 
     if (event.data.type === 'PUSH_TO_DA') {
       try {
-        await persist();
+        await persist(event.data.versionLabel || null);
       } catch {
         // persist() notifies the parent on failure; swallow to avoid unhandled rejection
       }
@@ -377,7 +377,7 @@ export default async function initPreviewer() {
   await setupMessageListener();
 }
 
-export async function persist() {
+export async function persist(versionLabel = null) {
   try {
     notifyParentPreviewInteractive(false);
     updateLoader({ message: 'Pushing content to DA' });
@@ -385,7 +385,7 @@ export async function persist() {
     if (isAnnotationOp()) {
       await persistAnnotationChangesToDA();
     } else {
-      await persistOnTarget();
+      await persistOnTarget(versionLabel);
     }
     hideLoader();
     showDOMElements([document.querySelector('main')]);
