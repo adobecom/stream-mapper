@@ -10,10 +10,13 @@ export {
 export { preflightOperation } from '../operations/preflight/preflight.js';
 export {
   annotationOperation,
-  annotationOperationOnHostPage,
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
   refreshAnnotationFloatingUI,
   persistAnnotationChangesToDA,
   saveAnnotationChanges,
+  annotationOperationOnHostPage,
 } from '../operations/annotation.js';
+export {
+  default as attachRegenHandlers,
+} from '../operations/aiSeoAnnotation/ai-seo-annotation.js';
