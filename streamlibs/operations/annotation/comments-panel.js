@@ -1352,6 +1352,66 @@ export default function createCommentsPanelController({
     return annotationUI.panelEl.querySelector('.annotation-comments-content');
   }
 
+  function scrollAssetInPanel(elementPath) {
+    if (!annotationUI.panelEl || !annotationUI.panelListEl || !elementPath) return;
+
+    if (activePanelFilter === 'comment' || activePanelFilter === 'edit') {
+      activePanelFilter = 'asset';
+      annotationUI.panelEl.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+        const isActive = btn.dataset.filter === activePanelFilter;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', `${isActive}`);
+      });
+    }
+
+    renderCommentsPanel();
+
+    const runScroll = () => {
+      const scrollContainer = getCommentsScrollContainer();
+
+      // Collect all assets for this elementPath and sort newest first
+      const candidates = [];
+      (annotationState.store.localAssets || []).forEach((asset) => {
+        if (asset.elementPath === elementPath) {
+          candidates.push({
+            selector: `[data-local-asset-id="${asset.localId}"]`,
+            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
+          });
+        }
+      });
+      (annotationState.store.assets || []).forEach((asset) => {
+        if (asset.elementPath === elementPath) {
+          candidates.push({
+            selector: `[data-asset-id="${asset.id}"]`,
+            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
+          });
+        }
+      });
+      candidates.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      const target = candidates.reduce((found, candidate) => {
+        if (found) return found;
+        const card = annotationUI.panelListEl.querySelector(candidate.selector);
+        return card instanceof HTMLElement ? card : null;
+      }, null);
+
+      if (!(target instanceof HTMLElement) || !scrollContainer) return;
+
+      const targetTop = target.offsetTop + annotationUI.panelListEl.offsetTop - 16;
+      scrollContainer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+
+      annotationUI.panelListEl.querySelectorAll('.annotation-panel-comment-focus')
+        .forEach((el) => el.classList.remove('annotation-panel-comment-focus'));
+      target.classList.add('annotation-panel-comment-focus');
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+      window.setTimeout(() => { target.classList.remove('annotation-panel-comment-focus'); }, 1200);
+    };
+
+    window.requestAnimationFrame(runScroll);
+    window.setTimeout(runScroll, 60);
+  }
+
   function scrollThreadInPanel(threadId, messageId = '', commentIndex = 0) {
     if (!annotationUI.panelEl || !annotationUI.panelListEl || !threadId) return;
     const thread = store.getThreadById(threadId);
@@ -2088,7 +2148,9 @@ export default function createCommentsPanelController({
       if (target === mainEl) return;
       if (target.closest('a')) event.preventDefault();
       event.stopPropagation();
-      openPopupForElement(target);
+      if (!store.getCommentThreadByElement(target)) {
+        openPopupForElement(target);
+      }
     };
     mainEl.addEventListener('click', annotationState.mainClickHandler, true);
 
@@ -2097,13 +2159,7 @@ export default function createCommentsPanelController({
       if (!(target instanceof Element)) return;
       const assetMarker = target.closest('.annotation-asset-marker');
       if (assetMarker instanceof HTMLButtonElement) {
-        const elementPath = assetMarker.dataset.elementPath || '';
-        if (elementPath && annotationUI.mainEl) {
-          const el = annotationUI.mainEl.querySelector(elementPath);
-          if (el instanceof HTMLElement) {
-            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          }
-        }
+        scrollAssetInPanel(assetMarker.dataset.elementPath || '');
         return;
       }
       const editMarker = target.closest('.annotation-edit-marker');
