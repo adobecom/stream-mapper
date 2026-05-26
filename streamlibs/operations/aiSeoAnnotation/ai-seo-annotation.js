@@ -317,6 +317,11 @@ function showImgRegenBtn(img) {
   btn.classList.add('stream-img-regen-visible');
 }
 
+function isSvgImage(img) {
+  const src = img.getAttribute('src') || '';
+  return /\.svg(\?.*)?$/i.test(src) || src.startsWith('data:image/svg');
+}
+
 function attachImageRegenHandlers() {
   const main = document.querySelector('main');
   if (!main) return;
@@ -324,6 +329,7 @@ function attachImageRegenHandlers() {
   main.addEventListener('mouseover', (e) => {
     const img = e.target.closest('img');
     if (!img) return;
+    if (isSvgImage(img)) return;
     if (imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
     showImgRegenBtn(img);
   });

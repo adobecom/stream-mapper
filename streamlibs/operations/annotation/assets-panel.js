@@ -240,6 +240,8 @@ export default function createAssetsPanelController({
       if (!img) return;
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
       if (img.closest('[data-class="fragment"]')) return;
+      const src = img.getAttribute('src') || '';
+      if (/\.svg(\?.*)?$/i.test(src) || src.startsWith('data:image/svg')) return;
 
       event.preventDefault();
       event.stopPropagation();
