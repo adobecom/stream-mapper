@@ -174,6 +174,46 @@ body.annotation-mode main::-webkit-scrollbar {
   flex: 0 0 auto;
 }
 
+.annotation-panel-filter-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+  margin-top: 10px;
+}
+
+.annotation-panel-filter-tab {
+  flex: 1 1 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  white-space: nowrap;
+}
+
+.annotation-panel-filter-tab:hover {
+  color: #1e3a8a;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.annotation-panel-filter-tab.is-active {
+  background: #fff;
+  color: #1d4ed8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.annotation-panel-filter-tab:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 1px;
+}
+
 .annotation-comments-content {
   position: relative;
   flex: 1 1 auto;

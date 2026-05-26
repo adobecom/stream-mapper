@@ -40,6 +40,7 @@ export default function createCommentsPanelController({
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
+  let activePanelFilter = 'all';
   let activeCommentEditor = null;
   let popupDraft = '';
   let popupDraftKey = '';
@@ -125,6 +126,12 @@ export default function createCommentsPanelController({
           </button>
         </div>
       </div>
+      <div class="annotation-panel-filter-tabs" role="tablist" aria-label="Filter annotations">
+        <button type="button" role="tab" class="annotation-panel-filter-tab is-active" data-filter="all" aria-selected="true">All</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="comment" aria-selected="false">Comments</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="edit" aria-selected="false">Edits</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="asset" aria-selected="false">Assets</button>
+      </div>
       <div class="annotation-comments-content">
         <div class="annotation-comments-list"></div>
         <div class="annotation-comments-disabled-overlay">Edit mode is on. Switch it off to add comments.</div>
@@ -136,6 +143,18 @@ export default function createCommentsPanelController({
     annotationUI.inlineToggleEl = panel.querySelector('.annotation-mode-btn-edit');
     annotationUI.inlineAssetsToggleEl = panel.querySelector('.annotation-mode-btn-assets');
     annotationUI.inlineCommentsToggleEl = null;
+
+    panel.querySelector('.annotation-panel-filter-tabs').addEventListener('click', (event) => {
+      const tab = event.target.closest('.annotation-panel-filter-tab');
+      if (!(tab instanceof HTMLButtonElement)) return;
+      activePanelFilter = tab.dataset.filter || 'all';
+      panel.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+        const isActive = btn.dataset.filter === activePanelFilter;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', `${isActive}`);
+      });
+      renderCommentsPanel();
+    });
 
     updateModeButtonStates();
     applyOwnerOnlyToggleState();
@@ -1072,12 +1091,30 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const unifiedItems = buildUnifiedItems();
+    annotationUI.panelEl?.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+      const isActive = btn.dataset.filter === activePanelFilter;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', `${isActive}`);
+    });
+
+    const allItems = buildUnifiedItems();
+    const unifiedItems = activePanelFilter === 'all' ? allItems : allItems.filter((item) => {
+      if (activePanelFilter === 'comment') return item.kind === 'comment';
+      if (activePanelFilter === 'edit') return item.kind === 'edit';
+      if (activePanelFilter === 'asset') return item.kind === 'asset-local' || item.kind === 'asset-remote';
+      return true;
+    });
 
     if (!unifiedItems.length) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
+      const emptyMessages = {
+        comment: 'No comments yet.',
+        edit: 'No inline edits yet.',
+        asset: 'No asset replacements yet.',
+        all: 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.',
+      };
+      empty.textContent = emptyMessages[activePanelFilter] || emptyMessages.all;
       annotationUI.panelListEl.appendChild(empty);
       finalizeFragmentHints();
       return;
