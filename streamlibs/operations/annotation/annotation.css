@@ -234,8 +234,8 @@ body.annotation-mode main::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 25px;
+  height: 25px;
   padding: 0;
   border: 1px solid #cbd5f5;
   background: #fff;
@@ -277,6 +277,12 @@ body.annotation-mode main::-webkit-scrollbar {
   background: #10b981;
   border-color: #059669;
   color: #fff;
+}
+
+.annotation-mode-btn-visibility[aria-pressed="true"] {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #475569;
 }
 
 @container comments-panel (max-width: 260px) {
@@ -801,11 +807,19 @@ body.annotation-mode main::-webkit-scrollbar {
   fill: currentcolor;
 }
 
-.annotation-card-auto-apply-btn:hover {
+.annotation-card-auto-apply-btn:hover:not(:disabled) {
   background: #eff6ff;
   border-color: #93c5fd;
   color: #1d4ed8;
   transform: translateY(-1px);
+}
+
+.annotation-card-auto-apply-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #94a3b8;
 }
 
 .annotation-panel-edit-btn {
@@ -843,8 +857,13 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-panel-edit-form {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 2px;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px 12px 12px;
+  background: #f0f6ff;
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #3b82f6;
+  border-radius: 10px;
 }
 
 .annotation-panel-edit-form-reply {
@@ -853,28 +872,30 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-panel-edit-input {
   width: 100%;
-  min-height: 84px;
-  resize: vertical;
-  border: 1px solid #93c5fd;
-  border-radius: 10px;
+  min-height: 76px;
+  resize: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
   background: #fff;
   color: #111827;
-  padding: 9px 10px;
+  padding: 9px 11px;
   font-family: inherit;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.6;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .annotation-panel-edit-input:focus {
   outline: none;
   border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgb(59 130 246 / 15%);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 12%);
 }
 
 .annotation-panel-edit-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .annotation-panel-edit-save-btn,
@@ -882,49 +903,65 @@ body.annotation-mode main::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
   height: 28px;
-  min-width: 28px;
-  padding: 0;
-  border-radius: 8px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: opacity 0.18s ease, transform 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+  gap: 5px;
 }
 
 .annotation-panel-edit-save-btn svg,
 .annotation-panel-edit-cancel-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
   fill: none;
   stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.4;
-}
-
-.annotation-panel-edit-save-btn:hover,
-.annotation-panel-edit-cancel-btn:hover {
-  transform: translateY(-1px);
+  stroke-width: 2.5;
 }
 
 .annotation-panel-edit-cancel-btn {
   background: #fff;
-  border: 1.5px solid #bfdbfe;
-  color: #27272a;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+}
+
+.annotation-panel-edit-cancel-btn::after {
+  content: 'Discard';
 }
 
 .annotation-panel-edit-save-btn {
+  background: #2563eb;
   border: 1px solid transparent;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: #fff;
 }
 
+.annotation-panel-edit-save-btn::after {
+  content: 'Save';
+}
+
 .annotation-panel-edit-cancel-btn:hover {
-  background: #eff6ff;
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  transform: translateY(-1px);
 }
 
 .annotation-panel-edit-save-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  background: #1d4ed8;
+  box-shadow: 0 2px 8px rgb(37 99 235 / 30%);
+  transform: translateY(-1px);
+}
+
+.annotation-panel-edit-save-btn:active,
+.annotation-panel-edit-cancel-btn:active {
+  transform: translateY(0);
 }
 
 .annotation-panel-edit-form.is-submitting .annotation-panel-edit-input,
@@ -932,6 +969,7 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-panel-edit-form.is-submitting .annotation-panel-edit-cancel-btn {
   opacity: 0.55;
   cursor: wait;
+  pointer-events: none;
 }
 
 .annotation-panel-reply-composer {
