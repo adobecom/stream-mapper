@@ -49,6 +49,7 @@ export default function createCommentsPanelController({
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
+  const pendingAutoApplyThreadIds = new Set();
 
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
@@ -1251,7 +1252,8 @@ export default function createCommentsPanelController({
 
         if (isCommentThread && window.streamConfig?.operation === 'aiSeoAnnotation') {
           const normalizedStatus = store.normalizeCommentStatus(thread.status);
-          const isAutoApplyEnabled = normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted';
+          const isAutoApplyEnabled = (normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted')
+            && !pendingAutoApplyThreadIds.has(thread.id);
           const autoApplyBtn = document.createElement('button');
           autoApplyBtn.type = 'button';
           autoApplyBtn.className = 'annotation-card-auto-apply-btn';
@@ -1313,6 +1315,7 @@ export default function createCommentsPanelController({
                 cur = parent;
               }
 
+              pendingAutoApplyThreadIds.add(thread.id);
               autoApplyBtn.disabled = true;
               autoApplyBtn.classList.add('is-loading');
               try {
@@ -1363,6 +1366,7 @@ export default function createCommentsPanelController({
               } catch (err) {
                 console.error('[auto-apply] content-regeneration failed', err);
               } finally {
+                pendingAutoApplyThreadIds.delete(thread.id);
                 autoApplyBtn.disabled = false;
                 autoApplyBtn.classList.remove('is-loading');
               }
@@ -1383,6 +1387,7 @@ export default function createCommentsPanelController({
                 const token = window.streamConfig?.token || '';
                 const endpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
 
+                pendingAutoApplyThreadIds.add(thread.id);
                 autoApplyBtn.disabled = true;
                 autoApplyBtn.classList.add('is-loading');
                 try {
@@ -1404,6 +1409,7 @@ export default function createCommentsPanelController({
                 } catch (err) {
                   console.error('[auto-apply] image-generation failed', err);
                 } finally {
+                  pendingAutoApplyThreadIds.delete(thread.id);
                   autoApplyBtn.disabled = false;
                   autoApplyBtn.classList.remove('is-loading');
                 }
