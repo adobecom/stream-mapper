@@ -1818,37 +1818,19 @@ export default function createCommentsPanelController({
     const value = input.value.trim();
     if (!value) return;
 
-    let thread = store.getCommentThreadByElement(annotationState.selectedElement);
-    const isReply = Boolean(thread);
-    if (isReply && isThreadClosed(thread)) {
-      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
-      return;
-    }
     let didPersistToService = false;
-    let didHydrateThread = false;
+    let thread = null;
     setPopupSubmitPending(true);
     try {
-      if (!thread) {
-        const remoteThread = await annotationService.createThread({
-          elementPath: annotationState.selectedElementPath,
-          body: value,
-          quotedText: annotationState.selectedElement.textContent?.trim() || null,
-        });
-        if (remoteThread) {
-          store.upsertThread(remoteThread);
-          thread = store.getThreadById(remoteThread.id);
-          didPersistToService = true;
-        }
-      } else {
-        const result = await annotationService.createReply(thread.id, value);
-        if (result?.persisted) {
-          didPersistToService = true;
-        }
-        if (result?.thread) {
-          store.upsertThread(result.thread);
-          thread = store.getThreadById(result.thread.id);
-          didHydrateThread = true;
-        }
+      const remoteThread = await annotationService.createThread({
+        elementPath: annotationState.selectedElementPath,
+        body: value,
+        quotedText: annotationState.selectedElement.textContent?.trim() || null,
+      });
+      if (remoteThread) {
+        store.upsertThread(remoteThread);
+        thread = store.getThreadById(remoteThread.id);
+        didPersistToService = true;
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -1856,11 +1838,7 @@ export default function createCommentsPanelController({
     }
 
     if (!didPersistToService || !thread) {
-      showGlobalSnackbar(
-        isReply
-          ? ANNOTATION_MESSAGES.sendReplyError
-          : ANNOTATION_MESSAGES.postCommentError,
-      );
+      showGlobalSnackbar(ANNOTATION_MESSAGES.postCommentError);
       setPopupSubmitPending(false);
       return;
     }
@@ -1871,17 +1849,11 @@ export default function createCommentsPanelController({
     annotationState.activeThreadId = thread.id;
     setPopupSubmitPending(false);
     closePopupAndSelection();
-    if (didHydrateThread || !isReply) {
-      store.saveAnnotationStore();
-      renderThreadMarkers({ resolveTargets: true });
-      renderCommentsPanel();
-      scrollCommentsPanelToBottom();
-    } else {
-      store.pushThreadMessage(thread, value, 'reply');
-      store.saveAnnotationStore();
-      renderCommentsPanel();
-    }
-    requestParentCollabRefresh(isReply ? 'reply-created' : 'comment-created');
+    store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+    scrollCommentsPanelToBottom();
+    requestParentCollabRefresh('comment-created');
   }
 
   function attachPopupEvents() {
@@ -1975,7 +1947,7 @@ export default function createCommentsPanelController({
 
     const title = document.createElement('h3');
     title.className = 'annotation-popup-title';
-    title.textContent = thread ? 'Reply' : 'Comment';
+    title.textContent = 'Comment';
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
@@ -1996,8 +1968,8 @@ export default function createCommentsPanelController({
     composer.className = 'annotation-reply-composer';
     const popupFieldId = `annotation-popup-input-${thread?.id || 'new'}`;
     composer.innerHTML = `
-      <textarea id="${popupFieldId}" name="${popupFieldId}" class="annotation-reply-input" placeholder="${thread ? 'Write a reply...' : 'Write a comment...'}"></textarea>
-      <button type="button" class="annotation-reply-btn" aria-label="${thread ? 'Send reply' : 'Send comment'}">
+      <textarea id="${popupFieldId}" name="${popupFieldId}" class="annotation-reply-input" placeholder="Write a comment..."></textarea>
+      <button type="button" class="annotation-reply-btn" aria-label="Send comment">
         <span aria-hidden="true">➤</span>
       </button>
     `;
@@ -2148,9 +2120,7 @@ export default function createCommentsPanelController({
       if (target === mainEl) return;
       if (target.closest('a')) event.preventDefault();
       event.stopPropagation();
-      if (!store.getCommentThreadByElement(target)) {
-        openPopupForElement(target);
-      }
+      openPopupForElement(target);
     };
     mainEl.addEventListener('click', annotationState.mainClickHandler, true);
 
