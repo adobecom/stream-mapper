@@ -646,8 +646,18 @@ body.annotation-mode main::-webkit-scrollbar {
   box-shadow: 0 0 0 3px rgb(29 78 216 / 24%);
 }
 
+.annotation-panel-comment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
 .annotation-panel-comment-user {
-  margin: 0 0 4px;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 700;
@@ -658,30 +668,44 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-panel-status-controls {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.annotation-panel-status-controls .annotation-panel-edit-btn {
-  margin-left: auto;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .annotation-panel-status-select {
+  appearance: none;
   border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2937;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
   font-size: 10px;
-  padding: 2px 4px;
-  height: 20px;
-  min-width: 76px;
+  font-weight: 600;
+  padding: 2px 8px;
+  height: auto;
+  min-width: 0;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.annotation-panel-status-select[data-status="Resolved"] {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.annotation-panel-status-select[data-status="Closed"] {
+  border-color: #d1d5db;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.annotation-panel-status-select:not(:disabled):hover {
+  filter: brightness(0.96);
 }
 
 .annotation-panel-status-select:disabled {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #6b7280;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 

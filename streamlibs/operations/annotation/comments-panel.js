@@ -1170,6 +1170,7 @@ export default function createCommentsPanelController({
             option.selected = thread.status === status;
             statusSelect.appendChild(option);
           });
+          statusSelect.dataset.status = store.normalizeCommentStatus(thread.status);
           statusControls.append(statusSelect);
           if (canEditRootComment) {
             const editThreadBtn = document.createElement('button');
@@ -1194,12 +1195,18 @@ export default function createCommentsPanelController({
           || thread.username
           || ANNOTATION_DEFAULT_USERNAME;
 
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'annotation-panel-comment-header';
+        cardHeader.append(username);
+        if (statusControls) cardHeader.append(statusControls);
+        card.append(cardHeader);
+
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
         const isEditingRootComment = canEditRootComment
           && isEditingComment(thread.id, group.comment.id || '');
         if (isEditingRootComment) {
           if (preservedEditForm && !preservedIsReply && preservedEditKey === rootCommentKey) {
-            card.append(username, preservedEditForm);
+            card.append(preservedEditForm);
             preservedEditForm = null;
             didReuseEditForm = true;
           } else {
@@ -1208,15 +1215,14 @@ export default function createCommentsPanelController({
               group.comment.id || '',
               activeCommentEditor?.draft || '',
             );
-            card.append(username, editForm);
+            card.append(editForm);
           }
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
           text.innerHTML = linkifyText(group.comment.text);
-          card.append(username, text);
+          card.append(text);
         }
-        if (statusControls) card.append(statusControls);
 
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
