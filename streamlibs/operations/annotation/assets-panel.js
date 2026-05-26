@@ -657,7 +657,7 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.clear();
   }
 
-  async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data, pendingAlt = '') {
     if (!targetImg || !file || !base64Data) return null;
 
     const anchorTarget = targetImg.closest('picture') || targetImg;
@@ -701,6 +701,35 @@ export default function createAssetsPanelController({
 
     annotationState.store.localAssets.push(localAsset);
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+
+    if (pendingAlt) {
+      const originalAlt = targetImg.getAttribute('alt') || '';
+      const imgRef = store.ensureElementRef(targetImg);
+      const imgAnchor = store.buildEditElementAnchor(targetImg);
+
+      targetImg.dataset.pendingAlt = pendingAlt;
+      targetImg.alt = pendingAlt;
+
+      const { elementPath: altPath, elementProps: altProps } = imgAnchor;
+      const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
+      if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
+        store.upsertEasyEdit({
+          ...(existingAltEdit || {}),
+          id: existingAltEdit?.id || store.generateId('easy-edit'),
+          editType: 'image-alt',
+          attrName: 'alt',
+          elementPath: imgAnchor.elementPath,
+          elementProps: imgAnchor.elementProps,
+          elementRef: imgRef,
+          from: existingAltEdit?.from ?? originalAlt,
+          to: pendingAlt,
+          fromHtml: '',
+          toHtml: '',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
     notifyAssetsChanged();
     return {
       elementPath, elementProps, elementRef, originalSrc,

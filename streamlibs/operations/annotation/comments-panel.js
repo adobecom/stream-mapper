@@ -37,6 +37,7 @@ export default function createCommentsPanelController({
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
+  let recordImageRegenAsLocalAsset = null;
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
@@ -52,6 +53,10 @@ export default function createCommentsPanelController({
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
     disableInlineEditMode = handlers.disableInlineEditMode;
+  }
+
+  function setImageRegenHandler(fn) {
+    recordImageRegenAsLocalAsset = fn;
   }
 
   function setSelectedElement(element) {
@@ -1262,13 +1267,26 @@ export default function createCommentsPanelController({
           autoApplyBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
 
-            const targetEl = store.getElementForThread(thread);
-            if (!targetEl) return;
+            let targetEl = store.getElementForThread(thread);
+            if (!targetEl) {
+              const ep = thread.elementPath;
+              const fallbackSelector = (typeof ep === 'object' ? ep?.selector : null)
+                || (typeof ep === 'string' ? (() => { try { return JSON.parse(ep)?.selector; } catch { return null; } })() : null);
+              if (fallbackSelector && annotationUI.mainEl) {
+                targetEl = annotationUI.mainEl.querySelector(fallbackSelector);
+              }
+            }
+            if (!targetEl) {
+              return;
+            }
 
             const TEXT_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'TD', 'TH']);
             const isTextEl = TEXT_TAGS.has(targetEl.tagName);
-            const targetImg = targetEl.tagName === 'IMG' ? targetEl : targetEl.querySelector('img');
-
+            let targetImg = targetEl.tagName === 'IMG' ? targetEl : targetEl.querySelector('img');
+            if (!targetImg && targetEl.parentElement) {
+              targetImg = targetEl.parentElement.querySelector('img');
+            }
+            // eslint-disable-next-line max-len
             if (isTextEl) {
               const elementText = targetEl.textContent.trim();
               if (!elementText) return;
@@ -1349,7 +1367,47 @@ export default function createCommentsPanelController({
                 autoApplyBtn.classList.remove('is-loading');
               }
             } else if (targetImg) {
-              // Image element - placeholder (implementation TBD)
+              const imgSrc = targetImg.getAttribute('src') || '';
+              const isSvg = /\.svg(\?.*)?$/i.test(imgSrc) || imgSrc.startsWith('data:image/svg');
+              if (!isSvg && typeof recordImageRegenAsLocalAsset === 'function') {
+                const altText = targetImg.alt || '';
+                const allGroups = buildCommentGroups(thread);
+                const commentLines = [];
+                allGroups.forEach((g) => {
+                  if (g.comment?.text) commentLines.push(`- ${g.comment.text}`);
+                  g.replies.forEach((reply) => {
+                    if (reply?.text) commentLines.push(`- ${reply.text}`);
+                  });
+                });
+                const prompt = `Change the image generated for ${altText}\nTo have following changes\n${commentLines.join('\n')}`;
+                const token = window.streamConfig?.token || '';
+                const endpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
+
+                autoApplyBtn.disabled = true;
+                autoApplyBtn.classList.add('is-loading');
+                try {
+                  const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                      'content-type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ prompt }),
+                  });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  const json = await res.json();
+                  const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
+                  const newAlt = json?.response?.alt || json.alt || 'Image Alt text';
+                  if (newUrl && targetImg.isConnected) {
+                    await recordImageRegenAsLocalAsset(targetImg, newUrl, newAlt);
+                  }
+                } catch (err) {
+                  console.error('[auto-apply] image-generation failed', err);
+                } finally {
+                  autoApplyBtn.disabled = false;
+                  autoApplyBtn.classList.remove('is-loading');
+                }
+              }
             }
           });
           if (statusControls) {
@@ -2648,6 +2706,7 @@ export default function createCommentsPanelController({
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,
+    setImageRegenHandler,
     setInlineModeHandlers,
     setupAnnotationUI,
   };

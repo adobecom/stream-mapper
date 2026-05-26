@@ -28,12 +28,45 @@ const assetsPanel = createAssetsPanelController({
   store,
   assetService,
 });
+export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingAlt = '') {
+  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
+
+  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+
+  let blob;
+  try {
+    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
+    const res = await fetch(generatedUrl, fetchOpts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    blob = await res.blob();
+  } catch (err) {
+    console.warn('[annotation] Could not fetch generated image', err);
+    return;
+  }
+
+  const mimeType = blob.type || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  const base64Data = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+  if (!base64Data) return;
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt);
+}
+
 const commentsPanel = createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
   assetsPanel,
 });
+commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
 const inlineEditing = createInlineEditingController({
   annotationState,
   annotationUI,
@@ -669,38 +702,6 @@ export function registerRegenReplacement(originalSrc, newUrl) {
   const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
   if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
   else regenReplacements.push({ originalSrc, targetUrl: newUrl });
-}
-
-export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
-  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
-
-  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
-  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
-
-  let blob;
-  try {
-    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
-    const res = await fetch(generatedUrl, fetchOpts);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    blob = await res.blob();
-  } catch (err) {
-    console.warn('[annotation] Could not fetch generated image', err);
-    return;
-  }
-
-  const mimeType = blob.type || 'image/jpeg';
-  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
-  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
-
-  const base64Data = await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-  if (!base64Data) return;
-
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data);
 }
 
 export function preparePendingRemoteEditsRefresh() {

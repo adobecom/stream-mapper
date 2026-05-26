@@ -272,8 +272,9 @@ function ensureImgRegenElements() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
+      const newAlt = json?.response?.alt || json.alt || 'Image Alt text';
       if (newUrl && img.isConnected) {
-        await recordImageRegenAsLocalAsset(img, newUrl);
+        await recordImageRegenAsLocalAsset(img, newUrl, newAlt);
       }
     } catch (err) {
       console.error('[ai-seo-annotation] image-generation failed', err);
