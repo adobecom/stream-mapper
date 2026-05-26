@@ -12,6 +12,12 @@ export function normalizeCommentStatus(status) {
 }
 
 export function createAnnotationStore({ annotationState, annotationUI }) {
+  let previewUrlResolverFn = null;
+
+  function setPreviewUrlResolver(fn) {
+    previewUrlResolverFn = fn;
+  }
+
   function generateId(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -1021,16 +1027,40 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     rebuildEditThreadsFromEasyEdits();
   }
 
-  function applyEasyEditsToDom() {
+  async function applyEasyEditsToDom() {
     if (!annotationUI.mainEl) return;
     removeEasyEditHighlights(annotationUI.mainEl);
+
+    const resolvedUrls = new Map();
+    if (previewUrlResolverFn) {
+      await Promise.all(
+        annotationState.store.easyEdits
+          .filter((edit) => edit?.editType === 'image-src' && edit.to?.includes('content.da.live'))
+          .map(async (edit) => {
+            const b64 = await previewUrlResolverFn(edit.to);
+            if (b64) resolvedUrls.set(edit.to, b64);
+          }),
+      );
+    }
 
     annotationState.store.easyEdits.forEach((edit) => {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
 
-      if (edit.editType === 'image-src') return;
+      if (edit.editType === 'image-src') {
+        const displayUrl = resolvedUrls.get(edit.to) || edit.to || '';
+        const imgEl = target.tagName === 'IMG' ? target : target.querySelector('img');
+        if (imgEl) {
+          imgEl.setAttribute('src', displayUrl);
+          if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', displayUrl);
+        }
+        const picture = (imgEl || target).closest('picture');
+        if (picture) {
+          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', displayUrl));
+        }
+        return;
+      }
 
       if (edit.editType === 'image-alt') {
         target.setAttribute('alt', edit.to || '');
@@ -1059,6 +1089,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   return {
     applyEasyEditsToDom,
     applyEasyEditsToHtmlString,
+    setPreviewUrlResolver,
     buildElementPath,
     buildCommentElementPath,
     buildEditElementAnchor,
