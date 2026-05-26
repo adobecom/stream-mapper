@@ -34,7 +34,7 @@ function hideRegenBtn() {
 }
 
 function scheduleHideRegenBtn() {
-  regenState.hideTimer = setTimeout(hideRegenBtn, 180);
+  regenState.hideTimer = setTimeout(hideRegenBtn, 350);
 }
 
 function cancelHideRegenBtn() {
@@ -111,11 +111,13 @@ function showRegenBtn(el) {
   if (op !== 'aiSeoAnnotation') return;
   if (!document.body.classList.contains('annotation-inline-edit-mode')) return;
   cancelHideRegenBtn();
-  regenState.target = el;
   const btn = ensureRegenButton();
-  const r = el.getBoundingClientRect();
-  btn.style.top = `${Math.max(4, r.top + 2)}px`;
-  btn.style.left = `${r.right - 32}px`;
+  if (regenState.target !== el) {
+    regenState.target = el;
+    const r = el.getBoundingClientRect();
+    btn.style.top = `${Math.max(0, r.top - 14)}px`;
+    btn.style.left = `${r.right + 4}px`;
+  }
   btn.classList.add('stream-regen-visible');
 }
 
@@ -183,15 +185,17 @@ function hideImgPromptOverlay() {
 function positionOverlayNearImage(overlay, img) {
   const r = img.getBoundingClientRect();
   const ow = overlay.offsetWidth || 300;
-  const oh = overlay.offsetHeight || 160;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const oh = overlay.offsetHeight || 200;
+  const panelEl = document.querySelector('.annotation-panel');
+  const panelRect = panelEl?.getBoundingClientRect();
+  const maxRight = panelRect ? Math.max(24, panelRect.left - 12) : window.innerWidth - 12;
 
-  let left = r.left + (r.width - ow) / 2;
-  let top = r.top + (r.height - oh) / 2;
+  let left = r.right + 12;
+  if (left + ow > maxRight) left = r.left - ow - 12;
+  left = Math.max(12, Math.min(left, maxRight - ow));
 
-  left = Math.max(8, Math.min(left, vw - ow - 8));
-  top = Math.max(8, Math.min(top, vh - oh - 8));
+  let { top } = r;
+  top = Math.max(12, Math.min(top, window.innerHeight - oh - 12));
 
   overlay.style.left = `${left}px`;
   overlay.style.top = `${top}px`;
@@ -227,15 +231,22 @@ function ensureImgRegenElements() {
   // Prompt overlay
   const overlay = document.createElement('div');
   overlay.className = 'stream-img-prompt-overlay';
-  overlay.innerHTML = '<label>Describe the new image</label>'
+  overlay.innerHTML = '<button class="stream-img-prompt-close" type="button" aria-label="Close">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">'
+    + '<path d="M18 6 6 18M6 6l12 12"/>'
+    + '</svg></button>'
+    + '<label>Describe the new image</label>'
     + '<textarea class="stream-img-prompt-input" placeholder="e.g. a vibrant teal forest at dusk…" rows="3"></textarea>'
     + '<div class="stream-img-prompt-actions">'
-    + '<button class="stream-img-prompt-cancel" type="button">Cancel</button>'
-    + '<button class="stream-img-prompt-submit" type="button">Generate</button>'
+    + '<button class="stream-img-prompt-submit" type="button">'
+    + '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>'
+    + '<path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>'
+    + '</svg>Generate</button>'
     + '</div>';
   document.body.appendChild(overlay);
 
-  overlay.querySelector('.stream-img-prompt-cancel').addEventListener('click', hideImgPromptOverlay);
+  overlay.querySelector('.stream-img-prompt-close').addEventListener('click', hideImgPromptOverlay);
 
   overlay.querySelector('.stream-img-prompt-submit').addEventListener('click', async () => {
     const img = imgRegenState.target;
@@ -246,7 +257,7 @@ function ensureImgRegenElements() {
 
     const submitBtn = overlay.querySelector('.stream-img-prompt-submit');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Generating…';
+    submitBtn.lastChild.textContent = 'Generating…';
 
     try {
       const token = (window.streamConfig && window.streamConfig.token) || '';
@@ -268,7 +279,7 @@ function ensureImgRegenElements() {
       console.error('[ai-seo-annotation] image-generation failed', err);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Generate';
+      submitBtn.lastChild.textContent = 'Generate';
       hideImgPromptOverlay();
     }
   });
@@ -301,8 +312,8 @@ function showImgRegenBtn(img) {
   imgRegenState.target = img;
   const { btn } = imgRegenState;
   const r = img.getBoundingClientRect();
-  btn.style.top = `${Math.max(4, r.top + 6)}px`;
-  btn.style.left = `${r.right - 38}px`;
+  btn.style.top = `${Math.max(0, r.top - 14)}px`;
+  btn.style.left = `${r.right + 4}px`;
   btn.classList.add('stream-img-regen-visible');
 }
 
@@ -323,12 +334,6 @@ function attachImageRegenHandlers() {
     if (imgRegenState.btn && (to === imgRegenState.btn || imgRegenState.btn.contains(to))) return;
     scheduleHideImgRegenBtn();
   });
-
-  // Close overlay on outside click
-  document.addEventListener('click', (e) => {
-    if (!imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
-    if (!imgRegenState.overlay.contains(e.target)) hideImgPromptOverlay();
-  }, true);
 
   window.addEventListener('scroll', () => {
     hideImgRegenBtn();
