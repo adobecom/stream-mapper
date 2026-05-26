@@ -675,7 +675,7 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-panel-status-select {
   appearance: none;
   border: 1px solid #bfdbfe;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #eff6ff;
   color: #1d4ed8;
   font-size: 10px;
@@ -778,20 +778,50 @@ body.annotation-mode main::-webkit-scrollbar {
   border-top: 1px solid #e5e7eb;
 }
 
-.annotation-panel-edit-btn {
+.annotation-card-auto-apply-btn {
   border: 1px solid #bfdbfe;
   background: #f8fbff;
   color: #1d4ed8;
-  border-radius: 8px;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   padding: 0;
-  transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.annotation-card-auto-apply-btn svg {
+  width: 11px;
+  height: 11px;
+  fill: currentcolor;
+}
+
+.annotation-card-auto-apply-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.annotation-panel-edit-btn {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  color: #1d4ed8;
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .annotation-panel-edit-btn-reply {
@@ -805,8 +835,8 @@ body.annotation-mode main::-webkit-scrollbar {
 }
 
 .annotation-panel-edit-btn svg {
-  width: 13px;
-  height: 13px;
+  width: 11px;
+  height: 11px;
   fill: currentcolor;
 }
 

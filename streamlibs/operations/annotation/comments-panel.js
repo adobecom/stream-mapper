@@ -1199,6 +1199,33 @@ export default function createCommentsPanelController({
         cardHeader.className = 'annotation-panel-comment-header';
         cardHeader.append(username);
         if (statusControls) cardHeader.append(statusControls);
+
+        if (window.streamConfig?.operation === 'aiSeoAnnotation') {
+          const autoApplyBtn = document.createElement('button');
+          autoApplyBtn.type = 'button';
+          autoApplyBtn.className = 'annotation-card-auto-apply-btn';
+          autoApplyBtn.setAttribute('aria-label', 'Auto apply comment');
+          autoApplyBtn.title = 'Auto apply comment';
+          autoApplyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
+            <path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>
+          </svg>`;
+          autoApplyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            store.applyEasyEditsToDom();
+            store.saveAnnotationStore();
+            renderCommentsPanel();
+          });
+          if (statusControls) {
+            statusControls.append(autoApplyBtn);
+          } else {
+            const controls = document.createElement('div');
+            controls.className = 'annotation-panel-status-controls';
+            controls.append(autoApplyBtn);
+            cardHeader.append(controls);
+          }
+        }
+
         card.append(cardHeader);
 
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
