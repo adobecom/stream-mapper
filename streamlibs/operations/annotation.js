@@ -43,15 +43,20 @@ const inlineEditing = createInlineEditingController({
   removePopup: commentsPanel.removePopup,
 });
 
-commentsPanel.setInlineModeHandlers({
-  enableInlineEditMode: inlineEditing.enableInlineEditMode,
-  disableInlineEditMode: inlineEditing.disableInlineEditMode,
-});
-
 assetsPanel.setOnAssetsChanged(() => {
   commentsPanel.renderThreadMarkers({ resolveTargets: true });
   commentsPanel.renderCommentsPanel();
 });
+
+/** User-added metadata rows: extra wrapper + delete control (stripped on persist). */
+const METADATA_USER_ROW_CLASS = 'stream-metadata-user-row';
+const METADATA_USER_ROW_INNER_CLASS = 'stream-metadata-user-row-inner';
+const METADATA_USER_VALUE_CELL_CLASS = 'stream-metadata-user-value-cell';
+const METADATA_USER_VALUE_EDITABLE_CLASS = 'stream-metadata-user-value-editable';
+const METADATA_USER_VALUE_CHROME_CLASS = 'stream-metadata-user-value-chrome';
+
+/** Trash icon (inline SVG) for user-added metadata row delete. */
+const METADATA_ROW_DELETE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
 let cachedCleanHtml = '';
 let cachedPageMetadataHtml = null;
@@ -239,7 +244,27 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
   return null;
 }
 
-// ── HTML export ───────────────────────────────────────────────────────────────
+/** Remove Stream-only metadata row chrome so pushed HTML matches DA metadata shape. */
+function sanitizeMetadataDivForPersist(metadataDiv) {
+  if (!(metadataDiv instanceof HTMLElement)) return;
+  metadataDiv.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((b) => b.remove());
+  /* Native rows: delete sits in .stream-metadata-user-value-chrome; strip empty wrappers so DA HTML stays clean. */
+  metadataDiv.querySelectorAll(`.${METADATA_USER_VALUE_CHROME_CLASS}`).forEach((chrome) => {
+    if (!(chrome instanceof HTMLElement)) return;
+    if (chrome.childElementCount === 0 && !(chrome.textContent || '').trim()) {
+      chrome.remove();
+    }
+  });
+  metadataDiv.querySelectorAll('[data-stream-user-added-metadata-row="true"]').forEach((wrapper) => {
+    const inner = wrapper.querySelector(`:scope > .${METADATA_USER_ROW_INNER_CLASS}`);
+    const plain = document.createElement('div');
+    const cellSource = inner || wrapper;
+    while (cellSource.firstChild) {
+      plain.appendChild(cellSource.firstChild);
+    }
+    wrapper.replaceWith(plain);
+  });
+}
 
 function buildHtmlWithEditsAndAssets(assetReplacements) {
   const easyEdits = annotationState.store.easyEdits || [];
@@ -321,6 +346,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     const metadataDiv = document.createElement('div');
     metadataDiv.className = 'metadata';
     metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    sanitizeMetadataDivForPersist(metadataDiv);
     metadataDiv.querySelectorAll('p').forEach((p) => {
       [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
     });
@@ -461,6 +487,143 @@ function normalizePersistUrlForDaApi(raw) {
   return s;
 }
 
+function isNativePageMetadataRow(row) {
+  if (!(row instanceof HTMLElement) || row.tagName !== 'DIV') return false;
+  if (row.classList.contains(METADATA_USER_ROW_CLASS)) return false;
+  return Boolean(row.parentElement?.classList?.contains('page-metadata'));
+}
+
+async function removeMetadataRow(row) {
+  if (!(row instanceof HTMLElement)) return;
+  const isUser = row.dataset.streamUserAddedMetadataRow === 'true';
+  const isNative = isNativePageMetadataRow(row);
+  if (!isUser && !isNative) return;
+  if (!annotationUI.mainEl?.contains(row)) return;
+
+  commentsPanel.removePopup();
+
+  const hadInline = annotationUI.inlineMode;
+  try {
+    if (hadInline) {
+      await inlineEditing.syncInlineEditsBeforePersist();
+    }
+    store.removeAnnotationStateForSubtree(row);
+    if (hadInline) {
+      inlineEditing.resetInlineEditModeState();
+    }
+    row.remove();
+    if (hadInline) {
+      await inlineEditing.enableInlineEditMode();
+    }
+    store.saveAnnotationStore();
+    commentsPanel.renderThreadMarkers({ resolveTargets: true });
+    commentsPanel.renderCommentsPanel();
+    await refreshPageMetadataDeleteButtons();
+  } catch (err) {
+    console.error('[annotation] removeMetadataRow failed:', err);
+  }
+}
+
+function appendNativeMetadataRowDeleteButton(row) {
+  if (!isNativePageMetadataRow(row)) return;
+  if (row.querySelector('.stream-annotation-delete-metadata-row')) return;
+  const cells = row.querySelectorAll(':scope > div');
+  if (cells.length < 2) return;
+  const valueCell = cells[cells.length - 1];
+  if (!(valueCell instanceof HTMLElement)) return;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'stream-annotation-delete-metadata-row';
+  deleteBtn.setAttribute('aria-label', 'Remove this metadata row');
+  deleteBtn.innerHTML = METADATA_ROW_DELETE_ICON_SVG;
+  deleteBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    void removeMetadataRow(row);
+  });
+
+  let chrome = valueCell.querySelector(`:scope > .${METADATA_USER_VALUE_CHROME_CLASS}`);
+  if (!chrome) {
+    chrome = document.createElement('div');
+    chrome.className = METADATA_USER_VALUE_CHROME_CLASS;
+    valueCell.appendChild(chrome);
+  }
+  chrome.appendChild(deleteBtn);
+}
+
+function ensureNativeMetadataRowDeleteButton(row) {
+  if (!isNativePageMetadataRow(row)) return;
+  appendNativeMetadataRowDeleteButton(row);
+}
+
+async function refreshPageMetadataDeleteButtons() {
+  const metadataDom = annotationUI.mainEl?.querySelector('.page-metadata')
+    || document.querySelector('main .page-metadata')
+    || document.querySelector('.page-metadata');
+  if (!metadataDom) return;
+  metadataDom.querySelectorAll(':scope > div').forEach((row) => {
+    if (row.classList.contains(METADATA_USER_ROW_CLASS)) {
+      ensureUserMetadataRowDeleteButton(row);
+    } else {
+      ensureNativeMetadataRowDeleteButton(row);
+    }
+  });
+}
+
+function appendUserMetadataRowDeleteButton(row, inner) {
+  if (!(row instanceof HTMLElement) || !(inner instanceof HTMLElement)) return;
+  if (row.querySelector('.stream-annotation-delete-metadata-row')) return;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'stream-annotation-delete-metadata-row';
+  deleteBtn.setAttribute('aria-label', 'Remove this metadata row');
+  deleteBtn.innerHTML = METADATA_ROW_DELETE_ICON_SVG;
+  deleteBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    void removeMetadataRow(row);
+  });
+  const valueCell = inner.querySelector(`:scope > .${METADATA_USER_VALUE_CELL_CLASS}`)
+    || inner.querySelector(':scope > div:last-child');
+  if (valueCell) {
+    let chrome = valueCell.querySelector(`.${METADATA_USER_VALUE_CHROME_CLASS}`);
+    if (!chrome) {
+      const editable = valueCell.querySelector(`:scope > .${METADATA_USER_VALUE_EDITABLE_CLASS}`);
+      if (editable) {
+        chrome = document.createElement('div');
+        chrome.className = METADATA_USER_VALUE_CHROME_CLASS;
+        editable.appendChild(chrome);
+      }
+    }
+    if (chrome) {
+      chrome.appendChild(deleteBtn);
+    } else {
+      valueCell.appendChild(deleteBtn);
+    }
+  } else {
+    row.appendChild(deleteBtn);
+  }
+}
+
+/** Medium Editor `addElements` can reshape metadata cells; re-attach delete if missing. */
+function ensureUserMetadataRowDeleteButton(row) {
+  if (!(row instanceof HTMLElement) || row.dataset.streamUserAddedMetadataRow !== 'true') return;
+  const inner = row.querySelector(`:scope > .${METADATA_USER_ROW_INNER_CLASS}`);
+  if (!inner) return;
+  appendUserMetadataRowDeleteButton(row, inner);
+}
+
+commentsPanel.setInlineModeHandlers({
+  enableInlineEditMode: async () => {
+    const didEnable = await inlineEditing.enableInlineEditMode();
+    await refreshPageMetadataDeleteButtons();
+    return didEnable;
+  },
+  disableInlineEditMode: inlineEditing.disableInlineEditMode,
+});
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function annotationOperation(options = {}) {
@@ -498,6 +661,7 @@ export async function annotationOperation(options = {}) {
   const addAndRegisterRow = (row) => {
     metadataDom.append(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
+    ensureUserMetadataRowDeleteButton(row);
   };
 
   const addTextBtn = document.createElement('button');
@@ -505,7 +669,13 @@ export async function annotationOperation(options = {}) {
   addTextBtn.textContent = '+ Add text/link row';
   addTextBtn.addEventListener('click', () => {
     const row = document.createElement('div');
-    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
+    row.dataset.streamUserAddedMetadataRow = 'true';
+    row.classList.add(METADATA_USER_ROW_CLASS);
+    const inner = document.createElement('div');
+    inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
+    inner.innerHTML = `<div><p>add metadata key</p></div><div class="${METADATA_USER_VALUE_CELL_CLASS}"><div class="${METADATA_USER_VALUE_EDITABLE_CLASS}"><p>add text or link value</p><div class="${METADATA_USER_VALUE_CHROME_CLASS}"></div></div></div>`;
+    appendUserMetadataRowDeleteButton(row, inner);
+    row.append(inner);
     addAndRegisterRow(row);
   });
 
@@ -514,7 +684,13 @@ export async function annotationOperation(options = {}) {
   addImageBtn.textContent = '+ Add image row';
   addImageBtn.addEventListener('click', () => {
     const row = document.createElement('div');
-    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
+    row.dataset.streamUserAddedMetadataRow = 'true';
+    row.classList.add(METADATA_USER_ROW_CLASS);
+    const inner = document.createElement('div');
+    inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
+    inner.innerHTML = `<div><p>key</p></div><div class="${METADATA_USER_VALUE_CELL_CLASS}"><div class="${METADATA_USER_VALUE_EDITABLE_CLASS}"><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture><div class="${METADATA_USER_VALUE_CHROME_CLASS}"></div></div></div>`;
+    appendUserMetadataRowDeleteButton(row, inner);
+    row.append(inner);
     addAndRegisterRow(row);
   });
 
@@ -525,6 +701,7 @@ export async function annotationOperation(options = {}) {
   mainEl.append(metadataSeparator);
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  await refreshPageMetadataDeleteButtons();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -554,6 +731,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  await refreshPageMetadataDeleteButtons();
 }
 
 export async function persistAnnotationChangesToDA() {

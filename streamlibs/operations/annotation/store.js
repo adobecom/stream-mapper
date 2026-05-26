@@ -839,6 +839,74 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return null;
   }
 
+  function isDomSubtreeOf(subtreeRoot, node) {
+    return node instanceof Node && subtreeRoot instanceof Node && subtreeRoot.contains(node);
+  }
+
+  function getAssetAnchoredElement(asset) {
+    if (!annotationUI.mainEl || !asset || typeof asset !== 'object') return null;
+    if (asset.elementRef) {
+      const byRef = getElementByRef(asset.elementRef);
+      if (byRef instanceof HTMLElement) return byRef;
+    }
+    const path = `${asset.elementPath || ''}`.trim();
+    if (!path) return null;
+    try {
+      const el = annotationUI.mainEl.querySelector(path);
+      return el instanceof HTMLElement ? el : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function threadAnchoredInSubtree(thread, subtreeRoot) {
+    if (!(subtreeRoot instanceof HTMLElement)) return false;
+    const target = getElementForThread(thread);
+    if (isDomSubtreeOf(subtreeRoot, target)) return true;
+    if (thread.elementRef) {
+      const byRef = getElementByRef(thread.elementRef);
+      if (isDomSubtreeOf(subtreeRoot, byRef)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Removes easy edits, assets, local assets, and threads tied to DOM inside subtreeRoot.
+   * Call while subtreeRoot is still connected to annotationUI.mainEl.
+   */
+  function removeAnnotationStateForSubtree(subtreeRoot) {
+    if (!(subtreeRoot instanceof HTMLElement) || !annotationUI.mainEl) return;
+    if (!annotationUI.mainEl.contains(subtreeRoot)) return;
+
+    if (annotationState.selectedElement && subtreeRoot.contains(annotationState.selectedElement)) {
+      clearSelectedElement();
+    }
+
+    annotationState.store.easyEdits = annotationState.store.easyEdits.filter((edit) => {
+      if (!edit || typeof edit !== 'object') return false;
+      const target = getElementForEdit(edit);
+      if (isDomSubtreeOf(subtreeRoot, target)) return false;
+      if (edit.elementRef) {
+        const byRef = getElementByRef(edit.elementRef);
+        if (isDomSubtreeOf(subtreeRoot, byRef)) return false;
+      }
+      return true;
+    });
+
+    annotationState.store.assets = (annotationState.store.assets || []).filter(
+      (asset) => !isDomSubtreeOf(subtreeRoot, getAssetAnchoredElement(asset)),
+    );
+    annotationState.store.localAssets = (annotationState.store.localAssets || []).filter(
+      (asset) => !isDomSubtreeOf(subtreeRoot, getAssetAnchoredElement(asset)),
+    );
+
+    rebuildEditThreadsFromEasyEdits();
+    annotationState.store.threads = annotationState.store.threads.filter(
+      (thread) => !threadAnchoredInSubtree(thread, subtreeRoot),
+    );
+    removeEasyEditHighlights(annotationUI.mainEl);
+  }
+
   function pruneNestedTextEasyEdits() {
     const textEditTargets = annotationState.store.easyEdits.map((edit, index) => {
       if (edit?.editType !== 'text') return null;
@@ -1094,6 +1162,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     removeThreadMessage,
     replaceThreadsByType,
     removeEasyEditHighlights,
+    removeAnnotationStateForSubtree,
     saveAnnotationStore,
     upsertThread,
     upsertEasyEdit,
