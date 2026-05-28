@@ -6,15 +6,7 @@ export const COMMENT_STATUSES = ANNOTATION_COMMENT_STATUSES;
 
 export function normalizeCommentStatus(status) {
   const value = `${status || ''}`.trim();
-  const normalized = value.toLowerCase();
-  if (
-    normalized === 'complete'
-    || normalized === 'close'
-    || normalized === 'resolved'
-  ) return 'Closed';
-  if (normalized === 'accepted' || normalized === 'accept') return 'Accepted';
-  if (normalized === 'rejected' || normalized === 'reject') return 'Rejected';
-  if (normalized === 'open') return 'Open';
+  if (value === 'Complete') return 'Resolved';
   if (COMMENT_STATUSES.includes(value)) return value;
   return COMMENT_STATUSES[0];
 }
