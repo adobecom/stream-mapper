@@ -596,10 +596,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await uploadAndDecideAssets();
 
   const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
-
-  await postData(window.streamConfig.targetUrl, daCompatibleHtml, { suppressErrorPage: true });
-  reportProgress('htmlSaved');
+  const { easyEdits } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   if (annotationService.isAvailable()) {
     const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
