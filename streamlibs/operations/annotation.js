@@ -50,6 +50,8 @@ assetsPanel.setOnAssetsChanged(() => {
 
 /** User-added metadata rows: extra wrapper + delete control (stripped on persist). */
 const METADATA_USER_ROW_CLASS = 'stream-metadata-user-row';
+/** Set on rows added in this session only; cleared after save/push to DA (then edit-only). */
+const METADATA_ROW_DELETABLE_DATASET = 'streamMetadataRowDeletable';
 const METADATA_USER_ROW_INNER_CLASS = 'stream-metadata-user-row-inner';
 const METADATA_USER_VALUE_CELL_CLASS = 'stream-metadata-user-value-cell';
 const METADATA_USER_VALUE_EDITABLE_CLASS = 'stream-metadata-user-value-editable';
@@ -247,6 +249,9 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
 /** Remove Stream-only metadata row chrome so pushed HTML matches DA metadata shape. */
 function sanitizeMetadataDivForPersist(metadataDiv) {
   if (!(metadataDiv instanceof HTMLElement)) return;
+  metadataDiv.querySelectorAll('[data-stream-metadata-row-deletable]').forEach((el) => {
+    el.removeAttribute('data-stream-metadata-row-deletable');
+  });
   metadataDiv.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((b) => b.remove());
   /* Native rows: delete sits in .stream-metadata-user-value-chrome; strip empty wrappers so DA HTML stays clean. */
   metadataDiv.querySelectorAll(`.${METADATA_USER_VALUE_CHROME_CLASS}`).forEach((chrome) => {
@@ -337,7 +342,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
 
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
   if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
     mainEl.querySelectorAll('.metadata').forEach((el) => {
       const parentSection = el.parentElement;
       el.remove();
@@ -347,6 +351,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     metadataDiv.className = 'metadata';
     metadataDiv.innerHTML = pageMetadataDom.innerHTML;
     sanitizeMetadataDivForPersist(metadataDiv);
+    cachedPageMetadataHtml = metadataDiv.innerHTML;
     metadataDiv.querySelectorAll('p').forEach((p) => {
       [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
     });
@@ -487,17 +492,49 @@ function normalizePersistUrlForDaApi(raw) {
   return s;
 }
 
-function isNativePageMetadataRow(row) {
-  if (!(row instanceof HTMLElement) || row.tagName !== 'DIV') return false;
-  if (row.classList.contains(METADATA_USER_ROW_CLASS)) return false;
-  return Boolean(row.parentElement?.classList?.contains('page-metadata'));
+function getPageMetadataContainer() {
+  return annotationUI.mainEl?.querySelector('.page-metadata')
+    || document.querySelector('main .page-metadata')
+    || document.querySelector('.page-metadata');
+}
+
+function isSessionDeletableMetadataRow(row) {
+  return row instanceof HTMLElement
+    && row.dataset.streamUserAddedMetadataRow === 'true'
+    && row.dataset[METADATA_ROW_DELETABLE_DATASET] === 'true';
+}
+
+function stripMetadataRowDeleteControls(row) {
+  if (!(row instanceof HTMLElement)) return;
+  row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((b) => b.remove());
+  row.querySelectorAll(`.${METADATA_USER_VALUE_CHROME_CLASS}`).forEach((chrome) => {
+    if (!(chrome instanceof HTMLElement)) return;
+    if (chrome.childElementCount === 0 && !(chrome.textContent || '').trim()) {
+      chrome.remove();
+    }
+  });
+}
+
+/** After save/push: metadata on DA is editable only (no delete). */
+function markPageMetadataRowsPersistedToDa() {
+  const metadataDom = getPageMetadataContainer();
+  if (!metadataDom) return;
+
+  const cacheClone = document.createElement('div');
+  cacheClone.className = 'metadata';
+  cacheClone.innerHTML = metadataDom.innerHTML;
+  sanitizeMetadataDivForPersist(cacheClone);
+  cachedPageMetadataHtml = cacheClone.innerHTML;
+
+  metadataDom.querySelectorAll(':scope > div').forEach((row) => {
+    stripMetadataRowDeleteControls(row);
+    delete row.dataset[METADATA_ROW_DELETABLE_DATASET];
+    delete row.dataset.streamUserAddedMetadataRow;
+  });
 }
 
 async function removeMetadataRow(row) {
-  if (!(row instanceof HTMLElement)) return;
-  const isUser = row.dataset.streamUserAddedMetadataRow === 'true';
-  const isNative = isNativePageMetadataRow(row);
-  if (!isUser && !isNative) return;
+  if (!isSessionDeletableMetadataRow(row)) return;
   if (!annotationUI.mainEl?.contains(row)) return;
 
   commentsPanel.removePopup();
@@ -524,54 +561,16 @@ async function removeMetadataRow(row) {
   }
 }
 
-function appendNativeMetadataRowDeleteButton(row) {
-  if (!isNativePageMetadataRow(row)) return;
-  if (row.querySelector('.stream-annotation-delete-metadata-row')) return;
-  const cells = row.querySelectorAll(':scope > div');
-  if (cells.length < 2) return;
-  const valueCell = cells[cells.length - 1];
-  if (!(valueCell instanceof HTMLElement)) return;
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.type = 'button';
-  deleteBtn.className = 'stream-annotation-delete-metadata-row';
-  deleteBtn.setAttribute('aria-label', 'Remove this metadata row');
-  deleteBtn.innerHTML = METADATA_ROW_DELETE_ICON_SVG;
-  deleteBtn.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    void removeMetadataRow(row);
-  });
-
-  let chrome = valueCell.querySelector(`:scope > .${METADATA_USER_VALUE_CHROME_CLASS}`);
-  if (!chrome) {
-    chrome = document.createElement('div');
-    chrome.className = METADATA_USER_VALUE_CHROME_CLASS;
-    valueCell.appendChild(chrome);
-  }
-  chrome.appendChild(deleteBtn);
-}
-
-function ensureNativeMetadataRowDeleteButton(row) {
-  if (!isNativePageMetadataRow(row)) return;
-  appendNativeMetadataRowDeleteButton(row);
-}
-
 async function refreshPageMetadataDeleteButtons() {
-  const metadataDom = annotationUI.mainEl?.querySelector('.page-metadata')
-    || document.querySelector('main .page-metadata')
-    || document.querySelector('.page-metadata');
+  const metadataDom = getPageMetadataContainer();
   if (!metadataDom) return;
   metadataDom.querySelectorAll(':scope > div').forEach((row) => {
-    if (row.classList.contains(METADATA_USER_ROW_CLASS)) {
-      ensureUserMetadataRowDeleteButton(row);
-    } else {
-      ensureNativeMetadataRowDeleteButton(row);
-    }
+    ensureUserMetadataRowDeleteButton(row);
   });
 }
 
 function appendUserMetadataRowDeleteButton(row, inner) {
+  if (!isSessionDeletableMetadataRow(row)) return;
   if (!(row instanceof HTMLElement) || !(inner instanceof HTMLElement)) return;
   if (row.querySelector('.stream-annotation-delete-metadata-row')) return;
 
@@ -609,7 +608,7 @@ function appendUserMetadataRowDeleteButton(row, inner) {
 
 /** Medium Editor `addElements` can reshape metadata cells; re-attach delete if missing. */
 function ensureUserMetadataRowDeleteButton(row) {
-  if (!(row instanceof HTMLElement) || row.dataset.streamUserAddedMetadataRow !== 'true') return;
+  if (!isSessionDeletableMetadataRow(row)) return;
   const inner = row.querySelector(`:scope > .${METADATA_USER_ROW_INNER_CLASS}`);
   if (!inner) return;
   appendUserMetadataRowDeleteButton(row, inner);
@@ -670,6 +669,7 @@ export async function annotationOperation(options = {}) {
   addTextBtn.addEventListener('click', () => {
     const row = document.createElement('div');
     row.dataset.streamUserAddedMetadataRow = 'true';
+    row.dataset[METADATA_ROW_DELETABLE_DATASET] = 'true';
     row.classList.add(METADATA_USER_ROW_CLASS);
     const inner = document.createElement('div');
     inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
@@ -685,6 +685,7 @@ export async function annotationOperation(options = {}) {
   addImageBtn.addEventListener('click', () => {
     const row = document.createElement('div');
     row.dataset.streamUserAddedMetadataRow = 'true';
+    row.dataset[METADATA_ROW_DELETABLE_DATASET] = 'true';
     row.classList.add(METADATA_USER_ROW_CLASS);
     const inner = document.createElement('div');
     inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
@@ -767,6 +768,7 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  markPageMetadataRowsPersistedToDa();
 }
 
 export async function saveAnnotationChanges(reportProgress = () => {}) {
@@ -778,6 +780,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
 
   await postData(window.streamConfig.targetUrl, daCompatibleHtml, { suppressErrorPage: true });
   reportProgress('htmlSaved');
+  markPageMetadataRowsPersistedToDa();
 
   if (annotationService.isAvailable()) {
     const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);

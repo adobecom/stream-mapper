@@ -1489,29 +1489,28 @@ export default function createCommentsPanelController({
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
         const groups = buildCommentGroups(thread);
-        groups.forEach((group, idx) => {
-          const marker = document.createElement('button');
-          marker.type = 'button';
-          marker.className = 'annotation-edit-marker';
-          marker.dataset.threadId = thread.id;
-          marker.dataset.messageId = group.comment.id || '';
-          marker.dataset.commentIndex = String(idx);
-          marker.title = `Edit ${idx + 1}`;
-          marker.setAttribute('aria-label', `Open edit ${idx + 1}`);
-          marker.innerHTML = `
+        if (!groups.length) return;
+        // One canvas marker per edit target; full change history stays in the panel.
+        const latestIndex = groups.length - 1;
+        const group = groups[latestIndex];
+        const marker = document.createElement('button');
+        marker.type = 'button';
+        marker.className = 'annotation-edit-marker';
+        marker.dataset.threadId = thread.id;
+        marker.dataset.messageId = group.comment.id || '';
+        marker.dataset.commentIndex = String(latestIndex);
+        marker.title = 'Open edit';
+        marker.setAttribute('aria-label', 'Open edit');
+        marker.innerHTML = `
             <svg class="annotation-edit-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 17.25V21h3.75L19.81 7.94l-3.75-3.75z"></path>
             </svg>
           `;
 
-          const position = resolveMarkerPosition(
-            rect.top - 8,
-            rect.right - 8 - (idx * MARKER_STEP),
-          );
-          marker.style.top = `${position.top}px`;
-          marker.style.left = `${position.left}px`;
-          annotationUI.layerEl.appendChild(marker);
-        });
+        const position = resolveMarkerPosition(rect.top - 8, rect.right - 8);
+        marker.style.top = `${position.top}px`;
+        marker.style.left = `${position.left}px`;
+        annotationUI.layerEl.appendChild(marker);
       });
 
     if (assetsPanel) {

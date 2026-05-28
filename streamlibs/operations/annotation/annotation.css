@@ -2604,41 +2604,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     box-sizing: border-box;
   }
 
-  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) > div:last-child > .stream-metadata-user-value-chrome {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-    z-index: 2;
-  }
-
-  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) .stream-annotation-delete-metadata-row {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) .stream-annotation-delete-metadata-row:hover {
-    background: #fee2e2;
-    border-color: #dc2626;
-    color: #b91c1c;
-  }
-
-  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) .stream-annotation-delete-metadata-row:focus-visible {
-    outline: 2px solid var(--sm-color-primary, #3b82f6);
-    outline-offset: 2px;
-  }
-
-  .annotation-inline-edit-mode .page-metadata > div:not(.stream-metadata-user-row) .stream-annotation-delete-metadata-row {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .annotation-inline-edit-mode .stream-annotation-delete-metadata-row {
     display: inline-flex;
     align-items: center;
