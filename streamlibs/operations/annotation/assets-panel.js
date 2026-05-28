@@ -571,6 +571,7 @@ export default function createAssetsPanelController({
           });
           if (applied.targetImg && asset.daUrl) {
             applied.targetImg.dataset.streamOriginalSrc = asset.daUrl;
+            applied.targetImg.dataset.originalSrc = asset.daUrl;
           }
         }
 
