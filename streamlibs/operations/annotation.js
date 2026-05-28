@@ -28,12 +28,59 @@ const assetsPanel = createAssetsPanelController({
   store,
   assetService,
 });
+async function fetchImageAsBase64(url) {
+  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+  try {
+    const res = await fetch(url, authToken ? { headers: { Authorization: authToken } } : {});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('[annotation] Could not fetch image as base64', err);
+    return null;
+  }
+}
+
+const previewUrlCache = new Map();
+
+async function resolvePreviewUrl(url) {
+  if (!url || !url.includes('content.da.live')) return url;
+  if (previewUrlCache.has(url)) return previewUrlCache.get(url);
+  const b64 = await fetchImageAsBase64(url);
+  if (b64) previewUrlCache.set(url, b64);
+  return b64 || url;
+}
+
+export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingAlt = '') {
+  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
+
+  const base64Data = await fetchImageAsBase64(generatedUrl);
+  if (!base64Data) return;
+
+  const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const binaryStr = atob(base64Data.split(',')[1]);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i += 1) bytes[i] = binaryStr.charCodeAt(i);
+  const file = new File([bytes], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt);
+}
+
 const commentsPanel = createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
   assetsPanel,
 });
+commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
+
 const inlineEditing = createInlineEditingController({
   annotationState,
   annotationUI,
@@ -294,8 +341,11 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
           if (filenameCandidates.includes(extractFilename(img.getAttribute('src') || ''))) {
             img.setAttribute('src', asset.targetUrl);
             if (img.hasAttribute('srcset')) img.setAttribute('srcset', asset.targetUrl);
+            const picture = img.closest('picture');
+            if (picture) {
+              picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', asset.targetUrl));
+            }
             matched = true;
-            break;
           }
         }
       }
@@ -304,7 +354,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
           if ((img.getAttribute('src') || '') === asset.daUrl) {
             img.setAttribute('src', asset.targetUrl);
             if (img.hasAttribute('srcset')) img.setAttribute('srcset', asset.targetUrl);
-            break;
+            const picture = img.closest('picture');
+            if (picture) {
+              picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', asset.targetUrl));
+            }
           }
         }
       }
@@ -393,8 +446,9 @@ async function finishAnnotationSession(mainEl, {
       includeEdits: false,
     });
   }
+  store.setPreviewUrlResolver(resolvePreviewUrl);
   store.rebindEasyEditsToCurrentDom();
-  store.applyEasyEditsToDom();
+  await store.applyEasyEditsToDom();
   store.saveAnnotationStore();
   if (shouldRestoreInlineMode) {
     const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
@@ -406,6 +460,7 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderThreadMarkers({ resolveTargets: true });
     commentsPanel.renderCommentsPanel();
   }
+  await store.applyEasyEditsToDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────
@@ -776,11 +831,13 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await uploadAndDecideAssets();
 
   const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+
   const { easyEdits, daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   await postData(window.streamConfig.targetUrl, daCompatibleHtml, { suppressErrorPage: true });
   reportProgress('htmlSaved');
   markPageMetadataRowsPersistedToDa();
+
 
   if (annotationService.isAvailable()) {
     const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
@@ -850,38 +907,6 @@ export function registerRegenReplacement(originalSrc, newUrl) {
   const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
   if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
   else regenReplacements.push({ originalSrc, targetUrl: newUrl });
-}
-
-export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
-  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
-
-  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
-  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
-
-  let blob;
-  try {
-    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
-    const res = await fetch(generatedUrl, fetchOpts);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    blob = await res.blob();
-  } catch (err) {
-    console.warn('[annotation] Could not fetch generated image', err);
-    return;
-  }
-
-  const mimeType = blob.type || 'image/jpeg';
-  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
-  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
-
-  const base64Data = await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-  if (!base64Data) return;
-
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data);
 }
 
 export function preparePendingRemoteEditsRefresh() {

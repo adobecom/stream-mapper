@@ -410,12 +410,6 @@ export async function saveChanges() {
     hideDOMElements([document.querySelector('main')]);
     if (isAnnotationOperation) {
       await saveAnnotationChanges((stage) => {
-        if (stage === 'htmlSaved') {
-          updateLoader({
-            message: LOADER_STEP_MESSAGES.SAVE_HTML_DONE,
-            percentage: LOADER_PROGRESS_STEPS.SAVE_HTML_DONE,
-          });
-        }
         if (stage === 'editsSaved') {
           updateLoader({
             message: LOADER_STEP_MESSAGES.SAVE_METADATA_DONE,
