@@ -2294,22 +2294,184 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     flex-wrap: wrap;
   }
 
+  /* Equal key/value columns (same visual weight as hosted dev preview). */
   .annotation-mode .page-metadata > div {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     width: 100%;
     box-sizing: border-box;
+    align-items: stretch;
+    column-gap: 0;
   }
 
-  .annotation-mode .page-metadata > div > div:first-child {
+  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) > div:first-child {
     font-weight: bold;
   }
 
   .annotation-mode .page-metadata > div > div {
-    flex: 1 1 0;
     min-width: 0;
     border: 0.5px solid #cacaca;
     padding: 10px;
     padding-left: 20px;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row {
+    position: relative;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > div {
+    min-width: 0;
+    border: 0.5px solid #cacaca;
+    padding: 10px;
+    padding-left: 20px;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > div:first-child {
+    font-weight: bold;
+    /* Mirror value column inset so both cells read the same width (chrome sits in this band on the value side). */
+    padding-right: 40px;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding-right: 40px;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell > .stream-metadata-user-value-editable {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell > .stream-metadata-user-value-editable > .stream-metadata-user-value-chrome {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    z-index: 2;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell > .stream-metadata-user-value-editable > p {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    align-self: center;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell > .stream-metadata-user-value-editable > button {
+    align-self: center;
+    flex-shrink: 0;
+    line-height: 0;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row > .stream-metadata-user-row-inner > .stream-metadata-user-value-cell > .stream-metadata-user-value-editable > picture {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    align-self: center;
+  }
+  .annotation-mode .page-metadata > div.stream-metadata-user-row .stream-metadata-user-value-chrome .stream-annotation-delete-metadata-row {
+    margin: 0;
+    flex-shrink: 0;
+    line-height: 0;
+  }
+  .annotation-mode .stream-annotation-delete-metadata-row {
+    display: none;
+    flex: 0 0 auto;
+    align-self: center;
+    margin: 0;
+    min-width: 30px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    line-height: 1;
+    font-size: 0;
+    font-weight: 600;
+    color: #64748b;
+    background: #fff;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .annotation-mode .stream-annotation-delete-metadata-row svg {
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* User-added rows: show delete in annotation mode (overrides display:none above).
+     Inline-edit toggle unchanged for the rest of the page; JS re-insets button after Medium Editor. */
+  .annotation-mode .page-metadata > div.stream-metadata-user-row .stream-annotation-delete-metadata-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row .stream-annotation-delete-metadata-row:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+    color: #b91c1c;
+  }
+
+  .annotation-mode .page-metadata > div.stream-metadata-user-row .stream-annotation-delete-metadata-row:focus-visible {
+    outline: 2px solid var(--sm-color-primary, #3b82f6);
+    outline-offset: 2px;
+  }
+
+  /* Native (DA) metadata rows: same delete affordance as user-added rows */
+  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) > div:first-child {
+    padding-right: 40px;
+    box-sizing: border-box;
+  }
+
+  .annotation-mode .page-metadata > div:not(.stream-metadata-user-row) > div:last-child {
+    position: relative;
+    padding-right: 40px;
+    box-sizing: border-box;
+  }
+
+  .annotation-inline-edit-mode .stream-annotation-delete-metadata-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .annotation-inline-edit-mode .stream-annotation-delete-metadata-row:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+    color: #b91c1c;
+  }
+
+  .annotation-inline-edit-mode .stream-annotation-delete-metadata-row:focus-visible {
+    outline: 2px solid var(--sm-color-primary, #3b82f6);
+    outline-offset: 2px;
   }
 
   .annotation-mode .page-metadata > div > div img {
