@@ -28,12 +28,59 @@ const assetsPanel = createAssetsPanelController({
   store,
   assetService,
 });
+async function fetchImageAsBase64(url) {
+  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+  try {
+    const res = await fetch(url, authToken ? { headers: { Authorization: authToken } } : {});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('[annotation] Could not fetch image as base64', err);
+    return null;
+  }
+}
+
+const previewUrlCache = new Map();
+
+async function resolvePreviewUrl(url) {
+  if (!url || !url.includes('content.da.live')) return url;
+  if (previewUrlCache.has(url)) return previewUrlCache.get(url);
+  const b64 = await fetchImageAsBase64(url);
+  if (b64) previewUrlCache.set(url, b64);
+  return b64 || url;
+}
+
+export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingAlt = '') {
+  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
+
+  const base64Data = await fetchImageAsBase64(generatedUrl);
+  if (!base64Data) return;
+
+  const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const binaryStr = atob(base64Data.split(',')[1]);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i += 1) bytes[i] = binaryStr.charCodeAt(i);
+  const file = new File([bytes], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt);
+}
+
 const commentsPanel = createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
   assetsPanel,
 });
+commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
+
 const inlineEditing = createInlineEditingController({
   annotationState,
   annotationUI,
@@ -43,15 +90,22 @@ const inlineEditing = createInlineEditingController({
   removePopup: commentsPanel.removePopup,
 });
 
-commentsPanel.setInlineModeHandlers({
-  enableInlineEditMode: inlineEditing.enableInlineEditMode,
-  disableInlineEditMode: inlineEditing.disableInlineEditMode,
-});
-
 assetsPanel.setOnAssetsChanged(() => {
   commentsPanel.renderThreadMarkers({ resolveTargets: true });
   commentsPanel.renderCommentsPanel();
 });
+
+/** User-added metadata rows: extra wrapper + delete control (stripped on persist). */
+const METADATA_USER_ROW_CLASS = 'stream-metadata-user-row';
+/** Set on rows added in this session only; cleared after save/push to DA (then edit-only). */
+const METADATA_ROW_DELETABLE_DATASET = 'streamMetadataRowDeletable';
+const METADATA_USER_ROW_INNER_CLASS = 'stream-metadata-user-row-inner';
+const METADATA_USER_VALUE_CELL_CLASS = 'stream-metadata-user-value-cell';
+const METADATA_USER_VALUE_EDITABLE_CLASS = 'stream-metadata-user-value-editable';
+const METADATA_USER_VALUE_CHROME_CLASS = 'stream-metadata-user-value-chrome';
+
+/** Trash icon (inline SVG) for user-added metadata row delete. */
+const METADATA_ROW_DELETE_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
 let cachedCleanHtml = '';
 let cachedPageMetadataHtml = null;
@@ -239,7 +293,30 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
   return null;
 }
 
-// ── HTML export ───────────────────────────────────────────────────────────────
+/** Remove Stream-only metadata row chrome so pushed HTML matches DA metadata shape. */
+function sanitizeMetadataDivForPersist(metadataDiv) {
+  if (!(metadataDiv instanceof HTMLElement)) return;
+  metadataDiv.querySelectorAll('[data-stream-metadata-row-deletable]').forEach((el) => {
+    el.removeAttribute('data-stream-metadata-row-deletable');
+  });
+  metadataDiv.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((b) => b.remove());
+  /* Native rows: delete sits in .stream-metadata-user-value-chrome; strip empty wrappers so DA HTML stays clean. */
+  metadataDiv.querySelectorAll(`.${METADATA_USER_VALUE_CHROME_CLASS}`).forEach((chrome) => {
+    if (!(chrome instanceof HTMLElement)) return;
+    if (chrome.childElementCount === 0 && !(chrome.textContent || '').trim()) {
+      chrome.remove();
+    }
+  });
+  metadataDiv.querySelectorAll('[data-stream-user-added-metadata-row="true"]').forEach((wrapper) => {
+    const inner = wrapper.querySelector(`:scope > .${METADATA_USER_ROW_INNER_CLASS}`);
+    const plain = document.createElement('div');
+    const cellSource = inner || wrapper;
+    while (cellSource.firstChild) {
+      plain.appendChild(cellSource.firstChild);
+    }
+    wrapper.replaceWith(plain);
+  });
+}
 
 function buildHtmlWithEditsAndAssets(assetReplacements) {
   const easyEdits = annotationState.store.easyEdits || [];
@@ -264,8 +341,11 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
           if (filenameCandidates.includes(extractFilename(img.getAttribute('src') || ''))) {
             img.setAttribute('src', asset.targetUrl);
             if (img.hasAttribute('srcset')) img.setAttribute('srcset', asset.targetUrl);
+            const picture = img.closest('picture');
+            if (picture) {
+              picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', asset.targetUrl));
+            }
             matched = true;
-            break;
           }
         }
       }
@@ -274,7 +354,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
           if ((img.getAttribute('src') || '') === asset.daUrl) {
             img.setAttribute('src', asset.targetUrl);
             if (img.hasAttribute('srcset')) img.setAttribute('srcset', asset.targetUrl);
-            break;
+            const picture = img.closest('picture');
+            if (picture) {
+              picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', asset.targetUrl));
+            }
           }
         }
       }
@@ -312,7 +395,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
 
   const pageMetadataDom = document.body.querySelector('main .page-metadata');
   if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
     mainEl.querySelectorAll('.metadata').forEach((el) => {
       const parentSection = el.parentElement;
       el.remove();
@@ -321,6 +403,8 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     const metadataDiv = document.createElement('div');
     metadataDiv.className = 'metadata';
     metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    sanitizeMetadataDivForPersist(metadataDiv);
+    cachedPageMetadataHtml = metadataDiv.innerHTML;
     metadataDiv.querySelectorAll('p').forEach((p) => {
       [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
     });
@@ -362,8 +446,9 @@ async function finishAnnotationSession(mainEl, {
       includeEdits: false,
     });
   }
+  store.setPreviewUrlResolver(resolvePreviewUrl);
   store.rebindEasyEditsToCurrentDom();
-  store.applyEasyEditsToDom();
+  await store.applyEasyEditsToDom();
   store.saveAnnotationStore();
   if (shouldRestoreInlineMode) {
     const didEnableInlineMode = await inlineEditing.enableInlineEditMode();
@@ -375,6 +460,7 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderThreadMarkers({ resolveTargets: true });
     commentsPanel.renderCommentsPanel();
   }
+  await store.applyEasyEditsToDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────
@@ -461,6 +547,137 @@ function normalizePersistUrlForDaApi(raw) {
   return s;
 }
 
+function getPageMetadataContainer() {
+  return annotationUI.mainEl?.querySelector('.page-metadata')
+    || document.querySelector('main .page-metadata')
+    || document.querySelector('.page-metadata');
+}
+
+function isSessionDeletableMetadataRow(row) {
+  return row instanceof HTMLElement
+    && row.dataset.streamUserAddedMetadataRow === 'true'
+    && row.dataset[METADATA_ROW_DELETABLE_DATASET] === 'true';
+}
+
+function stripMetadataRowDeleteControls(row) {
+  if (!(row instanceof HTMLElement)) return;
+  row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((b) => b.remove());
+  row.querySelectorAll(`.${METADATA_USER_VALUE_CHROME_CLASS}`).forEach((chrome) => {
+    if (!(chrome instanceof HTMLElement)) return;
+    if (chrome.childElementCount === 0 && !(chrome.textContent || '').trim()) {
+      chrome.remove();
+    }
+  });
+}
+
+/** After save/push: metadata on DA is editable only (no delete). */
+function markPageMetadataRowsPersistedToDa() {
+  const metadataDom = getPageMetadataContainer();
+  if (!metadataDom) return;
+
+  const cacheClone = document.createElement('div');
+  cacheClone.className = 'metadata';
+  cacheClone.innerHTML = metadataDom.innerHTML;
+  sanitizeMetadataDivForPersist(cacheClone);
+  cachedPageMetadataHtml = cacheClone.innerHTML;
+
+  metadataDom.querySelectorAll(':scope > div').forEach((row) => {
+    stripMetadataRowDeleteControls(row);
+    delete row.dataset[METADATA_ROW_DELETABLE_DATASET];
+    delete row.dataset.streamUserAddedMetadataRow;
+  });
+}
+
+async function removeMetadataRow(row) {
+  if (!isSessionDeletableMetadataRow(row)) return;
+  if (!annotationUI.mainEl?.contains(row)) return;
+
+  commentsPanel.removePopup();
+
+  const hadInline = annotationUI.inlineMode;
+  try {
+    if (hadInline) {
+      await inlineEditing.syncInlineEditsBeforePersist();
+    }
+    store.removeAnnotationStateForSubtree(row);
+    if (hadInline) {
+      inlineEditing.resetInlineEditModeState();
+    }
+    row.remove();
+    if (hadInline) {
+      await inlineEditing.enableInlineEditMode();
+    }
+    store.saveAnnotationStore();
+    commentsPanel.renderThreadMarkers({ resolveTargets: true });
+    commentsPanel.renderCommentsPanel();
+    await refreshPageMetadataDeleteButtons();
+  } catch (err) {
+    console.error('[annotation] removeMetadataRow failed:', err);
+  }
+}
+
+async function refreshPageMetadataDeleteButtons() {
+  const metadataDom = getPageMetadataContainer();
+  if (!metadataDom) return;
+  metadataDom.querySelectorAll(':scope > div').forEach((row) => {
+    ensureUserMetadataRowDeleteButton(row);
+  });
+}
+
+function appendUserMetadataRowDeleteButton(row, inner) {
+  if (!isSessionDeletableMetadataRow(row)) return;
+  if (!(row instanceof HTMLElement) || !(inner instanceof HTMLElement)) return;
+  if (row.querySelector('.stream-annotation-delete-metadata-row')) return;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'stream-annotation-delete-metadata-row';
+  deleteBtn.setAttribute('aria-label', 'Remove this metadata row');
+  deleteBtn.innerHTML = METADATA_ROW_DELETE_ICON_SVG;
+  deleteBtn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    void removeMetadataRow(row);
+  });
+  const valueCell = inner.querySelector(`:scope > .${METADATA_USER_VALUE_CELL_CLASS}`)
+    || inner.querySelector(':scope > div:last-child');
+  if (valueCell) {
+    let chrome = valueCell.querySelector(`.${METADATA_USER_VALUE_CHROME_CLASS}`);
+    if (!chrome) {
+      const editable = valueCell.querySelector(`:scope > .${METADATA_USER_VALUE_EDITABLE_CLASS}`);
+      if (editable) {
+        chrome = document.createElement('div');
+        chrome.className = METADATA_USER_VALUE_CHROME_CLASS;
+        editable.appendChild(chrome);
+      }
+    }
+    if (chrome) {
+      chrome.appendChild(deleteBtn);
+    } else {
+      valueCell.appendChild(deleteBtn);
+    }
+  } else {
+    row.appendChild(deleteBtn);
+  }
+}
+
+/** Medium Editor `addElements` can reshape metadata cells; re-attach delete if missing. */
+function ensureUserMetadataRowDeleteButton(row) {
+  if (!isSessionDeletableMetadataRow(row)) return;
+  const inner = row.querySelector(`:scope > .${METADATA_USER_ROW_INNER_CLASS}`);
+  if (!inner) return;
+  appendUserMetadataRowDeleteButton(row, inner);
+}
+
+commentsPanel.setInlineModeHandlers({
+  enableInlineEditMode: async () => {
+    const didEnable = await inlineEditing.enableInlineEditMode();
+    await refreshPageMetadataDeleteButtons();
+    return didEnable;
+  },
+  disableInlineEditMode: inlineEditing.disableInlineEditMode,
+});
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function annotationOperation(options = {}) {
@@ -498,6 +715,7 @@ export async function annotationOperation(options = {}) {
   const addAndRegisterRow = (row) => {
     metadataDom.append(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
+    ensureUserMetadataRowDeleteButton(row);
   };
 
   const addTextBtn = document.createElement('button');
@@ -505,7 +723,14 @@ export async function annotationOperation(options = {}) {
   addTextBtn.textContent = '+ Add text/link row';
   addTextBtn.addEventListener('click', () => {
     const row = document.createElement('div');
-    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
+    row.dataset.streamUserAddedMetadataRow = 'true';
+    row.dataset[METADATA_ROW_DELETABLE_DATASET] = 'true';
+    row.classList.add(METADATA_USER_ROW_CLASS);
+    const inner = document.createElement('div');
+    inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
+    inner.innerHTML = `<div><p>add metadata key</p></div><div class="${METADATA_USER_VALUE_CELL_CLASS}"><div class="${METADATA_USER_VALUE_EDITABLE_CLASS}"><p>add text or link value</p><div class="${METADATA_USER_VALUE_CHROME_CLASS}"></div></div></div>`;
+    appendUserMetadataRowDeleteButton(row, inner);
+    row.append(inner);
     addAndRegisterRow(row);
   });
 
@@ -514,7 +739,14 @@ export async function annotationOperation(options = {}) {
   addImageBtn.textContent = '+ Add image row';
   addImageBtn.addEventListener('click', () => {
     const row = document.createElement('div');
-    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
+    row.dataset.streamUserAddedMetadataRow = 'true';
+    row.dataset[METADATA_ROW_DELETABLE_DATASET] = 'true';
+    row.classList.add(METADATA_USER_ROW_CLASS);
+    const inner = document.createElement('div');
+    inner.classList.add(METADATA_USER_ROW_INNER_CLASS);
+    inner.innerHTML = `<div><p>key</p></div><div class="${METADATA_USER_VALUE_CELL_CLASS}"><div class="${METADATA_USER_VALUE_EDITABLE_CLASS}"><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture><div class="${METADATA_USER_VALUE_CHROME_CLASS}"></div></div></div>`;
+    appendUserMetadataRowDeleteButton(row, inner);
+    row.append(inner);
     addAndRegisterRow(row);
   });
 
@@ -525,6 +757,7 @@ export async function annotationOperation(options = {}) {
   mainEl.append(metadataSeparator);
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  await refreshPageMetadataDeleteButtons();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -554,6 +787,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  await refreshPageMetadataDeleteButtons();
 }
 
 export async function persistAnnotationChangesToDA() {
@@ -589,6 +823,7 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  markPageMetadataRowsPersistedToDa();
 }
 
 export async function saveAnnotationChanges(reportProgress = () => {}) {
@@ -597,7 +832,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
 
   const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
   const { easyEdits } = buildHtmlWithEditsAndAssets(assetReplacements);
-
+  markPageMetadataRowsPersistedToDa();
   if (annotationService.isAvailable()) {
     const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
     if (persistedEditSnapshot) {
@@ -666,38 +901,6 @@ export function registerRegenReplacement(originalSrc, newUrl) {
   const existing = regenReplacements.findIndex((r) => r.originalSrc === originalSrc);
   if (existing >= 0) regenReplacements[existing].targetUrl = newUrl;
   else regenReplacements.push({ originalSrc, targetUrl: newUrl });
-}
-
-export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl) {
-  if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
-
-  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
-  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
-
-  let blob;
-  try {
-    const fetchOpts = authToken ? { headers: { Authorization: authToken } } : {};
-    const res = await fetch(generatedUrl, fetchOpts);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    blob = await res.blob();
-  } catch (err) {
-    console.warn('[annotation] Could not fetch generated image', err);
-    return;
-  }
-
-  const mimeType = blob.type || 'image/jpeg';
-  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
-  const file = new File([blob], `generated-${Date.now()}.${ext}`, { type: mimeType });
-
-  const base64Data = await new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(blob);
-  });
-  if (!base64Data) return;
-
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data);
 }
 
 export function preparePendingRemoteEditsRefresh() {

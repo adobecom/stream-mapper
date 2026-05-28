@@ -92,9 +92,8 @@ export default function createAssetsPanelController({
       list.appendChild(buildLocalAssetCard(localAsset));
     }
 
-    const sorted = [...remoteAssets].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+    const sorted = [...remoteAssets]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     for (const asset of sorted) {
       list.appendChild(buildRemoteAssetCard(asset));
     }
@@ -116,15 +115,32 @@ export default function createAssetsPanelController({
     card.appendChild(username);
 
     const text = document.createElement('p');
-    text.className = 'annotation-panel-comment-text';
-    text.textContent = `replaced image "${truncateSrc(localAsset.originalSrc)}" → "${localAsset.filename}"`;
+    text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const fromLink = document.createElement('a');
+    fromLink.href = localAsset.originalSrc || '#';
+    fromLink.textContent = 'From Image';
+    fromLink.target = '_blank';
+    fromLink.rel = 'noopener noreferrer';
+    fromLink.className = 'annotation-asset-link';
+    const arrow = document.createTextNode(' → ');
+    const toLink = document.createElement('a');
+    toLink.href = localAsset.base64Data || localAsset.filename || '#';
+    toLink.textContent = 'To Image';
+    toLink.target = '_blank';
+    toLink.rel = 'noopener noreferrer';
+    toLink.className = 'annotation-asset-link';
+    text.appendChild(fromLink);
+    text.appendChild(arrow);
+    text.appendChild(toLink);
     card.appendChild(text);
 
     const statusBadge = document.createElement('span');
     statusBadge.className = 'annotation-asset-status annotation-asset-status-unsaved';
-    statusBadge.textContent = 'unsaved';
+    statusBadge.title = 'unsaved';
     card.appendChild(statusBadge);
 
+    const footer = document.createElement('div');
+    footer.className = 'annotation-asset-card-footer';
     const actions = document.createElement('div');
     actions.className = 'annotation-asset-actions';
     const deleteBtn = document.createElement('button');
@@ -132,14 +148,15 @@ export default function createAssetsPanelController({
     deleteBtn.textContent = 'Remove';
     deleteBtn.addEventListener('click', () => removeLocalAsset(localAsset.localId));
     actions.appendChild(deleteBtn);
-    card.appendChild(actions);
+    footer.appendChild(actions);
+    card.appendChild(footer);
 
     return card;
   }
 
   function buildRemoteAssetCard(asset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment annotation-panel-asset-item';
+    card.className = `annotation-panel-comment annotation-panel-asset-item${asset.status === 'rejected' ? ' annotation-asset-rejected' : ''}`;
     card.dataset.assetId = asset.id;
     if (asset.createdAt) card.dataset.createdAt = asset.createdAt;
 
@@ -151,20 +168,40 @@ export default function createAssetsPanelController({
     card.appendChild(username);
 
     const text = document.createElement('p');
-    text.className = 'annotation-panel-comment-text';
-    const fromLabel = truncateSrc(asset.originalSrc || '(none)');
-    const toLabel = truncateSrc(asset.daUrl || asset.filename || '(none)');
-    text.textContent = `replaced image "${fromLabel}" → "${toLabel}"`;
+    text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const fromLink = document.createElement('a');
+    fromLink.href = asset.originalSrc || '#';
+    fromLink.textContent = 'From Image';
+    fromLink.target = '_blank';
+    fromLink.rel = 'noopener noreferrer';
+    fromLink.className = 'annotation-asset-link';
+    const arrow = document.createTextNode(' → ');
+    const toLink = document.createElement('a');
+    toLink.href = asset.daUrl || asset.filename || '#';
+    toLink.textContent = 'To Image';
+    toLink.target = '_blank';
+    toLink.rel = 'noopener noreferrer';
+    toLink.className = 'annotation-asset-link';
+    text.appendChild(fromLink);
+    text.appendChild(arrow);
+    text.appendChild(toLink);
     card.appendChild(text);
 
     const statusBadge = document.createElement('span');
+    const statusTitles = {
+      promoted: 'Pushed to DA',
+      accepted: 'Saved to collab',
+    };
     statusBadge.className = `annotation-asset-status annotation-asset-status-${asset.status}`;
-    statusBadge.textContent = asset.status;
+    statusBadge.title = statusTitles[asset.status] || asset.status;
     if (isApplied && asset.status === 'pending') {
-      statusBadge.textContent = 'applied';
+      statusBadge.title = 'applied';
       statusBadge.className = 'annotation-asset-status annotation-asset-status-applied';
     }
     card.appendChild(statusBadge);
+
+    const footer = document.createElement('div');
+    footer.className = 'annotation-asset-card-footer';
 
     const actions = document.createElement('div');
     actions.className = 'annotation-asset-actions';
@@ -186,15 +223,10 @@ export default function createAssetsPanelController({
       actions.appendChild(deleteBtn);
     }
 
-    card.appendChild(actions);
+    footer.appendChild(actions);
+    card.appendChild(footer);
 
     return card;
-  }
-
-  function truncateSrc(src) {
-    if (!src || src.length <= 50) return src;
-    // Show last 47 chars
-    return `...${src.slice(-47)}`;
   }
 
   function enterSelectMode() {
@@ -208,6 +240,8 @@ export default function createAssetsPanelController({
       if (!img) return;
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
       if (img.closest('[data-class="fragment"]')) return;
+      const src = img.getAttribute('src') || '';
+      if (/\.svg(\?.*)?$/i.test(src) || src.startsWith('data:image/svg')) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -623,7 +657,7 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.clear();
   }
 
-  async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data, pendingAlt = '') {
     if (!targetImg || !file || !base64Data) return null;
 
     const anchorTarget = targetImg.closest('picture') || targetImg;
@@ -667,6 +701,35 @@ export default function createAssetsPanelController({
 
     annotationState.store.localAssets.push(localAsset);
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+
+    if (pendingAlt) {
+      const originalAlt = targetImg.getAttribute('alt') || '';
+      const imgRef = store.ensureElementRef(targetImg);
+      const imgAnchor = store.buildEditElementAnchor(targetImg);
+
+      targetImg.dataset.pendingAlt = pendingAlt;
+      targetImg.alt = pendingAlt;
+
+      const { elementPath: altPath, elementProps: altProps } = imgAnchor;
+      const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
+      if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
+        store.upsertEasyEdit({
+          ...(existingAltEdit || {}),
+          id: existingAltEdit?.id || store.generateId('easy-edit'),
+          editType: 'image-alt',
+          attrName: 'alt',
+          elementPath: imgAnchor.elementPath,
+          elementProps: imgAnchor.elementProps,
+          elementRef: imgRef,
+          from: existingAltEdit?.from ?? originalAlt,
+          to: pendingAlt,
+          fromHtml: '',
+          toHtml: '',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
     notifyAssetsChanged();
     return {
       elementPath, elementProps, elementRef, originalSrc,
