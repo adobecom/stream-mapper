@@ -37,9 +37,11 @@ export default function createCommentsPanelController({
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
   let enableInlineEditMode = async () => {};
   let disableInlineEditMode = () => {};
+  let recordImageRegenAsLocalAsset = null;
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
+  let activePanelFilter = 'all';
   let activeCommentEditor = null;
   let popupDraft = '';
   let popupDraftKey = '';
@@ -47,10 +49,15 @@ export default function createCommentsPanelController({
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
+  const pendingAutoApplyThreadIds = new Set();
 
   function setInlineModeHandlers(handlers) {
     enableInlineEditMode = handlers.enableInlineEditMode;
     disableInlineEditMode = handlers.disableInlineEditMode;
+  }
+
+  function setImageRegenHandler(fn) {
+    recordImageRegenAsLocalAsset = fn;
   }
 
   function setSelectedElement(element) {
@@ -123,7 +130,36 @@ export default function createCommentsPanelController({
               <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
             </svg>
           </button>
+          <button
+            type="button"
+            class="annotation-mode-btn annotation-mode-btn-visibility"
+            aria-pressed="false"
+            aria-label="Toggle annotation visibility"
+            title="Toggle annotation visibility"
+          >
+            <svg class="annotation-visibility-icon-show" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12.306 4.28999C11.2818 3.76572 10.1505 3.48445 9 3.46799C4.668 3.46799 1.125 7.78099 1.125 9.17999C1.125 10.68 4.854 14.532 8.968 14.532C13.116 14.532 16.875 10.679 16.875 9.17999C16.875 7.99999 14.768 5.50999 12.306 4.28999ZM9 13.612C8.08783 13.612 7.19615 13.3415 6.43771 12.8347C5.67927 12.328 5.08814 11.6077 4.73907 10.7649C4.39 9.92219 4.29866 8.99487 4.47662 8.10023C4.65457 7.20559 5.09382 6.38381 5.73882 5.73881C6.38382 5.09381 7.2056 4.65456 8.10024 4.47661C8.99488 4.29865 9.9222 4.38998 10.7649 4.73905C11.6077 5.08813 12.328 5.67926 12.8347 6.4377C13.3415 7.19614 13.612 8.08782 13.612 8.99999C13.6117 10.2231 13.1257 11.396 12.2609 12.2609C11.396 13.1257 10.2231 13.6117 9 13.612Z" fill="currentColor"/>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M10.333 9.04199C10.1579 9.04199 9.98444 9.00748 9.82265 8.94043C9.66085 8.87338 9.51386 8.7751 9.39007 8.65121C9.26627 8.52733 9.16811 8.38026 9.10118 8.21842C9.03425 8.05658 8.99986 7.88313 9 7.70799C9.0026 7.47626 9.06641 7.24933 9.18494 7.05019C9.30348 6.85105 9.47254 6.68677 9.675 6.57399C9.45606 6.50737 9.22882 6.47202 9 6.46899C8.49941 6.46899 8.01007 6.61743 7.59385 6.89554C7.17763 7.17365 6.85322 7.56894 6.66166 8.03142C6.47009 8.4939 6.41997 9.0028 6.51763 9.49377C6.61529 9.98473 6.85634 10.4357 7.21031 10.7897C7.56427 11.1436 8.01526 11.3847 8.50622 11.4824C8.99719 11.58 9.50609 11.5299 9.96857 11.3383C10.431 11.1468 10.8263 10.8224 11.1044 10.4061C11.3826 9.98992 11.531 9.50058 11.531 8.99999C11.5278 8.79709 11.4986 8.59544 11.444 8.39999C11.3292 8.59311 11.1668 8.75355 10.9723 8.86595C10.7777 8.97836 10.5576 9.03897 10.333 9.04199Z" fill="currentColor"/>
+            </svg>
+            <svg class="annotation-visibility-icon-hide" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none">
+              <g clip-path="url(#clip0_visibility_hide)">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M7.286 4.71999C8.12397 4.3827 9.04261 4.29921 9.92766 4.47988C10.8127 4.66055 11.6251 5.09741 12.2638 5.73615C12.9026 6.37488 13.3394 7.18728 13.5201 8.07233C13.7008 8.95738 13.6173 9.87602 13.28 10.714L14.752 12.186C16.052 11.092 16.875 9.87999 16.875 9.17999C16.875 7.99799 14.768 5.50999 12.307 4.28999C11.2823 3.76588 10.1508 3.48462 9 3.46799C8.147 3.47595 7.3022 3.63543 6.505 3.93899L7.286 4.71999Z" fill="currentColor"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M16.9 16.029L11.164 10.3C11.4029 9.90839 11.5299 9.45875 11.531 9.00001C11.5278 8.7971 11.4986 8.59545 11.444 8.40001C11.329 8.59275 11.1664 8.75279 10.9719 8.86484C10.7774 8.97688 10.5575 9.03719 10.333 9.04001C9.97965 9.04001 9.64074 8.8997 9.39079 8.64993C9.14083 8.40016 9.00027 8.06137 9.00001 7.70801C9.00261 7.47627 9.06642 7.24934 9.18495 7.0502C9.30349 6.85106 9.47255 6.68678 9.67501 6.57401C9.45608 6.50738 9.22883 6.47203 9.00001 6.46901C8.54126 6.47014 8.09162 6.59708 7.70001 6.83601L1.97101 1.10001C1.93302 1.06194 1.88789 1.03174 1.83822 1.01113C1.78854 0.990526 1.73529 0.979919 1.68151 0.979919C1.62773 0.979919 1.57447 0.990526 1.5248 1.01113C1.47512 1.03174 1.43 1.06194 1.39201 1.10001L1.10001 1.39201C1.06194 1.43 1.03174 1.47512 1.01113 1.5248C0.990526 1.57447 0.979919 1.62773 0.979919 1.68151C0.979919 1.73529 0.990526 1.78854 1.01113 1.83822C1.03174 1.88789 1.06194 1.93302 1.10001 1.97101L4.27601 5.14401C2.36901 6.51401 1.12501 8.35301 1.12501 9.18001C1.12501 10.68 4.85401 14.532 8.96801 14.532C10.2683 14.5059 11.5439 14.1717 12.69 13.557L16.029 16.897C16.067 16.9351 16.1121 16.9653 16.1618 16.9859C16.2115 17.0065 16.2647 17.0171 16.3185 17.0171C16.3723 17.0171 16.4255 17.0065 16.4752 16.9859C16.5249 16.9653 16.57 16.9351 16.608 16.897L16.897 16.608C16.9353 16.5702 16.9657 16.5252 16.9866 16.4757C17.0074 16.4261 17.0183 16.3729 17.0186 16.3191C17.0189 16.2653 17.0085 16.212 16.9882 16.1623C16.9678 16.1125 16.9379 16.0672 16.9 16.029ZM9.00001 13.612C8.1405 13.6141 7.2976 13.3754 6.56685 12.9229C5.83611 12.4704 5.24676 11.8222 4.86563 11.0518C4.4845 10.2814 4.32683 9.41966 4.4105 8.56424C4.49417 7.70881 4.81583 6.89394 5.33901 6.21201L6.83901 7.71201C6.54568 8.19402 6.42276 8.76059 6.48995 9.32082C6.55714 9.88106 6.81055 10.4025 7.20954 10.8015C7.60852 11.2005 8.12995 11.4539 8.69019 11.5211C9.25042 11.5883 9.81699 11.4653 10.299 11.172L11.799 12.672C10.9956 13.2861 10.0113 13.6167 9.00001 13.612Z" fill="currentColor"/>
+              </g>
+              <defs>
+                <clipPath id="clip0_visibility_hide">
+                  <rect width="18" height="18" fill="white"/>
+                </clipPath>
+              </defs>
+            </svg>
+          </button>
         </div>
+      </div>
+      <div class="annotation-panel-filter-tabs" role="tablist" aria-label="Filter annotations">
+        <button type="button" role="tab" class="annotation-panel-filter-tab is-active" data-filter="all" aria-selected="true">All</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="comment" aria-selected="false">Comments</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="edit" aria-selected="false">Edits</button>
+        <button type="button" role="tab" class="annotation-panel-filter-tab" data-filter="asset" aria-selected="false">Assets</button>
       </div>
       <div class="annotation-comments-content">
         <div class="annotation-comments-list"></div>
@@ -136,6 +172,39 @@ export default function createCommentsPanelController({
     annotationUI.inlineToggleEl = panel.querySelector('.annotation-mode-btn-edit');
     annotationUI.inlineAssetsToggleEl = panel.querySelector('.annotation-mode-btn-assets');
     annotationUI.inlineCommentsToggleEl = null;
+    annotationUI.visibilityToggleEl = panel.querySelector('.annotation-mode-btn-visibility');
+
+    annotationUI.visibilityToggleEl.addEventListener('click', () => {
+      const layer = document.querySelector('.annotation-floating-layer');
+      const isHidden = annotationUI.visibilityToggleEl.getAttribute('aria-pressed') === 'true';
+      const showIcon = annotationUI.visibilityToggleEl.querySelector('.annotation-visibility-icon-show');
+      const hideIcon = annotationUI.visibilityToggleEl.querySelector('.annotation-visibility-icon-hide');
+      if (isHidden) {
+        if (layer) layer.style.display = '';
+        annotationUI.visibilityToggleEl.setAttribute('aria-pressed', 'false');
+        annotationUI.visibilityToggleEl.title = 'Toggle annotation visibility';
+        if (showIcon) showIcon.style.display = '';
+        if (hideIcon) hideIcon.style.display = 'none';
+      } else {
+        if (layer) layer.style.display = 'none';
+        annotationUI.visibilityToggleEl.setAttribute('aria-pressed', 'true');
+        annotationUI.visibilityToggleEl.title = 'Hide annotations';
+        if (showIcon) showIcon.style.display = 'none';
+        if (hideIcon) hideIcon.style.display = '';
+      }
+    });
+
+    panel.querySelector('.annotation-panel-filter-tabs').addEventListener('click', (event) => {
+      const tab = event.target.closest('.annotation-panel-filter-tab');
+      if (!(tab instanceof HTMLButtonElement)) return;
+      activePanelFilter = tab.dataset.filter || 'all';
+      panel.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+        const isActive = btn.dataset.filter === activePanelFilter;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', `${isActive}`);
+      });
+      renderCommentsPanel();
+    });
 
     updateModeButtonStates();
     applyOwnerOnlyToggleState();
@@ -1072,12 +1141,30 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const unifiedItems = buildUnifiedItems();
+    annotationUI.panelEl?.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+      const isActive = btn.dataset.filter === activePanelFilter;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', `${isActive}`);
+    });
+
+    const allItems = buildUnifiedItems();
+    const unifiedItems = activePanelFilter === 'all' ? allItems : allItems.filter((item) => {
+      if (activePanelFilter === 'comment') return item.kind === 'comment';
+      if (activePanelFilter === 'edit') return item.kind === 'edit';
+      if (activePanelFilter === 'asset') return item.kind === 'asset-local' || item.kind === 'asset-remote';
+      return true;
+    });
 
     if (!unifiedItems.length) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
+      const emptyMessages = {
+        comment: 'No comments yet.',
+        edit: 'No inline edits yet.',
+        asset: 'No asset replacements yet.',
+        all: 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.',
+      };
+      empty.textContent = emptyMessages[activePanelFilter] || emptyMessages.all;
       annotationUI.panelListEl.appendChild(empty);
       finalizeFragmentHints();
       return;
@@ -1133,6 +1220,7 @@ export default function createCommentsPanelController({
             option.selected = thread.status === status;
             statusSelect.appendChild(option);
           });
+          statusSelect.dataset.status = store.normalizeCommentStatus(thread.status);
           statusControls.append(statusSelect);
           if (canEditRootComment) {
             const editThreadBtn = document.createElement('button');
@@ -1157,12 +1245,195 @@ export default function createCommentsPanelController({
           || thread.username
           || ANNOTATION_DEFAULT_USERNAME;
 
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'annotation-panel-comment-header';
+        cardHeader.append(username);
+        if (statusControls) cardHeader.append(statusControls);
+
+        if (isCommentThread && window.streamConfig?.operation === 'aiSeoAnnotation') {
+          const normalizedStatus = store.normalizeCommentStatus(thread.status);
+          const isAutoApplyEnabled = (normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted')
+            && !pendingAutoApplyThreadIds.has(thread.id);
+          const autoApplyBtn = document.createElement('button');
+          autoApplyBtn.type = 'button';
+          autoApplyBtn.className = 'annotation-card-auto-apply-btn';
+          autoApplyBtn.disabled = !isAutoApplyEnabled;
+          autoApplyBtn.setAttribute('aria-label', 'Auto apply comment');
+          autoApplyBtn.title = isAutoApplyEnabled
+            ? 'Auto apply comment'
+            : 'Resolve the comment to enable auto apply';
+          autoApplyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
+            <path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>
+          </svg>`;
+          autoApplyBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+
+            let targetEl = store.getElementForThread(thread);
+            if (!targetEl) {
+              const ep = thread.elementPath;
+              const fallbackSelector = (typeof ep === 'object' ? ep?.selector : null)
+                || (typeof ep === 'string' ? (() => { try { return JSON.parse(ep)?.selector; } catch { return null; } })() : null);
+              if (fallbackSelector && annotationUI.mainEl) {
+                targetEl = annotationUI.mainEl.querySelector(fallbackSelector);
+              }
+            }
+            if (!targetEl) {
+              return;
+            }
+
+            const TEXT_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'TD', 'TH']);
+            const isTextEl = TEXT_TAGS.has(targetEl.tagName);
+            let targetImg = targetEl.tagName === 'IMG' ? targetEl : targetEl.querySelector('img');
+            if (!targetImg && targetEl.parentElement) {
+              targetImg = targetEl.parentElement.querySelector('img');
+            }
+            // eslint-disable-next-line max-len
+            if (isTextEl) {
+              const elementText = targetEl.textContent.trim();
+              if (!elementText) return;
+
+              const allGroups = buildCommentGroups(thread);
+              const commentLines = [];
+              allGroups.forEach((g) => {
+                if (g.comment?.text) commentLines.push(`- ${g.comment.text}`);
+                g.replies.forEach((reply) => {
+                  if (reply?.text) commentLines.push(`- ${reply.text}`);
+                });
+              });
+
+              const payloadText = `${elementText}\nRegenerate based on following comments\n${commentLines.join('\n')}`;
+              const token = window.streamConfig?.token || '';
+              const endpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/content-regeneration`;
+              const threadId = window.streamConfig?.threadId || '';
+
+              let blockName = '';
+              let cur = targetEl;
+              while (cur && cur !== document.body) {
+                const parent = cur.parentElement;
+                if (parent?.classList.contains('section')) { blockName = cur.classList[0] || ''; break; }
+                cur = parent;
+              }
+
+              pendingAutoApplyThreadIds.add(thread.id);
+              autoApplyBtn.disabled = true;
+              autoApplyBtn.classList.add('is-loading');
+              try {
+                const res = await fetch(endpoint, {
+                  method: 'POST',
+                  headers: {
+                    'content-type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  // eslint-disable-next-line max-len
+                  body: JSON.stringify({ text: payloadText, block: blockName, thread_id: threadId }),
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+                const newText = json?.response?.text || json.text || json.content || json.result || '';
+                if (newText && targetEl.isConnected) {
+                  const fromText = targetEl.textContent.trim();
+                  const fromHtml = targetEl.innerHTML;
+                  targetEl.textContent = newText;
+                  const elementRef = store.ensureElementRef(targetEl);
+                  const snapshot = annotationUI.inlineElementSnapshot?.get(elementRef);
+                  const baselineText = snapshot?.originalText || fromText;
+                  const baselineHtml = snapshot?.originalHtml || fromHtml;
+                  const editAnchor = store.buildEditElementAnchor(targetEl, annotationUI.mainEl);
+                  const segments = store.getChangedSegments(baselineText, newText);
+                  const { elementPath, elementProps } = editAnchor;
+                  // eslint-disable-next-line max-len
+                  const existing = store.getEasyEditByElement(elementRef, elementPath, elementProps);
+                  store.upsertEasyEdit({
+                    id: existing?.id || store.generateId('easy-edit'),
+                    editType: 'text',
+                    attrName: '',
+                    elementPath: editAnchor.elementPath,
+                    elementProps: editAnchor.elementProps,
+                    elementRef,
+                    from: baselineText,
+                    to: newText,
+                    fromHtml: baselineHtml,
+                    toHtml: newText,
+                    changedFrom: segments.changedFrom,
+                    changedTo: segments.changedTo,
+                    updatedAt: new Date().toISOString(),
+                  });
+                  store.saveAnnotationStore();
+                  renderThreadMarkers({ resolveTargets: true });
+                  renderCommentsPanel();
+                }
+              } catch (err) {
+                console.error('[auto-apply] content-regeneration failed', err);
+              } finally {
+                pendingAutoApplyThreadIds.delete(thread.id);
+                autoApplyBtn.disabled = false;
+                autoApplyBtn.classList.remove('is-loading');
+              }
+            } else if (targetImg) {
+              const imgSrc = targetImg.getAttribute('src') || '';
+              const isSvg = /\.svg(\?.*)?$/i.test(imgSrc) || imgSrc.startsWith('data:image/svg');
+              if (!isSvg && typeof recordImageRegenAsLocalAsset === 'function') {
+                const altText = targetImg.alt || '';
+                const allGroups = buildCommentGroups(thread);
+                const commentLines = [];
+                allGroups.forEach((g) => {
+                  if (g.comment?.text) commentLines.push(`- ${g.comment.text}`);
+                  g.replies.forEach((reply) => {
+                    if (reply?.text) commentLines.push(`- ${reply.text}`);
+                  });
+                });
+                const prompt = `Change the image generated for ${altText}\nTo have following changes\n${commentLines.join('\n')}`;
+                const token = window.streamConfig?.token || '';
+                const endpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
+
+                pendingAutoApplyThreadIds.add(thread.id);
+                autoApplyBtn.disabled = true;
+                autoApplyBtn.classList.add('is-loading');
+                try {
+                  const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                      'content-type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ prompt }),
+                  });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  const json = await res.json();
+                  const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
+                  const newAlt = json?.response?.alt || json.alt || 'Image Alt text';
+                  if (newUrl && targetImg.isConnected) {
+                    await recordImageRegenAsLocalAsset(targetImg, newUrl, newAlt);
+                  }
+                } catch (err) {
+                  console.error('[auto-apply] image-generation failed', err);
+                } finally {
+                  pendingAutoApplyThreadIds.delete(thread.id);
+                  autoApplyBtn.disabled = false;
+                  autoApplyBtn.classList.remove('is-loading');
+                }
+              }
+            }
+          });
+          if (statusControls) {
+            statusControls.append(autoApplyBtn);
+          } else {
+            const controls = document.createElement('div');
+            controls.className = 'annotation-panel-status-controls';
+            controls.append(autoApplyBtn);
+            cardHeader.append(controls);
+          }
+        }
+
+        card.append(cardHeader);
+
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
         const isEditingRootComment = canEditRootComment
           && isEditingComment(thread.id, group.comment.id || '');
         if (isEditingRootComment) {
           if (preservedEditForm && !preservedIsReply && preservedEditKey === rootCommentKey) {
-            card.append(username, preservedEditForm);
+            card.append(preservedEditForm);
             preservedEditForm = null;
             didReuseEditForm = true;
           } else {
@@ -1171,15 +1442,14 @@ export default function createCommentsPanelController({
               group.comment.id || '',
               activeCommentEditor?.draft || '',
             );
-            card.append(username, editForm);
+            card.append(editForm);
           }
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
           text.innerHTML = linkifyText(group.comment.text);
-          card.append(username, text);
+          card.append(text);
         }
-        if (statusControls) card.append(statusControls);
 
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
@@ -1313,6 +1583,66 @@ export default function createCommentsPanelController({
   function getCommentsScrollContainer() {
     if (!annotationUI.panelEl) return null;
     return annotationUI.panelEl.querySelector('.annotation-comments-content');
+  }
+
+  function scrollAssetInPanel(elementPath) {
+    if (!annotationUI.panelEl || !annotationUI.panelListEl || !elementPath) return;
+
+    if (activePanelFilter === 'comment' || activePanelFilter === 'edit') {
+      activePanelFilter = 'asset';
+      annotationUI.panelEl.querySelectorAll('.annotation-panel-filter-tab').forEach((btn) => {
+        const isActive = btn.dataset.filter === activePanelFilter;
+        btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', `${isActive}`);
+      });
+    }
+
+    renderCommentsPanel();
+
+    const runScroll = () => {
+      const scrollContainer = getCommentsScrollContainer();
+
+      // Collect all assets for this elementPath and sort newest first
+      const candidates = [];
+      (annotationState.store.localAssets || []).forEach((asset) => {
+        if (asset.elementPath === elementPath) {
+          candidates.push({
+            selector: `[data-local-asset-id="${asset.localId}"]`,
+            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
+          });
+        }
+      });
+      (annotationState.store.assets || []).forEach((asset) => {
+        if (asset.elementPath === elementPath) {
+          candidates.push({
+            selector: `[data-asset-id="${asset.id}"]`,
+            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
+          });
+        }
+      });
+      candidates.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+      const target = candidates.reduce((found, candidate) => {
+        if (found) return found;
+        const card = annotationUI.panelListEl.querySelector(candidate.selector);
+        return card instanceof HTMLElement ? card : null;
+      }, null);
+
+      if (!(target instanceof HTMLElement) || !scrollContainer) return;
+
+      const targetTop = target.offsetTop + annotationUI.panelListEl.offsetTop - 16;
+      scrollContainer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+
+      annotationUI.panelListEl.querySelectorAll('.annotation-panel-comment-focus')
+        .forEach((el) => el.classList.remove('annotation-panel-comment-focus'));
+      target.classList.add('annotation-panel-comment-focus');
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+      window.setTimeout(() => { target.classList.remove('annotation-panel-comment-focus'); }, 1200);
+    };
+
+    window.requestAnimationFrame(runScroll);
+    window.setTimeout(runScroll, 60);
   }
 
   function scrollThreadInPanel(threadId, messageId = '', commentIndex = 0) {
@@ -1721,37 +2051,19 @@ export default function createCommentsPanelController({
     const value = input.value.trim();
     if (!value) return;
 
-    let thread = store.getCommentThreadByElement(annotationState.selectedElement);
-    const isReply = Boolean(thread);
-    if (isReply && isThreadClosed(thread)) {
-      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
-      return;
-    }
     let didPersistToService = false;
-    let didHydrateThread = false;
+    let thread = null;
     setPopupSubmitPending(true);
     try {
-      if (!thread) {
-        const remoteThread = await annotationService.createThread({
-          elementPath: annotationState.selectedElementPath,
-          body: value,
-          quotedText: annotationState.selectedElement.textContent?.trim() || null,
-        });
-        if (remoteThread) {
-          store.upsertThread(remoteThread);
-          thread = store.getThreadById(remoteThread.id);
-          didPersistToService = true;
-        }
-      } else {
-        const result = await annotationService.createReply(thread.id, value);
-        if (result?.persisted) {
-          didPersistToService = true;
-        }
-        if (result?.thread) {
-          store.upsertThread(result.thread);
-          thread = store.getThreadById(result.thread.id);
-          didHydrateThread = true;
-        }
+      const remoteThread = await annotationService.createThread({
+        elementPath: annotationState.selectedElementPath,
+        body: value,
+        quotedText: annotationState.selectedElement.textContent?.trim() || null,
+      });
+      if (remoteThread) {
+        store.upsertThread(remoteThread);
+        thread = store.getThreadById(remoteThread.id);
+        didPersistToService = true;
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -1759,11 +2071,7 @@ export default function createCommentsPanelController({
     }
 
     if (!didPersistToService || !thread) {
-      showGlobalSnackbar(
-        isReply
-          ? ANNOTATION_MESSAGES.sendReplyError
-          : ANNOTATION_MESSAGES.postCommentError,
-      );
+      showGlobalSnackbar(ANNOTATION_MESSAGES.postCommentError);
       setPopupSubmitPending(false);
       return;
     }
@@ -1774,17 +2082,11 @@ export default function createCommentsPanelController({
     annotationState.activeThreadId = thread.id;
     setPopupSubmitPending(false);
     closePopupAndSelection();
-    if (didHydrateThread || !isReply) {
-      store.saveAnnotationStore();
-      renderThreadMarkers({ resolveTargets: true });
-      renderCommentsPanel();
-      scrollCommentsPanelToBottom();
-    } else {
-      store.pushThreadMessage(thread, value, 'reply');
-      store.saveAnnotationStore();
-      renderCommentsPanel();
-    }
-    requestParentCollabRefresh(isReply ? 'reply-created' : 'comment-created');
+    store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+    scrollCommentsPanelToBottom();
+    requestParentCollabRefresh('comment-created');
   }
 
   function attachPopupEvents() {
@@ -1878,7 +2180,7 @@ export default function createCommentsPanelController({
 
     const title = document.createElement('h3');
     title.className = 'annotation-popup-title';
-    title.textContent = thread ? 'Reply' : 'Comment';
+    title.textContent = 'Comment';
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
@@ -1899,8 +2201,8 @@ export default function createCommentsPanelController({
     composer.className = 'annotation-reply-composer';
     const popupFieldId = `annotation-popup-input-${thread?.id || 'new'}`;
     composer.innerHTML = `
-      <textarea id="${popupFieldId}" name="${popupFieldId}" class="annotation-reply-input" placeholder="${thread ? 'Write a reply...' : 'Write a comment...'}"></textarea>
-      <button type="button" class="annotation-reply-btn" aria-label="${thread ? 'Send reply' : 'Send comment'}">
+      <textarea id="${popupFieldId}" name="${popupFieldId}" class="annotation-reply-input" placeholder="Write a comment..."></textarea>
+      <button type="button" class="annotation-reply-btn" aria-label="Send comment">
         <span aria-hidden="true">➤</span>
       </button>
     `;
@@ -2060,13 +2362,7 @@ export default function createCommentsPanelController({
       if (!(target instanceof Element)) return;
       const assetMarker = target.closest('.annotation-asset-marker');
       if (assetMarker instanceof HTMLButtonElement) {
-        const elementPath = assetMarker.dataset.elementPath || '';
-        if (elementPath && annotationUI.mainEl) {
-          const el = annotationUI.mainEl.querySelector(elementPath);
-          if (el instanceof HTMLElement) {
-            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          }
-        }
+        scrollAssetInPanel(assetMarker.dataset.elementPath || '');
         return;
       }
       const editMarker = target.closest('.annotation-edit-marker');
@@ -2416,6 +2712,7 @@ export default function createCommentsPanelController({
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,
+    setImageRegenHandler,
     setInlineModeHandlers,
     setupAnnotationUI,
   };
