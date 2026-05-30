@@ -143,3 +143,19 @@
 }
 
 .stream-img-prompt-submit:hover:not(:disabled) { background: #1e40af; }
+
+main div.fragment::before {
+    content: 'Fragment edit blocked';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    cursor: default;
+    background: rgba(107, 114, 128, 50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 600;
+    color: #2330da;
+    letter-spacing: 0.03em;
+}
