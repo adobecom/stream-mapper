@@ -1,12 +1,7 @@
 import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
+import { normalizeToken } from './service.js';
 
-function normalizeToken(token) {
-  const value = `${token || ''}`.trim();
-  if (!value) return '';
-  return value.startsWith('Bearer ') ? value : `Bearer ${value}`;
-}
-
-function getAnnotationCollabId() {
+export function getAnnotationCollabId() {
   const cfg = window.streamConfig || {};
   const collabId = cfg.collabId ?? cfg.collab_id;
   return `${collabId || ''}`.trim();

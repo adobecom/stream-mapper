@@ -1,6 +1,7 @@
 import { ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
 import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
 import { normalizeCommentStatus } from './store.js';
+import { getAnnotationCollabId } from './asset-service.js';
 
 const SERVICE_STATUS_BY_COMMENT_STATUS = {
   Open: 'open',
@@ -15,7 +16,7 @@ const COMMENT_STATUS_BY_SERVICE_STATUS = {
   closed: 'Closed',
 };
 
-function normalizeToken(token) {
+export function normalizeToken(token) {
   const value = `${token || ''}`.trim();
   if (!value) return '';
   return value.startsWith('Bearer ') ? value : `Bearer ${value}`;
@@ -37,12 +38,6 @@ function normalizeAnchorElementPath(elementPath) {
   return {
     selector: `${elementPath || ''}`,
   };
-}
-
-function getAnnotationCollabId() {
-  const cfg = window.streamConfig || {};
-  const collabId = cfg.collabId ?? cfg.collab_id;
-  return `${collabId || ''}`.trim();
 }
 
 function sortComments(comments = []) {

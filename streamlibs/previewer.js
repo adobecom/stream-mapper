@@ -19,6 +19,7 @@ import {
   initializeTokens,
   miloLoadArea,
   getMapperEnv,
+  transformImages,
 } from './utils/utils.js';
 import { handleError } from './utils/error-handler.js';
 import { showGlobalSnackbar } from './utils/snackbar.js';
@@ -36,6 +37,7 @@ import {
   applyRemoteCollabSnapshot,
   preparePendingRemoteEditsRefresh,
   attachRegenHandlers,
+  setupCollabSpace,
 } from './utils/operations.js';
 import {
   ANNOTATION_REFRESH_EVENT,
@@ -52,6 +54,7 @@ import {
   notifyParentPreviewInteractive,
 } from './utils/loader.js';
 import { setupBlockActionModal, syncBlockSelectionChrome } from './utils/block-action-modal.js';
+import { fetchDAContent } from './sources/da.js';
 
 const PUSH_TO_DA_RESULT = 'PUSH_TO_DA_RESULT';
 
@@ -175,13 +178,19 @@ export async function initiatePreviewer(forceOperation = null) {
       break;
     case 'annotation':
       updateLoader();
+      await setupCollabSpace();
       await annotationOperation();
       hideLoader();
       notifyAnnotationReady();
       break;
     case 'aiSeoAnnotation':
+      updateLoader({ percentage: 10, message: 'Loading Page' });
+      await mergeImageUrls();
+      updateLoader({ percentage: 50, message: 'Loading Page' });
+      await setupCollabSpace();
+      updateLoader({ percentage: 80, message: 'Loading Page' });
+      annotationOperationOnHostPage();
       updateLoader({ percentage: 100, message: 'Loading Page' });
-      await annotationOperationOnHostPage();
       attachRegenHandlers();
       hideLoader();
       notifyAnnotationReady();
@@ -309,7 +318,7 @@ async function setupMessageListener() {
       await handleBackToEditor();
       syncBlockSelectionChrome();
     }
-    if (event.data.type === 'RESET') {
+    if (event.data.type === 'RESET' && window.streamConfig?.operation !== 'aiSeoAnnotation') {
       window.location.reload();
     }
     if (event.data.type === 'STREAM_GET_TARGET_HTML') {
@@ -402,12 +411,13 @@ export async function persist(versionLabel = null) {
 
 export async function saveChanges() {
   const isAnnotationOperation = isAnnotationOp();
+  const isHostPageAnnotation = window.streamConfig?.operation === 'aiSeoAnnotation';
   try {
     updateLoader({
       message: LOADER_STEP_MESSAGES.SAVE_PREPARING,
       percentage: LOADER_PROGRESS_STEPS.SAVE_PREPARING,
     });
-    hideDOMElements([document.querySelector('main')]);
+    if (!isHostPageAnnotation) hideDOMElements([document.querySelector('main')]);
     if (isAnnotationOperation) {
       await saveAnnotationChanges((stage) => {
         if (stage === 'editsSaved') {
@@ -417,20 +427,17 @@ export async function saveChanges() {
           });
         }
       });
-      updateLoader({
-        message: LOADER_STEP_MESSAGES.START_PAINTING,
-        percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
-      });
-      if (window.streamConfig.operation === 'aiSeoAnnotation') {
-        await annotationOperationOnHostPage({ preserveRemoteEditState: true });
-        attachRegenHandlers();
-      } else {
+      if (!isHostPageAnnotation) {
+        updateLoader({
+          message: LOADER_STEP_MESSAGES.START_PAINTING,
+          percentage: LOADER_PROGRESS_STEPS.START_PAINTING,
+        });
         await annotationOperation({ preserveRemoteEditState: true });
       }
     } else {
       await persistOnTarget();
     }
-    showDOMElements([document.querySelector('main')]);
+    if (!isHostPageAnnotation) showDOMElements([document.querySelector('main')]);
     if (isAnnotationOperation) {
       await refreshAnnotationFloatingUI();
     }
@@ -440,7 +447,7 @@ export async function saveChanges() {
     }
   } catch (error) {
     hideLoader();
-    showDOMElements([document.querySelector('main')]);
+    if (!isHostPageAnnotation) showDOMElements([document.querySelector('main')]);
     if (isAnnotationOperation) {
       showGlobalSnackbar(ANNOTATION_MESSAGES.saveEditsError);
     } else {
@@ -486,11 +493,32 @@ function loadCssFiles(filePath) {
   document.head.appendChild(link);
 }
 
-(async function selfRender() {
+export async function mergeImageUrls() {
+  const { host, pathname } = window.location;
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
+  const repo = host.split('--')[1];
+  const daUrl = `adobecom/${repo}${pathname}`;
+  const daHtml = await fetchDAContent(daUrl);
+  const daImg = daHtml.querySelectorAll('main img');
+  const pageImg = [...document.querySelectorAll('main img')].filter((img) => !img.src.toLowerCase().includes('.svg'));
+  daImg.forEach((img, idx) => {
+    if (!pageImg[idx]) return;
+    pageImg[idx].src = img.src;
+    const pic = pageImg[idx].closest('picture');
+    if (pic) {
+      // eslint-disable-next-line no-return-assign
+      pic.querySelectorAll('source').forEach((s) => s.srcset = img.src);
+    }
+  });
+  await transformImages();
+}
+
+export async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
   if (window.location.host.includes('stream-mapper--adobecom.aem')) return;
   const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
   loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
   await initPreviewer();
-}());
+}

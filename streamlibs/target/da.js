@@ -56,9 +56,10 @@ function wrapHTMLForDA(html) {
   return `<body><header></header><main>${html}</main><footer></footer>`;
 }
 
-export async function postData(url, html, options = {}) {
+export async function postData(url, html, options = {}, wrapHtml=true) {
   const { streamMapper } = window.streamConfig;
-  const wrappedHtml = wrapHTMLForDA(html);
+  let wrappedHtml = html;
+  if (wrapHtml) wrappedHtml = wrapHTMLForDA(html);
   const { suppressErrorPage = false, versionLabel } = options;
   const { pageUrl } = window.streamConfig || {};
   const payloadUrl = url || pageUrl;

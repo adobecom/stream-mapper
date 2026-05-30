@@ -145,6 +145,32 @@ export function normalizeDAImages(root) {
   });
 }
 
+const imageBase64Cache = new Map();
+
+export async function fetchImageAsBase64(url, token) {
+  const cleanUrl = url ? url.split('?')[0] : url;
+  if (imageBase64Cache.has(cleanUrl)) return imageBase64Cache.get(cleanUrl);
+  const rawToken = token || window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
+  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
+  try {
+    const res = await fetch(cleanUrl, authToken ? { headers: { Authorization: authToken } } : {});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+    if (base64) imageBase64Cache.set(cleanUrl, base64);
+    return base64;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[stream-mapper] Could not fetch image as base64', err);
+    return null;
+  }
+}
+
 export function getIdxFromId(id) {
   if (!id) return null;
 
