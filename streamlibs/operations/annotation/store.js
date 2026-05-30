@@ -1214,6 +1214,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         from: existing.from,
         fromHtml: existing.fromHtml,
         changeHistory: history,
+        // Preserve the viewport from when the edit was first created; don't let a
+        // sync/update re-evaluate window.innerWidth at push time.
+        viewport: editRecord.viewport || existing.viewport || normalizedEditRecord.viewport,
       };
       const didPruneNestedEdits = pruneNestedTextEasyEdits();
       if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();

@@ -112,6 +112,7 @@ function normalizeEditRecord(edit) {
     changedTo: `${edit?.changedTo || ''}`,
     updatedAt: edit?.updatedAt || null,
     authorUsername: edit?.authorUsername || edit?.authorName || '',
+    viewport: edit?.viewport || '',
   };
 }
 
