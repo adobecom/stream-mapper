@@ -1252,16 +1252,21 @@ export default function createCommentsPanelController({
 
         if (isCommentThread && window.streamConfig?.operation === 'aiSeoAnnotation') {
           const normalizedStatus = store.normalizeCommentStatus(thread.status);
-          const isAutoApplyEnabled = (normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted')
+          const isOwner = isCurrentUserCollabOwner();
+          const isAutoApplyEnabled = isOwner
+            && (normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted')
             && !pendingAutoApplyThreadIds.has(thread.id);
           const autoApplyBtn = document.createElement('button');
           autoApplyBtn.type = 'button';
           autoApplyBtn.className = 'annotation-card-auto-apply-btn';
           autoApplyBtn.disabled = !isAutoApplyEnabled;
           autoApplyBtn.setAttribute('aria-label', 'Auto apply comment');
-          autoApplyBtn.title = isAutoApplyEnabled
-            ? 'Auto apply comment'
-            : 'Resolve the comment to enable auto apply';
+          // eslint-disable-next-line no-nested-ternary
+          autoApplyBtn.title = !isOwner
+            ? 'Only the owner can auto apply comments'
+            : isAutoApplyEnabled
+              ? 'Auto apply comment'
+              : 'Resolve the comment to enable auto apply';
           autoApplyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
             <path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>
