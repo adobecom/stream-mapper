@@ -34,7 +34,7 @@ function hideRegenBtn() {
 }
 
 function scheduleHideRegenBtn() {
-  regenState.hideTimer = setTimeout(hideRegenBtn, 350);
+  regenState.hideTimer = setTimeout(hideRegenBtn, 5000);
 }
 
 function cancelHideRegenBtn() {
@@ -116,7 +116,7 @@ function showRegenBtn(el) {
     regenState.target = el;
     const r = el.getBoundingClientRect();
     btn.style.top = `${Math.max(0, r.top - 14)}px`;
-    btn.style.left = `${r.right + 4}px`;
+    btn.style.left = `${r.right - 8}px`;
   }
   btn.classList.add('stream-regen-visible');
 }
@@ -152,18 +152,23 @@ const imgRegenState = {
   overlay: null,
   target: null,
   hideTimer: null,
+  onImgLeave: null,
 };
 
 function hideImgRegenBtn() {
   imgRegenState.hideTimer = null;
   if (imgRegenState.btn) imgRegenState.btn.classList.remove('stream-img-regen-visible');
   if (!imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) {
+    if (imgRegenState.target && imgRegenState.onImgLeave) {
+      imgRegenState.target.removeEventListener('mouseleave', imgRegenState.onImgLeave);
+      imgRegenState.onImgLeave = null;
+    }
     imgRegenState.target = null;
   }
 }
 
 function scheduleHideImgRegenBtn() {
-  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 200);
+  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 5000);
 }
 
 function cancelHideImgRegenBtn() {
@@ -310,11 +315,23 @@ function showImgRegenBtn(img) {
   if (!document.body.classList.contains('annotation-asset-select-mode')) return;
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
-  imgRegenState.target = img;
+  if (imgRegenState.target !== img) {
+    if (imgRegenState.target) {
+      imgRegenState.target.removeEventListener('mouseleave', imgRegenState.onImgLeave);
+    }
+    imgRegenState.target = img;
+    imgRegenState.onImgLeave = (e) => {
+      const to = e.relatedTarget;
+      const { btn } = imgRegenState;
+      if (btn && (to === btn || btn.contains(to))) return;
+      scheduleHideImgRegenBtn();
+    };
+    img.addEventListener('mouseleave', imgRegenState.onImgLeave);
+  }
   const { btn } = imgRegenState;
   const r = img.getBoundingClientRect();
   btn.style.top = `${Math.max(0, r.top - 14)}px`;
-  btn.style.left = `${r.right + 4}px`;
+  btn.style.left = `${r.right - 8}px`;
   btn.classList.add('stream-img-regen-visible');
 }
 
@@ -335,17 +352,26 @@ function attachImageRegenHandlers() {
     showImgRegenBtn(img);
   });
 
-  main.addEventListener('mouseout', (e) => {
-    const to = e.relatedTarget;
-    if (imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
-    if (imgRegenState.btn && (to === imgRegenState.btn || imgRegenState.btn.contains(to))) return;
-    scheduleHideImgRegenBtn();
-  });
-
   window.addEventListener('scroll', () => {
     hideImgRegenBtn();
     hideImgPromptOverlay();
   }, { passive: true });
+}
+
+function attachModeObserver() {
+  let hadTextMode = document.body.classList.contains('annotation-inline-edit-mode');
+  let hadImgMode = document.body.classList.contains('annotation-asset-select-mode');
+
+  new MutationObserver(() => {
+    const hasTextMode = document.body.classList.contains('annotation-inline-edit-mode');
+    const hasImgMode = document.body.classList.contains('annotation-asset-select-mode');
+
+    if (hadTextMode && !hasTextMode) hideRegenBtn();
+    if (hadImgMode && !hasImgMode) { hideImgRegenBtn(); hideImgPromptOverlay(); }
+
+    hadTextMode = hasTextMode;
+    hadImgMode = hasImgMode;
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
 // ---------------------------------------------------------------------------
@@ -355,4 +381,5 @@ function attachImageRegenHandlers() {
 export default function attachRegenHandlers() {
   attachContentRegenHandlers();
   attachImageRegenHandlers();
+  attachModeObserver();
 }
