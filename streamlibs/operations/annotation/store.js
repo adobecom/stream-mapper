@@ -435,14 +435,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origWrapper = document.createElement('div');
     origWrapper.innerHTML = `<main>${html || ''}</main>`;
     const origMainEl = origWrapper.querySelector('main');
-
-    // eslint-disable-next-line no-console
-    console.log('[applyEasyEdits] total edits:', easyEdits.length, easyEdits.map((e) => ({
-      type: e?.editType,
-      viewport: e?.viewport,
-      blockClass: e?.blockClass,
-      blockGlobalIndex: e?.blockGlobalIndex,
-    })));
     easyEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
 
@@ -456,19 +448,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           ?? edit.elementProps?.blockGlobalIndex
           ?? -1;
 
-        // eslint-disable-next-line no-console
-        console.log('[applyEasyEdits] image-src', {
-          fromSrc, toSrc, imgBlockClass, imgBlockGlobalIndex, viewport: edit.viewport,
-        });
-
         if (imgBlockClass && imgBlockGlobalIndex >= 0) {
           const wrapper = document.createElement('div');
           wrapper.innerHTML = `<main>${updatedHtml}</main>`;
           const mainEl = wrapper.querySelector('main');
           const targetBlock = findBlockInDaHtml(mainEl, imgBlockClass, imgBlockGlobalIndex);
-          // eslint-disable-next-line no-console
-          console.log('[applyEasyEdits] image-src block found:', !!targetBlock);
-
           if (targetBlock) {
             const currentBlockHtml = targetBlock.outerHTML;
 
@@ -488,20 +472,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             if (storedIdx !== null && storedIdx >= 0 && storedIdx < origCandidates.length) {
               origTarget = origCandidates[storedIdx];
               // eslint-disable-next-line no-console
-              console.log('[applyEasyEdits] image-src stored picIndexInBlock:', storedIdx);
             } else {
               const picIdx = getViewportOccurrenceIndex(
                 origCandidates.length || 1,
                 edit.viewport,
               );
               origTarget = origCandidates[picIdx] || null;
-              // eslint-disable-next-line no-console
-              console.log(
-                '[applyEasyEdits] image-src fallback orig count:',
-                origCandidates.length,
-                'picIdx:',
-                picIdx,
-              );
             }
 
             // Map original target → absolute index → picture in current (modified) block
@@ -524,8 +500,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
               const newBlk = replaceNthOccurrence(blk, curEl, newEl, nth);
               if (newBlk !== blk) {
                 updatedHtml = replaceFirstOccurrence(updatedHtml, blk, newBlk);
-                // eslint-disable-next-line no-console
-                console.log('[applyEasyEdits] image-src replaced absIdx:', absIdx, 'nth:', nth);
               }
             }
           }
@@ -549,18 +523,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           ?? edit.elementProps?.blockGlobalIndex
           ?? -1;
 
-        // eslint-disable-next-line no-console
-        console.log('[applyEasyEdits] image-alt', {
-          fromAlt, toAlt, altBlockClass, altBlockGlobalIndex,
-        });
-
         if (altBlockClass && altBlockGlobalIndex >= 0) {
           const wrapper = document.createElement('div');
           wrapper.innerHTML = `<main>${updatedHtml}</main>`;
           const mainEl = wrapper.querySelector('main');
           const targetBlock = findBlockInDaHtml(mainEl, altBlockClass, altBlockGlobalIndex);
-          // eslint-disable-next-line no-console
-          console.log('[applyEasyEdits] image-alt block found:', !!targetBlock);
           if (targetBlock) {
             const originalBlockHtml = targetBlock.outerHTML;
             const dqAttr = `alt="${fromAlt}"`;
@@ -573,12 +540,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
               const altIdx = getViewportOccurrenceIndex(altCount, edit.viewport);
               const toAttr = attrStr.startsWith('alt="') ? `alt="${toAlt}"` : `alt='${toAlt}'`;
               const newBlockHtml = replaceNthOccurrence(originalBlockHtml, attrStr, toAttr, altIdx);
-              // eslint-disable-next-line no-console
-              console.log('[applyEasyEdits] image-alt count:', altCount, 'idx:', altIdx);
               if (newBlockHtml !== originalBlockHtml) {
                 updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
-                // eslint-disable-next-line no-console
-                console.log('[applyEasyEdits] image-alt replaced');
               }
             }
           }
@@ -603,23 +566,11 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         ?? edit.elementProps?.blockGlobalIndex
         ?? -1;
 
-      // eslint-disable-next-line no-console
-      console.log('[applyEasyEdits] text/html edit', {
-        editType: edit.editType,
-        fromText,
-        toText,
-        fromHtml: fromHtml.slice(0, 80),
-        blockClass,
-        blockGlobalIndex,
-      });
-
       if (blockClass && blockGlobalIndex >= 0) {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = `<main>${updatedHtml}</main>`;
         const mainEl = wrapper.querySelector('main');
         const targetBlock = findBlockInDaHtml(mainEl, blockClass, blockGlobalIndex);
-        // eslint-disable-next-line no-console
-        console.log('[applyEasyEdits] block found:', !!targetBlock, 'fromHtml match:', !!targetBlock && fromHtml ? targetBlock.outerHTML.includes(fromHtml) : false, 'fromText match:', !!targetBlock && fromText ? targetBlock.outerHTML.includes(fromText) : false);
 
         if (targetBlock) {
           const originalBlockHtml = targetBlock.outerHTML;
@@ -629,8 +580,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             const repl = toHtml || fromHtml;
             const newBlockHtml = replaceNthOccurrence(originalBlockHtml, fromHtml, repl, htmlIdx);
             updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
-            // eslint-disable-next-line no-console
-            console.log('[applyEasyEdits] replaced via fromHtml in block, count:', htmlCount, 'idx:', htmlIdx);
             return;
           }
           if (fromText && originalBlockHtml.includes(fromText)) {
@@ -638,21 +587,15 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             const textIdx = getViewportOccurrenceIndex(textCount, edit.viewport);
             const newBlockHtml = replaceNthOccurrence(originalBlockHtml, fromText, toText, textIdx);
             updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
-            // eslint-disable-next-line no-console
-            console.log('[applyEasyEdits] replaced via fromText in block, count:', textCount, 'idx:', textIdx);
             return;
           }
         }
-        // eslint-disable-next-line no-console
-        console.log('[applyEasyEdits] block scoped — content not found, skipping');
         return;
       }
 
       // No positional info: fallback string matching
       if (fromHtml) {
         const replaced = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
-        // eslint-disable-next-line no-console
-        console.log('[applyEasyEdits] fallback fromHtml match:', replaced !== updatedHtml);
         if (replaced !== updatedHtml) { updatedHtml = replaced; return; }
         // fromHtml didn't match cachedCleanHtml, fall through to fromText
       }
