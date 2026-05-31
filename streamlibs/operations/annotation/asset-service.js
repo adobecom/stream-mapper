@@ -1,11 +1,5 @@
 import { hideGlobalSyncIndicator, showGlobalSyncIndicator } from '../../utils/snackbar.js';
-import { normalizeToken } from './service.js';
-
-export function getAnnotationCollabId() {
-  const cfg = window.streamConfig || {};
-  const collabId = cfg.collabId ?? cfg.collab_id;
-  return `${collabId || ''}`.trim();
-}
+import { getAnnotationCollabId, normalizeToken } from './service.js';
 
 export default function createAssetServiceClient() {
   async function assetServiceFetch(path, options = {}) {
