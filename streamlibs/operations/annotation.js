@@ -57,8 +57,9 @@ export async function setupCollabSpace() {
     const collabUrl = `${targetHierarchy[0]}/${targetHierarchy[1]}/drafts/collab/${collabId}/${targetHierarchy[targetHierarchy.length - 1]}`;
     const collabSpaceExists = await daPageExists(collabUrl);
     if (!collabSpaceExists) {
-      if (copyDaPage(window.streamConfig.targetUrl, collabUrl)) {
+      if (await copyDaPage(window.streamConfig.targetUrl, collabUrl)) {
         window.streamConfig.draftLocation = collabUrl;
+        await new Promise((resolve) => { setTimeout(resolve, 30000); });
       }
     } else {
       window.streamConfig.draftLocation = collabUrl;
