@@ -147,7 +147,10 @@
 main div.fragment {
     position: relative;
     pointer-events: none;
-    opacity: 0.78;
+}
+
+main div.fragment div {
+    filter: blur(2px);
 }
 
 main div.fragment::before {
@@ -162,8 +165,7 @@ main div.fragment::before {
     justify-content: center;
     font-size: 40px;
     font-weight: 600;
-    color: #2330da;
+    color: #bed9ff;
     letter-spacing: 0.03em;
     pointer-events: none;
-    opacity: 0.78;
 }
