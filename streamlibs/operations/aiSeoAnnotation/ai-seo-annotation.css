@@ -144,6 +144,12 @@
 
 .stream-img-prompt-submit:hover:not(:disabled) { background: #1e40af; }
 
+main div.fragment {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.78;
+}
+
 main div.fragment::before {
     content: 'Fragment edit blocked';
     position: absolute;
@@ -158,4 +164,6 @@ main div.fragment::before {
     font-weight: 600;
     color: #2330da;
     letter-spacing: 0.03em;
+    pointer-events: none;
+    opacity: 0.78;
 }
