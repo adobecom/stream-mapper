@@ -59,7 +59,7 @@ export async function setupCollabSpace() {
     if (!collabSpaceExists) {
       if (await copyDaPage(window.streamConfig.targetUrl, collabUrl)) {
         window.streamConfig.draftLocation = collabUrl;
-        await new Promise((resolve) => { setTimeout(resolve, 30000); });
+        await new Promise((resolve) => { setTimeout(resolve, 15000); });
       }
     } else {
       window.streamConfig.draftLocation = collabUrl;
