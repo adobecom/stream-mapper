@@ -1,4 +1,5 @@
 import { BROKEN_PLACEHOLDER_HTML } from './constants.js';
+import { fetchImageAsBase64 } from '../operations/edit/dom.js';
 
 export const [setLibs, getLibs] = (() => {
   let libs;
@@ -139,20 +140,6 @@ export function ackCodeGeneration() {
   return ackCode;
 }
 
-async function fetchImageAsBase64(url, token) {
-  const res = await fetch(url, {
-    headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-  const blob = await res.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 function persistOriginalImageUrl(img, url) {
   if (!url) return;
   img.setAttribute('data-stream-original-src', url);
@@ -172,14 +159,15 @@ export async function transformImages() {
     Array.from(imgs).map(async (img) => {
       const url = img.getAttribute('src');
       if (!url) return;
+      const cleanUrl = url.split('?')[0];
       try {
         const dataUrl = await fetchImageAsBase64(url, window.streamConfig.streamMapper.daToken);
-        persistOriginalImageUrl(img, url);
-        img.src = dataUrl;
+        persistOriginalImageUrl(img, cleanUrl);
+        img.src = dataUrl || cleanUrl;
         const picture = img.closest('picture');
         if (picture) {
           picture.querySelectorAll('source').forEach((source) => {
-            source.srcset = dataUrl;
+            source.srcset = dataUrl || cleanUrl;
           });
         }
       } catch (err) {

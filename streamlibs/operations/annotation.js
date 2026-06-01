@@ -2,10 +2,15 @@
 /* eslint-disable function-paren-newline */
 /* eslint-disable no-restricted-syntax */
 import { fetchFigmaContent } from '../sources/figma.js';
-import { fetchDAContent } from '../sources/da.js';
+import {
+  fetchDAContent,
+  daPageExists,
+  copyDaPage,
+} from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
 import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
+import { fetchImageAsBase64 } from './edit/dom.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
 import createCommentsPanelController from './annotation/comments-panel.js';
@@ -14,6 +19,7 @@ import createAnnotationServiceClient from './annotation/service.js';
 import createAssetServiceClient from './annotation/asset-service.js';
 import createAssetsPanelController from './annotation/assets-panel.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
+import { handleError } from '../utils/error-handler.js';
 
 // ── Module singletons ────────────────────────────────────────────────────────
 
@@ -28,25 +34,6 @@ const assetsPanel = createAssetsPanelController({
   store,
   assetService,
 });
-async function fetchImageAsBase64(url) {
-  const rawToken = window.streamConfig?.streamMapper?.daToken || window.streamConfig?.token || '';
-  const authToken = rawToken && !rawToken.startsWith('Bearer ') ? `Bearer ${rawToken}` : rawToken;
-  try {
-    const res = await fetch(url, authToken ? { headers: { Authorization: authToken } } : {});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('[annotation] Could not fetch image as base64', err);
-    return null;
-  }
-}
-
 const previewUrlCache = new Map();
 
 async function resolvePreviewUrl(url) {
@@ -55,6 +42,29 @@ async function resolvePreviewUrl(url) {
   const b64 = await fetchImageAsBase64(url);
   if (b64) previewUrlCache.set(url, b64);
   return b64 || url;
+}
+
+export async function setupCollabSpace() {
+  if (
+    !window.streamConfig.draftLocation
+    || (window.streamConfig.draftLocation
+    && window.streamConfig.targetUrl
+    && window.streamConfig.draftLocation === window.streamConfig.targetUrl)
+  ) {
+    const { collabId } = window.streamConfig;
+    if (!collabId) handleError('error', ' with setting up the collab');
+    const targetHierarchy = window.streamConfig.targetUrl.split('/');
+    const collabUrl = `${targetHierarchy[0]}/${targetHierarchy[1]}/drafts/collab/${collabId}/${targetHierarchy[targetHierarchy.length - 1]}`;
+    const collabSpaceExists = await daPageExists(collabUrl);
+    if (!collabSpaceExists) {
+      if (await copyDaPage(window.streamConfig.targetUrl, collabUrl)) {
+        window.streamConfig.draftLocation = collabUrl;
+        await new Promise((resolve) => { setTimeout(resolve, 15000); });
+      }
+    } else {
+      window.streamConfig.draftLocation = collabUrl;
+    }
+  }
 }
 
 export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingAlt = '') {
@@ -124,7 +134,7 @@ async function getDADom() {
   }
   if (source === 'da') {
     const cfg = window.streamConfig;
-    const html = await fetchDAContent(cfg.contentUrl || cfg.draftLocation);
+    const html = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
     normalizeDAImages(html);
     return html;
   }
@@ -217,6 +227,23 @@ function resolveBlockInSection(section, blockClass, blockIndex) {
   return divs[blockIndex] ?? null;
 }
 
+function findBlockByGlobalIndex(main, blockClass, blockGlobalIndex) {
+  if (!blockClass || !(blockGlobalIndex >= 0)) return null;
+  const allSimilarBlocks = Array.from(main.children).flatMap((section) => (
+    Array.from(section.children).filter(
+      (child) => child instanceof HTMLElement
+        && Array.from(child.classList || []).find(Boolean) === blockClass,
+    )
+  ));
+  return allSimilarBlocks[blockGlobalIndex] || null;
+}
+
+function findImgInBlock(block) {
+  const pic = block.querySelector('picture');
+  if (pic && pic.querySelector('img')) return pic;
+  return block.querySelector('img');
+}
+
 function findAssetElement(doc, elementPath, elementProps, originalSrc) {
   const main = doc.querySelector('main');
   if (!main) return null;
@@ -234,6 +261,16 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
     ? elementProps.sectionIndex : -1;
   const blockClass = typeof elementProps?.blockClass === 'string' ? elementProps.blockClass : '';
   const blockIndex = typeof elementProps?.blockIndex === 'number' ? elementProps.blockIndex : 0;
+  const blockGlobalIndex = typeof elementProps?.blockGlobalIndex === 'number'
+    ? elementProps.blockGlobalIndex : -1;
+
+  if (blockClass && blockGlobalIndex >= 0) {
+    const block = findBlockByGlobalIndex(main, blockClass, blockGlobalIndex);
+    if (block) {
+      const el = findImgInBlock(block);
+      if (el) return el;
+    }
+  }
 
   if (elementProps && sectionIndex >= 0) {
     const sections = Array.from(main.children).filter((el) => el.tagName === 'DIV');
@@ -295,6 +332,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   container.innerHTML = `<main>${html}</main>`;
 
   for (const asset of assetReplacements) {
+    // Assets with block+globalIndex were already applied viewport-aware in the string phase
+    const assetBc = asset.elementProps?.blockClass;
+    const assetBgi = asset.elementProps?.blockGlobalIndex;
+    if (assetBc && assetBgi != null) continue; // eslint-disable-line no-continue
     const element = findAssetElement(
       container, asset.elementPath, asset.elementProps, asset.originalSrc,
     );
@@ -338,10 +379,22 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   // reliable original src, so they overwrite the assetReplacements pass above.
   const imageSrcEdits = (annotationState.store.easyEdits || [])
     .filter((e) => e?.editType === 'image-src' && e.to);
-  for (const edit of imageSrcEdits) {
-    const element = findAssetElement(container, edit.elementPath, edit.elementProps, edit.from);
-    if (element) replaceAssetUrl(element, edit.to);
-  }
+  // Edits with blockClass+blockGlobalIndex were already applied viewport-aware in the string phase
+  imageSrcEdits
+    .filter((edit) => {
+      const bc = edit.blockClass || edit.elementProps?.blockClass;
+      const bgi = edit.blockGlobalIndex ?? edit.elementProps?.blockGlobalIndex;
+      return !(bc && bgi != null);
+    })
+    .forEach((edit) => {
+      const mergedProps = {
+        ...edit.elementProps,
+        ...(edit.blockClass ? { blockClass: edit.blockClass } : {}),
+        ...(edit.blockGlobalIndex != null ? { blockGlobalIndex: edit.blockGlobalIndex } : {}),
+      };
+      const element = findAssetElement(container, edit.elementPath, mergedProps, edit.from);
+      if (element) replaceAssetUrl(element, edit.to);
+    });
 
   for (const regen of regenReplacements) {
     const regenFilename = extractFilename(regen.originalSrc);
@@ -588,6 +641,16 @@ export async function annotationOperationOnHostPage(options = {}) {
     refreshBaselineHtml = false,
     baselineHtml = null,
   } = options;
+
+  await new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById('page-load-ok-milo')) return;
+      observer.disconnect();
+      resolve();
+    });
+    observer.observe(document.body, { childList: true });
+  });
+
   const { shouldRestoreInlineMode } = prepareAnnotationSession({ preserveRemoteEditState });
 
   const mainEl = document.querySelector('main');
@@ -597,7 +660,7 @@ export async function annotationOperationOnHostPage(options = {}) {
     if (window.streamConfig?.source === 'da') {
       try {
         const cfg = window.streamConfig;
-        const daMain = await fetchDAContent(cfg.contentUrl || cfg.draftLocation);
+        const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
         cachedCleanHtml = daMain?.innerHTML || '';
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
@@ -609,6 +672,26 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+
+  const stripBase64QueryParam = (el) => {
+    const attr = el.tagName === 'SOURCE' ? 'srcset' : 'src';
+    const val = el[attr];
+    if (!val?.includes('base64')) return;
+    const queryIdx = val.indexOf('?');
+    if (queryIdx === -1) return;
+    el[attr] = val.substring(0, queryIdx);
+  };
+
+  const mergedElements = [...document.querySelectorAll('main img, main source')];
+  if (mergedElements.length) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((m) => stripBase64QueryParam(m.target));
+    });
+    mergedElements.forEach((el) => {
+      stripBase64QueryParam(el);
+      observer.observe(el, { attributes: true, attributeFilter: ['src', 'srcset'] });
+    });
+  }
 }
 
 export async function persistAnnotationChangesToDA() {

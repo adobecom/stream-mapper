@@ -15,10 +15,16 @@ const COMMENT_STATUS_BY_SERVICE_STATUS = {
   closed: 'Closed',
 };
 
-function normalizeToken(token) {
+export function normalizeToken(token) {
   const value = `${token || ''}`.trim();
   if (!value) return '';
   return value.startsWith('Bearer ') ? value : `Bearer ${value}`;
+}
+
+export function getAnnotationCollabId() {
+  const cfg = window.streamConfig || {};
+  const collabId = cfg.collabId ?? cfg.collab_id;
+  return `${collabId || ''}`.trim();
 }
 
 function normalizeAnchorElementPath(elementPath) {
@@ -37,12 +43,6 @@ function normalizeAnchorElementPath(elementPath) {
   return {
     selector: `${elementPath || ''}`,
   };
-}
-
-function getAnnotationCollabId() {
-  const cfg = window.streamConfig || {};
-  const collabId = cfg.collabId ?? cfg.collab_id;
-  return `${collabId || ''}`.trim();
 }
 
 function sortComments(comments = []) {
@@ -117,6 +117,7 @@ function normalizeEditRecord(edit) {
     changedTo: `${edit?.changedTo || ''}`,
     updatedAt: edit?.updatedAt || null,
     authorUsername: edit?.authorUsername || edit?.authorName || '',
+    viewport: edit?.viewport || '',
   };
 }
 
