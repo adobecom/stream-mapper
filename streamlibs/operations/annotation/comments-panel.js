@@ -1431,6 +1431,33 @@ export default function createCommentsPanelController({
           }
         }
 
+        const hasPending = !!group.comment?.hasPendingHistory || !group.comment?.isCommitted;
+        if (!isCommentThread && group.comment?.isCurrent && hasPending) {
+          const discardBtn = document.createElement('button');
+          discardBtn.type = 'button';
+          discardBtn.className = 'annotation-panel-edit-discard-btn';
+          discardBtn.title = 'Discard last local change';
+          discardBtn.setAttribute('aria-label', 'Discard last local change');
+          discardBtn.textContent = 'Discard';
+          discardBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const result = store.undoLastChange(thread.id);
+            if (!result) return;
+            store.applyEasyEditsToDom();
+            store.saveAnnotationStore();
+            renderThreadMarkers({ resolveTargets: true });
+            renderCommentsPanel();
+          });
+          if (!cardHeader.querySelector('.annotation-panel-status-controls')) {
+            const controls = document.createElement('div');
+            controls.className = 'annotation-panel-status-controls';
+            controls.append(discardBtn);
+            cardHeader.append(controls);
+          } else {
+            cardHeader.querySelector('.annotation-panel-status-controls').append(discardBtn);
+          }
+        }
+
         card.append(cardHeader);
 
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;

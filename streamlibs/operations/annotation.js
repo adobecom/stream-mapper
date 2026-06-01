@@ -733,13 +733,13 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
 
-  const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  const { easyEdits } = buildHtmlWithEditsAndAssets(assetReplacements);
+  const savePayload = store.buildSavePayload();
+  const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
   if (annotationService.isAvailable()) {
-    const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
+    const persistedEditSnapshot = await annotationService.saveEdits(savePayload);
     if (persistedEditSnapshot) {
-      store.replaceEasyEdits(persistedEditSnapshot.editRecord);
+      store.clearChangeHistoryAfterSave(savedEditIds);
       annotationState.latestSavedEditsUpdatedAt = persistedEditSnapshot.updatedAt
         || persistedEditSnapshot.createdAt
         || null;

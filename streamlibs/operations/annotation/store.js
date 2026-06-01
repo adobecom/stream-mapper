@@ -199,10 +199,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       updatedAt: edit.updatedAt || new Date().toISOString(),
       authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
       changeHistory: Array.isArray(edit.changeHistory) ? edit.changeHistory : [],
+      isCommitted: !!edit.isCommitted,
     };
   }
 
   function getReviewId() {
+    const collabId = window.streamConfig?.collabId;
+    if (collabId !== null && collabId !== undefined && `${collabId}`.trim()) {
+      return `collab:${`${collabId}`.trim()}`;
+    }
+
     const streamConfigReviewId = window.streamConfig?.reviewId;
     if (streamConfigReviewId !== null && streamConfigReviewId !== undefined && `${streamConfigReviewId}`.trim()) {
       return `${streamConfigReviewId}`.trim();
@@ -280,6 +286,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         }),
         kind: 'comment',
         createdAt: entry.updatedAt || null,
+        historyIndex: i,
       });
       prevTo = entry.to;
       prevToHtml = entry.toHtml || '';
@@ -288,10 +295,19 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     messages.push({
       id: `${normalizedEdit.id}-message`,
       username: authorUsername,
-      text: getEditPanelMessage(normalizedEdit),
+      text: getEditPanelMessage({
+        ...normalizedEdit,
+        from: prevTo,
+        fromHtml: prevToHtml,
+      }),
       kind: 'comment',
       createdAt: normalizedEdit.updatedAt || null,
+      isCurrent: true,
+      isCommitted: !!normalizedEdit.isCommitted,
+      hasPendingHistory: history.length > 0,
     });
+
+    messages.reverse();
 
     return {
       id: normalizedEdit.id,
@@ -307,7 +323,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function rebuildEditThreadsFromEasyEdits() {
     const nextEditThreads = annotationState.store.easyEdits
-      .filter((edit) => edit && typeof edit === 'object' && edit.editType !== 'image-src')
+      .filter((edit) => (
+        edit
+        && typeof edit === 'object'
+        && edit.editType !== 'image-src'
+        && (edit.from !== edit.to || (Array.isArray(edit.changeHistory) && edit.changeHistory.length > 0))
+      ))
       .map((edit) => buildEditThreadFromEasyEdit(edit));
     const preservedThreads = annotationState.store.threads.filter(
       (thread) => (thread?.threadType || 'comment') !== 'edit',
@@ -597,7 +618,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       if (fromHtml) {
         const replaced = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
         if (replaced !== updatedHtml) { updatedHtml = replaced; return; }
-        // fromHtml didn't match cachedCleanHtml, fall through to fromText
       }
       if (fromText) {
         updatedHtml = replaceFirstOccurrence(updatedHtml, fromText, toText);
@@ -1160,6 +1180,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         // Preserve the viewport from when the edit was first created; don't let a
         // sync/update re-evaluate window.innerWidth at push time.
         viewport: editRecord.viewport || existing.viewport || normalizedEditRecord.viewport,
+        isCommitted: false,
       };
       const didPruneNestedEdits = pruneNestedTextEasyEdits();
       if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
@@ -1171,11 +1192,67 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return resolveStoredEasyEdit(normalizedEditRecord);
   }
 
+  function findEasyEditIndex(easyEditId) {
+    if (!easyEditId) return -1;
+    return annotationState.store.easyEdits.findIndex((edit) => edit?.id === easyEditId);
+  }
+
+  function undoLastChange(easyEditId) {
+    const index = findEasyEditIndex(easyEditId);
+    if (index < 0) return null;
+    const edit = annotationState.store.easyEdits[index];
+    const history = Array.isArray(edit.changeHistory) ? [...edit.changeHistory] : [];
+
+   if (!history.length && edit.from === edit.to) return null;
+    if (!history.length && edit.isCommitted) return null;
+
+    let previousTo;
+    let previousToHtml;
+    if (history.length) {
+      const popped = history.pop();
+      previousTo = popped?.to ?? edit.from;
+      previousToHtml = popped?.toHtml || '';
+    } else {
+      previousTo = edit.from;
+      previousToHtml = edit.fromHtml;
+    }
+
+    annotationState.store.easyEdits[index] = {
+      ...edit,
+      to: `${previousTo ?? ''}`,
+      toHtml: `${previousToHtml ?? ''}`,
+      changeHistory: history,
+      updatedAt: new Date().toISOString(),
+    };
+    rebuildEditThreadsFromEasyEdits();
+    return annotationState.store.easyEdits[index];
+  }
+
+  function clearChangeHistoryAfterSave(savedEditIds = null) {
+    const savedIdSet = Array.isArray(savedEditIds) && savedEditIds.length
+      ? new Set(savedEditIds)
+      : null;
+    annotationState.store.easyEdits = annotationState.store.easyEdits.map((edit) => {
+      if (savedIdSet && !savedIdSet.has(edit?.id)) return edit;
+      return { ...edit, changeHistory: [], isCommitted: true };
+    });
+    rebuildEditThreadsFromEasyEdits();
+  }
+
+  function buildSavePayload() {
+    return annotationState.store.easyEdits
+      .filter((edit) => edit && (edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '')))
+      .map((edit) => {
+        const { changeHistory, ...rest } = edit;
+        return rest;
+      });
+  }
+
   function replaceEasyEdits(nextEasyEdits = []) {
     annotationState.store.easyEdits = Array.isArray(nextEasyEdits)
       ? nextEasyEdits
         .filter((edit) => edit && typeof edit === 'object')
-        .map((edit) => normalizeEasyEdit(edit))
+        .map((edit) => ({ ...normalizeEasyEdit(edit), isCommitted: true }))
       : [];
     const didPruneNestedEdits = pruneNestedTextEasyEdits();
     if (!didPruneNestedEdits) rebuildEditThreadsFromEasyEdits();
@@ -1371,5 +1448,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     saveAnnotationStore,
     upsertThread,
     upsertEasyEdit,
+    undoLastChange,
+    clearChangeHistoryAfterSave,
+    buildSavePayload,
   };
 }

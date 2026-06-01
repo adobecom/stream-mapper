@@ -854,6 +854,24 @@ body.annotation-mode main::-webkit-scrollbar {
   fill: currentcolor;
 }
 
+.annotation-panel-edit-discard-btn {
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.annotation-panel-edit-discard-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
 .annotation-panel-edit-form {
   display: flex;
   flex-direction: column;
