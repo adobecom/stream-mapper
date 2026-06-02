@@ -570,7 +570,7 @@ body.annotation-mode main::-webkit-scrollbar {
   border-left: 4px solid #3b82f6;
   border-radius: 10px;
   background: #fff;
-  padding: 9px 10px;
+  padding: 10px 11px;
   cursor: pointer;
   position: relative;
 }
@@ -657,7 +657,7 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .annotation-panel-comment-user {
@@ -870,6 +870,71 @@ body.annotation-mode main::-webkit-scrollbar {
   background: #fee2e2;
   border-color: #fca5a5;
   transform: translateY(-1px);
+}
+
+.annotation-panel-cancel-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #6b7280;
+  opacity: 0.75;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 1;
+  line-height: 0;
+}
+
+.annotation-panel-cancel-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.annotation-panel-edit-item .annotation-panel-cancel-btn {
+  color: #b45309;
+}
+
+.annotation-panel-asset-item .annotation-panel-cancel-btn {
+  color: #047857;
+}
+
+.annotation-panel-asset-item .annotation-panel-comment-user {
+  margin-bottom: 4px;
+}
+
+.annotation-panel-block-label {
+  display: block;
+  margin: 0 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.annotation-arrow-icon {
+  width: 15px;
+  height: 15px;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+.annotation-asset-arrow {
+  display: inline;
+}
+
+.annotation-panel-block-label-asset {
+  color: #047857;
+}
+
+.annotation-panel-block-label-edit {
+  color: #b45309;
 }
 
 .annotation-panel-edit-form {
@@ -1524,11 +1589,22 @@ body.annotation-asset-select-mode main img:hover {
 .annotation-asset-card-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 6px;
   margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid #d1fae5;
+}
+
+.annotation-card-timestamp {
+  margin: 8px 0 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #9ca3af;
+  text-align: right;
+}
+
+.annotation-asset-card-footer .annotation-card-timestamp {
+  margin: 0;
+  margin-left: auto;
 }
 
 .annotation-asset-status {
@@ -1573,15 +1649,7 @@ body.annotation-asset-select-mode main img:hover {
 }
 
 .annotation-asset-card-local::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f97316;
-  box-shadow: 0 0 0 2px rgb(249 115 22 / 25%);
+  content: none;
 }
 
 .annotation-asset-from-to {

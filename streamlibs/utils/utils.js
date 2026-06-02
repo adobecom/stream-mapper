@@ -93,6 +93,21 @@ export function divSwap(blockContent, divSelector, divSelector2) {
 
 export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(acc), initialArg);
 
+export const ARROW_ICON_SVG = '<svg class="annotation-arrow-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M17.7686 9.48437L14.7632 6.47949C14.4702 6.18652 13.9956 6.18652 13.7026 6.47949C13.4097 6.77246 13.4097 7.24707 13.7026 7.54004L15.413 9.25H2.75C2.33594 9.25 2 9.58594 2 10C2 10.4141 2.33594 10.75 2.75 10.75H15.4425L13.7026 12.4902C13.4097 12.7832 13.4097 13.2578 13.7026 13.5508C13.8491 13.6973 14.041 13.7705 14.2329 13.7705C14.4248 13.7705 14.6167 13.6973 14.7632 13.5508L17.7685 10.5449C17.9092 10.4043 17.9883 10.2139 17.9883 10.0147C17.9883 9.81543 17.9092 9.62499 17.7686 9.48437Z" fill="currentColor"/></svg>';
+
+export function formatCardTimestamp(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n) => `${n}`.padStart(2, '0');
+  const dd = pad(date.getDate());
+  const mm = pad(date.getMonth() + 1);
+  const yyyy = date.getFullYear();
+  const hh = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
 export const getFirstType = (text) => {
   if (!text) {
     return 'neither';

@@ -10,6 +10,7 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
+import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
 
 const MAX_LINK_DISPLAY_LENGTH = 60;
 
@@ -1433,13 +1434,13 @@ export default function createCommentsPanelController({
 
         const hasPending = !!group.comment?.hasPendingHistory || !group.comment?.isCommitted;
         if (!isCommentThread && group.comment?.isCurrent && hasPending) {
-          const discardBtn = document.createElement('button');
-          discardBtn.type = 'button';
-          discardBtn.className = 'annotation-panel-edit-discard-btn';
-          discardBtn.title = 'Discard last local change';
-          discardBtn.setAttribute('aria-label', 'Discard last local change');
-          discardBtn.textContent = 'Discard';
-          discardBtn.addEventListener('click', (event) => {
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'annotation-panel-cancel-btn';
+          cancelBtn.title = 'Discard last local change';
+          cancelBtn.setAttribute('aria-label', 'Discard last local change');
+          cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
+          cancelBtn.addEventListener('click', (event) => {
             event.stopPropagation();
             const result = store.undoLastChange(thread.id);
             if (!result) return;
@@ -1448,14 +1449,7 @@ export default function createCommentsPanelController({
             renderThreadMarkers({ resolveTargets: true });
             renderCommentsPanel();
           });
-          if (!cardHeader.querySelector('.annotation-panel-status-controls')) {
-            const controls = document.createElement('div');
-            controls.className = 'annotation-panel-status-controls';
-            controls.append(discardBtn);
-            cardHeader.append(controls);
-          } else {
-            cardHeader.querySelector('.annotation-panel-status-controls').append(discardBtn);
-          }
+          card.append(cancelBtn);
         }
 
         card.append(cardHeader);
@@ -1479,7 +1473,19 @@ export default function createCommentsPanelController({
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
-          text.innerHTML = linkifyText(group.comment.text);
+          const blockClass = !isCommentThread ? (thread.elementProps?.blockClass || '') : '';
+          if (blockClass) {
+            const blockLabel = document.createElement('span');
+            blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-edit';
+            blockLabel.textContent = blockClass;
+            text.append(blockLabel);
+          }
+          const textBody = document.createElement('span');
+          const linkified = linkifyText(group.comment.text);
+          textBody.innerHTML = isCommentThread
+            ? linkified
+            : linkified.replace(/→/g, ARROW_ICON_SVG);
+          text.append(textBody);
           card.append(text);
         }
 
@@ -1562,6 +1568,16 @@ export default function createCommentsPanelController({
               replyInput.value = getPanelReplyDraft(thread.id, group.comment.id || '');
             }
             card.append(replyComposer);
+          }
+        }
+
+        if (!isCommentThread) {
+          const timestamp = formatCardTimestamp(group.comment.createdAt || thread.updatedAt);
+          if (timestamp) {
+            const time = document.createElement('p');
+            time.className = 'annotation-card-timestamp';
+            time.textContent = timestamp;
+            card.append(time);
           }
         }
 

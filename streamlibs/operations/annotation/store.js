@@ -247,10 +247,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     if (edit.editType === 'image-src') {
       const fromLabel = truncateInlineEditText(edit.from, 40);
       const toLabel = edit.to ? truncateInlineEditText(edit.to, 40) : 'pending upload';
-      return `replaced image src "${fromLabel}" -> "${toLabel}"`;
+      return `replaced image src "${fromLabel}" → "${toLabel}"`;
     }
     if (edit.editType === 'image-alt') {
-      return `changed alt "${truncateInlineEditText(edit.from, 40)}" -> "${truncateInlineEditText(edit.to, 40)}"`;
+      return `changed alt "${truncateInlineEditText(edit.from, 40)}" → "${truncateInlineEditText(edit.to, 40)}"`;
     }
     if (
       edit.editType === 'text'
@@ -261,7 +261,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     ) {
       return `updated formatting for "${truncateInlineEditText(edit.to || edit.from)}"`;
     }
-    return `changed "${truncateInlineEditText(edit.from)}" -> "${truncateInlineEditText(edit.to)}"`;
+    return `"${truncateInlineEditText(edit.from)}" → "${truncateInlineEditText(edit.to)}"`;
   }
 
   function buildEditThreadFromEasyEdit(edit) {
