@@ -200,6 +200,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
       changeHistory: Array.isArray(edit.changeHistory) ? edit.changeHistory : [],
       isCommitted: !!edit.isCommitted,
+      // In-memory key into the asset File/base64 maps for an unsaved image edit.
+      // Not persisted to the backend (stripped in buildSavePayload).
+      assetFileKey: edit.assetFileKey || '',
     };
   }
 
@@ -1206,8 +1209,24 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     if (index > -1) {
       const existing = annotationState.store.easyEdits[index];
       const history = [...(existing.changeHistory || [])];
-      if (existing.to !== normalizedEditRecord.to) {
-        history.push({ to: existing.to, toHtml: existing.toHtml, updatedAt: existing.updatedAt });
+      const isImageEdit = normalizedEditRecord.editType === 'image-src'
+        || normalizedEditRecord.editType === 'image-alt'
+        || existing.editType === 'image-src'
+        || existing.editType === 'image-alt';
+      // For image edits the value is the picture (tracked via assetFileKey/to), so
+      // record a step when either the file or the URL changes — including the
+      // pre-save case where `to` stays '' but a new file was uploaded.
+      const valueChanged = isImageEdit
+        ? (existing.to !== normalizedEditRecord.to
+          || (existing.assetFileKey || '') !== (normalizedEditRecord.assetFileKey || ''))
+        : (existing.to !== normalizedEditRecord.to);
+      if (valueChanged) {
+        history.push({
+          to: existing.to,
+          toHtml: existing.toHtml,
+          fileKey: existing.assetFileKey || '',
+          updatedAt: existing.updatedAt,
+        });
       }
       annotationState.store.easyEdits[index] = {
         ...existing,
@@ -1246,10 +1265,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
     let previousTo;
     let previousToHtml;
+    let previousFileKey = '';
     if (history.length) {
       const popped = history.pop();
       previousTo = popped?.to ?? edit.from;
       previousToHtml = popped?.toHtml || '';
+      previousFileKey = popped?.fileKey || '';
     } else {
       previousTo = edit.from;
       previousToHtml = edit.fromHtml;
@@ -1259,6 +1280,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       ...edit,
       to: `${previousTo ?? ''}`,
       toHtml: `${previousToHtml ?? ''}`,
+      assetFileKey: previousFileKey,
       changeHistory: history,
       updatedAt: new Date().toISOString(),
     };
@@ -1288,7 +1310,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         return edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '');
       })
       .map((edit) => {
-        const { changeHistory, ...rest } = edit;
+        const { changeHistory, assetFileKey, ...rest } = edit;
         return rest;
       });
   }
@@ -1394,6 +1416,34 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   const easyEditOriginalByElement = new WeakMap();
 
+  // Asset image data kept in-memory (never serialized): File objects + base64 for
+  // unsaved replacements (by fileKey), plus a base64 cache for saved/original URLs
+  // so cards and discards can show an image without re-fetching it from DA.
+  const assetFileByKey = new Map();
+  const assetBase64ByKey = new Map();
+  const assetBase64ByUrl = new Map();
+
+  function registerAssetFile(fileKey, file, base64) {
+    if (!fileKey) return;
+    if (file) assetFileByKey.set(fileKey, file);
+    if (base64) assetBase64ByKey.set(fileKey, base64);
+  }
+
+  function cacheAssetUrlBase64(url, base64) {
+    if (url && base64) assetBase64ByUrl.set(url, base64);
+  }
+
+  function getAssetFile(fileKey) {
+    return fileKey ? assetFileByKey.get(fileKey) || null : null;
+  }
+
+  // Resolve a displayable image src for an edit step descriptor { to, fileKey }.
+  function getAssetPreviewSrc({ to = '', fileKey = '' } = {}) {
+    if (fileKey && assetBase64ByKey.has(fileKey)) return assetBase64ByKey.get(fileKey);
+    if (to && assetBase64ByUrl.has(to)) return assetBase64ByUrl.get(to);
+    return to || '';
+  }
+
   function getEasyEditOriginalForElement(element) {
     if (!(element instanceof HTMLElement)) return null;
     return easyEditOriginalByElement.get(element) || null;
@@ -1492,8 +1542,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     getElementByThreadPath,
     getEasyEditByElement,
     getEasyEditOriginalForElement,
+    registerAssetFile,
+    cacheAssetUrlBase64,
+    getAssetFile,
+    getAssetPreviewSrc,
     getElementByRef,
     getElementForThread,
+    getElementForEdit,
     getStoredAnnotationPayload,
     getThreadByElementPath,
     getThreadByElementRef,

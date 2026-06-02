@@ -104,6 +104,15 @@ export default function createAssetsPanelController({
     renderAssetMarkers();
   }
 
+  function buildAssetThumb(src, alt) {
+    const img = document.createElement('img');
+    img.className = 'annotation-asset-thumb';
+    img.alt = alt || '';
+    img.loading = 'lazy';
+    if (src) img.src = src;
+    return img;
+  }
+
   function buildLocalAssetCard(localAsset) {
     const card = document.createElement('article');
     card.className = 'annotation-panel-comment annotation-panel-asset-item annotation-asset-card-local';
@@ -113,10 +122,10 @@ export default function createAssetsPanelController({
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.className = 'annotation-panel-cancel-btn';
-    cancelBtn.setAttribute('aria-label', 'Remove this asset');
-    cancelBtn.title = 'Remove';
+    cancelBtn.setAttribute('aria-label', 'Discard last image change');
+    cancelBtn.title = 'Discard last change';
     cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
-    cancelBtn.addEventListener('click', () => removeLocalAsset(localAsset.localId));
+    cancelBtn.addEventListener('click', () => discardLastAssetStep(localAsset));
     card.appendChild(cancelBtn);
 
     const username = document.createElement('p');
@@ -133,21 +142,25 @@ export default function createAssetsPanelController({
       blockLabel.textContent = blockClass;
       text.appendChild(blockLabel);
     }
+    const fromSrc = store.getAssetPreviewSrc({ to: localAsset.originalSrc }) || localAsset.originalSrc || '';
+    const toSrc = localAsset.base64Data || '';
     const fromLink = document.createElement('a');
     fromLink.href = localAsset.originalSrc || '#';
-    fromLink.textContent = 'From Image';
+    fromLink.title = 'From image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
-    fromLink.className = 'annotation-asset-link';
+    fromLink.className = 'annotation-asset-link annotation-asset-thumb-link';
+    fromLink.appendChild(buildAssetThumb(fromSrc, 'From image'));
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
-    toLink.href = localAsset.base64Data || localAsset.filename || '#';
-    toLink.textContent = 'To Image';
+    toLink.href = toSrc || localAsset.filename || '#';
+    toLink.title = 'To image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
-    toLink.className = 'annotation-asset-link';
+    toLink.className = 'annotation-asset-link annotation-asset-thumb-link';
+    toLink.appendChild(buildAssetThumb(toSrc, 'To image'));
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -186,21 +199,28 @@ export default function createAssetsPanelController({
       blockLabel.textContent = blockClass;
       text.appendChild(blockLabel);
     }
+    // Prefer cached base64 for the saved URL so we don't refetch from DA; fall back
+    // to loading the content.da.live URL directly.
+    const fromSrc = store.getAssetPreviewSrc({ to: asset.originalSrc }) || asset.originalSrc || '';
+    const toSrc = asset._base64Data
+      || store.getAssetPreviewSrc({ to: asset.daUrl }) || asset.daUrl || '';
     const fromLink = document.createElement('a');
     fromLink.href = asset.originalSrc || '#';
-    fromLink.textContent = 'From Image';
+    fromLink.title = 'From image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
-    fromLink.className = 'annotation-asset-link';
+    fromLink.className = 'annotation-asset-link annotation-asset-thumb-link';
+    fromLink.appendChild(buildAssetThumb(fromSrc, 'From image'));
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
     toLink.href = asset.daUrl || asset.filename || '#';
-    toLink.textContent = 'To Image';
+    toLink.title = 'To image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
-    toLink.className = 'annotation-asset-link';
+    toLink.className = 'annotation-asset-link annotation-asset-thumb-link';
+    toLink.appendChild(buildAssetThumb(toSrc, 'To image'));
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -356,7 +376,11 @@ export default function createAssetsPanelController({
 
     // Track the replacement in the edit changelist right away (parity with text).
     // `from` stays the true original; `to` is empty until Save assigns the
-    // content.da.live URL. The File itself lives on the localAsset (in-memory only).
+    // content.da.live URL. The File + base64 live in the in-memory asset maps keyed
+    // by assetFileKey, so each replacement becomes a recoverable history step.
+    const assetFileKey = store.generateId('asset-file');
+    store.registerAssetFile(assetFileKey, file, base64Data);
+    localAsset.assetFileKey = assetFileKey;
     store.upsertEasyEdit({
       editType: 'image-src',
       elementPath,
@@ -366,6 +390,7 @@ export default function createAssetsPanelController({
       to: '',
       fromHtml: '',
       toHtml: '',
+      assetFileKey,
     });
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
@@ -393,6 +418,53 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.delete(localId);
 
     annotationState.store.localAssets.splice(idx, 1);
+    notifyAssetsChanged();
+  }
+
+  function setAssetImgPreview(targetImg, src) {
+    if (!targetImg || !src) return;
+    targetImg.src = src;
+    if (targetImg.srcset) targetImg.srcset = src;
+    const pictureEl = targetImg.closest('picture');
+    if (pictureEl) {
+      pictureEl.querySelectorAll('source').forEach((source) => { source.srcset = src; });
+    }
+  }
+
+  // Discard goes back ONE step in the image edit's history (parity with text edits):
+  // e.g. after Asset1→Asset2(saved)→Asset3, discarding restores Asset2, not Asset1.
+  // Only when there is no prior step does it fall back to the original image.
+  function discardLastAssetStep(localAsset) {
+    const { elementPath, elementProps, elementRef } = localAsset;
+    const edit = store.getEasyEditByElement(elementRef, elementPath, elementProps);
+    if (!edit) {
+      removeLocalAsset(localAsset.localId);
+      return;
+    }
+
+    const result = store.undoLastChange(edit.id);
+
+    // Drop the pending local asset for the step we just left.
+    const superseded = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
+    annotationState.store.localAssets = annotationState.store.localAssets
+      .filter((a) => a.elementPath !== elementPath);
+    superseded.forEach((a) => annotationUI.appliedAssets.delete(a.localId));
+
+    let targetImg = localAsset.targetImg;
+    if (!targetImg) {
+      const el = store.getElementForEdit(edit);
+      targetImg = el?.tagName === 'IMG' ? el : el?.querySelector('img');
+    }
+
+    if (!result || result.from === result.to) {
+      // No prior step left — revert to the original image.
+      if (targetImg) revertAssetPreview(targetImg);
+    } else {
+      const src = store.getAssetPreviewSrc({ to: result.to, fileKey: result.assetFileKey });
+      setAssetImgPreview(targetImg, src);
+    }
+
+    store.saveAnnotationStore();
     notifyAssetsChanged();
   }
 
@@ -622,6 +694,9 @@ export default function createAssetsPanelController({
         }
 
         asset._base64Data = localAsset.base64Data;
+        // Cache the base64 against the saved content.da.live URL so cards/discards
+        // can render this image later without re-fetching it from DA.
+        if (asset.daUrl) store.cacheAssetUrlBase64(asset.daUrl, localAsset.base64Data);
         annotationState.store.assets.push(asset);
 
         const applied = annotationUI.appliedAssets.get(localAsset.localId);
