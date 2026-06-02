@@ -929,6 +929,25 @@ body.annotation-mode main::-webkit-scrollbar {
   display: inline;
 }
 
+.annotation-asset-thumb-link {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.annotation-asset-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.annotation-asset-card-history {
+  opacity: 0.7;
+}
+
 .annotation-panel-block-label-asset {
   color: #047857;
 }

@@ -239,6 +239,11 @@ export default function createInlineEditingController({
       easyEditElementPath,
       editAnchor.elementProps,
     );
+    if (existing
+      && currentText.trim() === `${existing.to || ''}`.trim()
+      && currentHtml === `${existing.toHtml || ''}`) {
+      return;
+    }
     const stampedOriginal = store.getEasyEditOriginalForElement(element);
     const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
     const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;

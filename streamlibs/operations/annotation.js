@@ -544,7 +544,8 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
         to: finalUrl,
         fromHtml: '',
         toHtml: '',
-        updatedAt: new Date().toISOString(),
+        // Keep the original replacement time so panel ordering stays chronological.
+        updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
     }
   }
@@ -727,12 +728,9 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  await persistEditsToDb();
 }
-
-export async function saveAnnotationChanges(reportProgress = () => {}) {
-  await inlineEditing.syncInlineEditsBeforePersist();
-  await uploadAndDecideAssets();
-
+async function persistEditsToDb() {
   const savePayload = store.buildSavePayload();
   const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
@@ -748,8 +746,16 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
       annotationState.hasLoadedInitialEditsSnapshot = true;
     }
   }
-  reportProgress('editsSaved');
   store.saveAnnotationStore();
+}
+
+export async function saveAnnotationChanges(reportProgress = () => {}) {
+  await inlineEditing.syncInlineEditsBeforePersist();
+  await uploadAndDecideAssets();
+  // Save assigns each image edit its content.da.live URL (no DA push here).
+  buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  await persistEditsToDb();
+  reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
 }
 
