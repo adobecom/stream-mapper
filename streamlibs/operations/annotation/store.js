@@ -636,26 +636,27 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
         if (targetBlock) {
           const originalBlockHtml = targetBlock.outerHTML;
+          const beforeBlockReplace = updatedHtml;
           if (fromHtml && originalBlockHtml.includes(fromHtml)) {
             const htmlCount = countOccurrences(originalBlockHtml, fromHtml);
             const htmlIdx = getViewportOccurrenceIndex(htmlCount, edit.viewport);
             const repl = toHtml || fromHtml;
             const newBlockHtml = replaceNthOccurrence(originalBlockHtml, fromHtml, repl, htmlIdx);
             updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
-            return;
-          }
-          if (fromText && originalBlockHtml.includes(fromText)) {
+          } else if (fromText && originalBlockHtml.includes(fromText)) {
             const textCount = countOccurrences(originalBlockHtml, fromText);
             const textIdx = getViewportOccurrenceIndex(textCount, edit.viewport);
             const newBlockHtml = replaceNthOccurrence(originalBlockHtml, fromText, toText, textIdx);
             updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
-            return;
           }
+          if (updatedHtml !== beforeBlockReplace) return;
         }
-        return;
+        // Block-scoped replacement didn't apply (block not found, text not in the
+        // block, or a serialization mismatch on the block HTML) — fall through to
+        // the global string fallback instead of dropping the edit.
       }
 
-      // No positional info: fallback string matching
+      // No positional info / block-scoped fallthrough: global string matching
       if (fromHtml) {
         const replaced = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
         if (replaced !== updatedHtml) { updatedHtml = replaced; return; }

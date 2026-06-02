@@ -130,7 +130,9 @@ export default function createAssetsPanelController({
     const card = document.createElement('article');
     card.className = `annotation-panel-comment annotation-panel-asset-item${step.isCurrent ? '' : ' annotation-asset-card-history'}`;
 
-    if (step.isCurrent) {
+    // Only the current, uncommitted step is discardable. Once saved/pushed the
+    // edit is committed, so no Discard (mirrors text edits).
+    if (step.isCurrent && !edit.isCommitted) {
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
       cancelBtn.className = 'annotation-panel-cancel-btn';

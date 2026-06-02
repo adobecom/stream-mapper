@@ -544,7 +544,10 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
         to: finalUrl,
         fromHtml: '',
         toHtml: '',
-        updatedAt: new Date().toISOString(),
+        // Assigning the saved/promoted URL is not a new change — keep the original
+        // replacement time so panel ordering stays chronological (a Save/Push must
+        // not bump the asset above newer text edits).
+        updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
     }
   }
