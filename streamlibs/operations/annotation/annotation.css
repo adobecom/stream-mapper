@@ -944,6 +944,10 @@ body.annotation-mode main::-webkit-scrollbar {
   background: #f8fafc;
 }
 
+.annotation-asset-card-history {
+  opacity: 0.7;
+}
+
 .annotation-panel-block-label-asset {
   color: #047857;
 }
