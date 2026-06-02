@@ -1019,20 +1019,17 @@ export default function createCommentsPanelController({
     });
 
     if (assetsPanel) {
-      (annotationState.store.localAssets || []).forEach((localAsset) => {
-        items.push({
-          kind: 'asset-local',
-          asset: localAsset,
-          timestamp: assetsPanel.getAssetTimestamp(localAsset),
+      // One item per image edit; it renders as a stack of From→To history cards
+      // (newest on top). The image-src edit carries the full replacement history.
+      (annotationState.store.easyEdits || [])
+        .filter((edit) => edit && edit.editType === 'image-src')
+        .forEach((edit) => {
+          items.push({
+            kind: 'asset-edit',
+            edit,
+            timestamp: getTimestampValue(edit.updatedAt) || 0,
+          });
         });
-      });
-      (annotationState.store.assets || []).forEach((asset) => {
-        items.push({
-          kind: 'asset-remote',
-          asset,
-          timestamp: assetsPanel.getAssetTimestamp(asset),
-        });
-      });
     }
 
     items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1152,7 +1149,7 @@ export default function createCommentsPanelController({
     const unifiedItems = activePanelFilter === 'all' ? allItems : allItems.filter((item) => {
       if (activePanelFilter === 'comment') return item.kind === 'comment';
       if (activePanelFilter === 'edit') return item.kind === 'edit';
-      if (activePanelFilter === 'asset') return item.kind === 'asset-local' || item.kind === 'asset-remote';
+      if (activePanelFilter === 'asset') return item.kind === 'asset-edit';
       return true;
     });
 
@@ -1590,10 +1587,9 @@ export default function createCommentsPanelController({
         renderThreadItem(item.thread, true);
       } else if (item.kind === 'edit') {
         renderThreadItem(item.thread, false);
-      } else if (assetsPanel && item.kind === 'asset-local') {
-        annotationUI.panelListEl.appendChild(assetsPanel.buildLocalAssetCard(item.asset));
-      } else if (assetsPanel && item.kind === 'asset-remote') {
-        annotationUI.panelListEl.appendChild(assetsPanel.buildRemoteAssetCard(item.asset));
+      } else if (assetsPanel && item.kind === 'asset-edit') {
+        assetsPanel.buildAssetEditStepCards(item.edit)
+          .forEach((card) => annotationUI.panelListEl.appendChild(card));
       }
     });
 

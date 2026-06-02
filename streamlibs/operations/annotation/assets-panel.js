@@ -976,6 +976,7 @@ export default function createAssetsPanelController({
     applyAssetToPage,
     buildLocalAssetCard,
     buildRemoteAssetCard,
+    buildAssetEditStepCards,
     cleanup,
     clearAppliedAssets,
     enterSelectMode,
