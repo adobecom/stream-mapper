@@ -727,12 +727,9 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  await persistEditsToDb();
 }
-
-export async function saveAnnotationChanges(reportProgress = () => {}) {
-  await inlineEditing.syncInlineEditsBeforePersist();
-  await uploadAndDecideAssets();
-
+async function persistEditsToDb() {
   const savePayload = store.buildSavePayload();
   const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
@@ -748,8 +745,14 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
       annotationState.hasLoadedInitialEditsSnapshot = true;
     }
   }
-  reportProgress('editsSaved');
   store.saveAnnotationStore();
+}
+
+export async function saveAnnotationChanges(reportProgress = () => {}) {
+  await inlineEditing.syncInlineEditsBeforePersist();
+  await uploadAndDecideAssets();
+  await persistEditsToDb();
+  reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
 }
 
