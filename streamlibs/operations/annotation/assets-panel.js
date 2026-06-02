@@ -225,15 +225,6 @@ export default function createAssetsPanelController({
     notifyAssetsChanged();
   }
 
-  function buildAssetThumb(src, alt) {
-    const img = document.createElement('img');
-    img.className = 'annotation-asset-thumb';
-    img.alt = alt || '';
-    img.loading = 'lazy';
-    if (src) img.src = src;
-    return img;
-  }
-
   function buildLocalAssetCard(localAsset) {
     const card = document.createElement('article');
     card.className = 'annotation-panel-comment annotation-panel-asset-item annotation-asset-card-local';
@@ -266,22 +257,20 @@ export default function createAssetsPanelController({
     const fromSrc = store.getAssetPreviewSrc({ to: localAsset.originalSrc }) || localAsset.originalSrc || '';
     const toSrc = localAsset.base64Data || '';
     const fromLink = document.createElement('a');
-    fromLink.href = localAsset.originalSrc || '#';
-    fromLink.title = 'From image';
+    fromLink.href = fromSrc || localAsset.originalSrc || '#';
+    fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
-    fromLink.className = 'annotation-asset-link annotation-asset-thumb-link';
-    fromLink.appendChild(buildAssetThumb(fromSrc, 'From image'));
+    fromLink.className = 'annotation-asset-link';
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
     toLink.href = toSrc || localAsset.filename || '#';
-    toLink.title = 'To image';
+    toLink.textContent = 'To Image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
-    toLink.className = 'annotation-asset-link annotation-asset-thumb-link';
-    toLink.appendChild(buildAssetThumb(toSrc, 'To image'));
+    toLink.className = 'annotation-asset-link';
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -320,28 +309,24 @@ export default function createAssetsPanelController({
       blockLabel.textContent = blockClass;
       text.appendChild(blockLabel);
     }
-    // Prefer cached base64 for the saved URL so we don't refetch from DA; fall back
-    // to loading the content.da.live URL directly.
     const fromSrc = store.getAssetPreviewSrc({ to: asset.originalSrc }) || asset.originalSrc || '';
     const toSrc = asset._base64Data
       || store.getAssetPreviewSrc({ to: asset.daUrl }) || asset.daUrl || '';
     const fromLink = document.createElement('a');
-    fromLink.href = asset.originalSrc || '#';
-    fromLink.title = 'From image';
+    fromLink.href = fromSrc || asset.originalSrc || '#';
+    fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
-    fromLink.className = 'annotation-asset-link annotation-asset-thumb-link';
-    fromLink.appendChild(buildAssetThumb(fromSrc, 'From image'));
+    fromLink.className = 'annotation-asset-link';
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
-    toLink.href = asset.daUrl || asset.filename || '#';
-    toLink.title = 'To image';
+    toLink.href = toSrc || asset.daUrl || asset.filename || '#';
+    toLink.textContent = 'To Image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
-    toLink.className = 'annotation-asset-link annotation-asset-thumb-link';
-    toLink.appendChild(buildAssetThumb(toSrc, 'To image'));
+    toLink.className = 'annotation-asset-link';
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
