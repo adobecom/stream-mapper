@@ -751,6 +751,9 @@ async function persistEditsToDb() {
 export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
+  // Save (no DA push): give each image edit its content.da.live URL as `to`, so the
+  // asset edit is persisted to the DB. DA promotion only happens on Push to DA.
+  buildAssetReplacementsAndEdits((asset) => asset.daUrl);
   await persistEditsToDb();
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');

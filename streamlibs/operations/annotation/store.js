@@ -455,8 +455,26 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return allSimilarBlocks[blockGlobalIndex] || null;
   }
 
+  function keepLatestImageEdits(easyEdits = []) {
+    const latestByKey = new Map();
+    for (const edit of easyEdits) {
+      if (!edit || (edit.editType !== 'image-src' && edit.editType !== 'image-alt')) continue;
+      const key = `${edit.editType}|${getEditElementPathKey(edit.elementPath, edit.elementProps)}`;
+      const prev = latestByKey.get(key);
+      if (!prev || new Date(edit.updatedAt || 0) >= new Date(prev.updatedAt || 0)) {
+        latestByKey.set(key, edit);
+      }
+    }
+    return easyEdits.filter((edit) => {
+      if (!edit || (edit.editType !== 'image-src' && edit.editType !== 'image-alt')) return true;
+      const key = `${edit.editType}|${getEditElementPathKey(edit.elementPath, edit.elementProps)}`;
+      return latestByKey.get(key) === edit;
+    });
+  }
+
   function applyEasyEditsToHtmlString(html, easyEdits = []) {
     let updatedHtml = `${html || ''}`;
+    const effectiveEdits = keepLatestImageEdits(easyEdits);
 
     // Parse the ORIGINAL html once so that candidate counts stay stable across edits.
     // Sequential edits shrink same-src lists in updatedHtml; reading from the original
@@ -464,7 +482,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origWrapper = document.createElement('div');
     origWrapper.innerHTML = `<main>${html || ''}</main>`;
     const origMainEl = origWrapper.querySelector('main');
-    easyEdits.forEach((edit) => {
+    effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
 
       if (edit.editType === 'image-src') {
@@ -494,19 +512,22 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             const origCandidates = origAllPics.filter(
               (pic) => pic.innerHTML.includes(fromSrc),
             );
+            // When the `from` src is no longer in the baseline (e.g. a prior push
+            // already changed it), fall back to positioning among all pictures so a
+            // repeated replacement still lands on the right one.
+            const candidatePool = origCandidates.length ? origCandidates : origAllPics;
 
             const storedIdx = edit.picIndexInBlock ?? edit.elementProps?.picIndexInBlock ?? null;
             let origTarget = null;
 
-            if (storedIdx !== null && storedIdx >= 0 && storedIdx < origCandidates.length) {
-              origTarget = origCandidates[storedIdx];
-              // eslint-disable-next-line no-console
+            if (storedIdx !== null && storedIdx >= 0 && storedIdx < candidatePool.length) {
+              origTarget = candidatePool[storedIdx];
             } else {
               const picIdx = getViewportOccurrenceIndex(
-                origCandidates.length || 1,
+                candidatePool.length || 1,
                 edit.viewport,
               );
-              origTarget = origCandidates[picIdx] || null;
+              origTarget = candidatePool[picIdx] || null;
             }
 
             // Map original target → absolute index → picture in current (modified) block
@@ -518,7 +539,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
             if (targetEl) {
               const curEl = targetEl.outerHTML;
-              const newEl = curEl.split(fromSrc).join(toSrc);
+              // Overwrite this picture's image source(s) with `to`, regardless of the
+              // current src, so repeated replacements apply even when the baseline no
+              // longer contains the original `from`.
+              const replacementEl = targetEl.cloneNode(true);
+              replacementEl.querySelectorAll('img').forEach((img) => {
+                img.setAttribute('src', toSrc);
+                if (img.hasAttribute('srcset')) img.setAttribute('srcset', toSrc);
+              });
+              replacementEl.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', toSrc));
+              const newEl = replacementEl.outerHTML;
               // Count identical pictures before targetEl so we replace the correct
               // nth occurrence when multiple pictures share the same outerHTML.
               const nth = allCurrentPics
@@ -1249,7 +1279,14 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function buildSavePayload() {
     return annotationState.store.easyEdits
-      .filter((edit) => edit && (edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '')))
+      .filter((edit) => {
+        if (!edit) return false;
+        // Don't persist a pending asset edit that hasn't been assigned a URL yet.
+        if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
+          return false;
+        }
+        return edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '');
+      })
       .map((edit) => {
         const { changeHistory, ...rest } = edit;
         return rest;
@@ -1378,12 +1415,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       );
     }
 
-    annotationState.store.easyEdits.forEach((edit) => {
+    keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
 
       if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
+
+      // Pending asset edit (uploaded locally, not yet saved): the base64 preview is
+      // already on the element, so don't apply an empty `to` (it would blank it).
+      if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) return;
 
       if (edit.editType === 'text') {
         easyEditOriginalByElement.set(target, {

@@ -354,6 +354,20 @@ export default function createAssetsPanelController({
 
     annotationState.store.localAssets.push(localAsset);
 
+    // Track the replacement in the edit changelist right away (parity with text).
+    // `from` stays the true original; `to` is empty until Save assigns the
+    // content.da.live URL. The File itself lives on the localAsset (in-memory only).
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath,
+      elementProps,
+      elementRef,
+      from: originalSrc,
+      to: '',
+      fromHtml: '',
+      toHtml: '',
+    });
+
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
     notifyAssetsChanged();
