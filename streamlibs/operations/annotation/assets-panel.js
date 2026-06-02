@@ -334,6 +334,12 @@ export default function createAssetsPanelController({
 
     const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
+    // The image being replaced may have a page-relative src that won't load inside
+    // the panel. Cache its absolute, currently-loaded URL so the "From" thumbnail
+    // renders (keyed by the originalSrc used for matching).
+    const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
+    if (originalSrc && fromDisplaySrc) store.cacheAssetUrlBase64(originalSrc, fromDisplaySrc);
+
     const base64Data = await readFileAsDataUrl(file);
     if (!base64Data) {
       console.warn('[assets-panel] Could not read file as data URL');
