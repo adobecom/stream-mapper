@@ -733,13 +733,13 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
 
-  const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  const { easyEdits } = buildHtmlWithEditsAndAssets(assetReplacements);
+  const savePayload = store.buildSavePayload();
+  const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
   if (annotationService.isAvailable()) {
-    const persistedEditSnapshot = await annotationService.saveEdits(easyEdits);
+    const persistedEditSnapshot = await annotationService.saveEdits(savePayload);
     if (persistedEditSnapshot) {
-      store.replaceEasyEdits(persistedEditSnapshot.editRecord);
+      store.clearChangeHistoryAfterSave(savedEditIds);
       annotationState.latestSavedEditsUpdatedAt = persistedEditSnapshot.updatedAt
         || persistedEditSnapshot.createdAt
         || null;
@@ -762,14 +762,15 @@ export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') 
 
   const elementRef = store.ensureElementRef(element);
   const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
-  const baselineText = snapshot?.originalText || fromText;
-  const baselineHtml = snapshot?.originalHtml || fromHtml;
 
   const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-  const segments = store.getChangedSegments(baselineText, toText);
   const existing = store.getEasyEditByElement(
     elementRef, editAnchor.elementPath, editAnchor.elementProps,
   );
+  const stampedOriginal = store.getEasyEditOriginalForElement(element);
+  const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot?.originalText ?? fromText;
+  const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot?.originalHtml ?? fromHtml;
+  const segments = store.getChangedSegments(baselineText, toText);
 
   const persistedEdit = store.upsertEasyEdit({
     id: existing?.id || store.generateId('easy-edit'),

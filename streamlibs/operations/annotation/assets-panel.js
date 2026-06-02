@@ -3,6 +3,7 @@
 /* eslint-disable no-use-before-define */
 /* eslint-disable no-restricted-syntax */
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
+import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
 
 const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
 const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
@@ -109,6 +110,15 @@ export default function createAssetsPanelController({
     card.dataset.localAssetId = localAsset.localId;
     if (localAsset.createdAt) card.dataset.createdAt = localAsset.createdAt;
 
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'annotation-panel-cancel-btn';
+    cancelBtn.setAttribute('aria-label', 'Remove this asset');
+    cancelBtn.title = 'Remove';
+    cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
+    cancelBtn.addEventListener('click', () => removeLocalAsset(localAsset.localId));
+    card.appendChild(cancelBtn);
+
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
     username.textContent = window.streamConfig?.username || 'You';
@@ -116,13 +126,22 @@ export default function createAssetsPanelController({
 
     const text = document.createElement('p');
     text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const blockClass = localAsset.elementProps?.blockClass || '';
+    if (blockClass) {
+      const blockLabel = document.createElement('span');
+      blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-asset';
+      blockLabel.textContent = blockClass;
+      text.appendChild(blockLabel);
+    }
     const fromLink = document.createElement('a');
     fromLink.href = localAsset.originalSrc || '#';
     fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
     fromLink.className = 'annotation-asset-link';
-    const arrow = document.createTextNode(' → ');
+    const arrow = document.createElement('span');
+    arrow.className = 'annotation-asset-arrow';
+    arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
     toLink.href = localAsset.base64Data || localAsset.filename || '#';
     toLink.textContent = 'To Image';
@@ -134,22 +153,13 @@ export default function createAssetsPanelController({
     text.appendChild(toLink);
     card.appendChild(text);
 
-    const statusBadge = document.createElement('span');
-    statusBadge.className = 'annotation-asset-status annotation-asset-status-unsaved';
-    statusBadge.title = 'unsaved';
-    card.appendChild(statusBadge);
-
-    const footer = document.createElement('div');
-    footer.className = 'annotation-asset-card-footer';
-    const actions = document.createElement('div');
-    actions.className = 'annotation-asset-actions';
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'annotation-asset-action-btn annotation-asset-action-delete';
-    deleteBtn.textContent = 'Remove';
-    deleteBtn.addEventListener('click', () => removeLocalAsset(localAsset.localId));
-    actions.appendChild(deleteBtn);
-    footer.appendChild(actions);
-    card.appendChild(footer);
+    const timestamp = formatCardTimestamp(localAsset.createdAt);
+    if (timestamp) {
+      const time = document.createElement('p');
+      time.className = 'annotation-card-timestamp';
+      time.textContent = timestamp;
+      card.appendChild(time);
+    }
 
     return card;
   }
@@ -169,13 +179,22 @@ export default function createAssetsPanelController({
 
     const text = document.createElement('p');
     text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const blockClass = asset.elementProps?.blockClass || asset.blockClass || '';
+    if (blockClass) {
+      const blockLabel = document.createElement('span');
+      blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-asset';
+      blockLabel.textContent = blockClass;
+      text.appendChild(blockLabel);
+    }
     const fromLink = document.createElement('a');
     fromLink.href = asset.originalSrc || '#';
     fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
     fromLink.className = 'annotation-asset-link';
-    const arrow = document.createTextNode(' → ');
+    const arrow = document.createElement('span');
+    arrow.className = 'annotation-asset-arrow';
+    arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
     toLink.href = asset.daUrl || asset.filename || '#';
     toLink.textContent = 'To Image';
@@ -186,19 +205,6 @@ export default function createAssetsPanelController({
     text.appendChild(arrow);
     text.appendChild(toLink);
     card.appendChild(text);
-
-    const statusBadge = document.createElement('span');
-    const statusTitles = {
-      promoted: 'Pushed to DA',
-      accepted: 'Saved to collab',
-    };
-    statusBadge.className = `annotation-asset-status annotation-asset-status-${asset.status}`;
-    statusBadge.title = statusTitles[asset.status] || asset.status;
-    if (isApplied && asset.status === 'pending') {
-      statusBadge.title = 'applied';
-      statusBadge.className = 'annotation-asset-status annotation-asset-status-applied';
-    }
-    card.appendChild(statusBadge);
 
     const footer = document.createElement('div');
     footer.className = 'annotation-asset-card-footer';
@@ -224,6 +230,15 @@ export default function createAssetsPanelController({
     }
 
     footer.appendChild(actions);
+
+    const timestamp = formatCardTimestamp(asset.updatedAt || asset.createdAt);
+    if (timestamp) {
+      const time = document.createElement('span');
+      time.className = 'annotation-card-timestamp';
+      time.textContent = timestamp;
+      footer.appendChild(time);
+    }
+
     card.appendChild(footer);
 
     return card;
