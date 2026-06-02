@@ -948,19 +948,6 @@ body.annotation-mode main::-webkit-scrollbar {
   opacity: 0.7;
 }
 
-.annotation-asset-viewport-label {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
-  border: 1px solid #c7d2fe;
-  border-radius: 10px;
-  background: #eef2ff;
-  color: #4338ca;
-  font-size: 11px;
-  font-weight: 600;
-  vertical-align: middle;
-}
-
 .annotation-panel-block-label-asset {
   color: #047857;
 }

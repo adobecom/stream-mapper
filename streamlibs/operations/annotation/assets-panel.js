@@ -155,16 +155,6 @@ export default function createAssetsPanelController({
       blockLabel.textContent = blockClass;
       text.appendChild(blockLabel);
     }
-    // Surface the viewport the replacement was made for — the same image can be
-    // swapped per viewport, which is otherwise misleading on the page.
-    const viewport = edit.viewport || '';
-    if (viewport) {
-      const viewportLabel = document.createElement('span');
-      viewportLabel.className = 'annotation-asset-viewport-label';
-      viewportLabel.textContent = viewport.charAt(0).toUpperCase() + viewport.slice(1);
-      viewportLabel.title = `Replaced for ${viewport} viewport`;
-      text.appendChild(viewportLabel);
-    }
     const fromSrc = store.getAssetPreviewSrc(step.from);
     const toSrc = store.getAssetPreviewSrc(step.to);
     const fromLink = document.createElement('a');
