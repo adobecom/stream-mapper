@@ -544,9 +544,7 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
         to: finalUrl,
         fromHtml: '',
         toHtml: '',
-        // Assigning the saved/promoted URL is not a new change — keep the original
-        // replacement time so panel ordering stays chronological (a Save/Push must
-        // not bump the asset above newer text edits).
+        // Keep the original replacement time so panel ordering stays chronological.
         updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
     }
@@ -754,8 +752,7 @@ async function persistEditsToDb() {
 export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
-  // Save (no DA push): give each image edit its content.da.live URL as `to`, so the
-  // asset edit is persisted to the DB. DA promotion only happens on Push to DA.
+  // Save assigns each image edit its content.da.live URL (no DA push here).
   buildAssetReplacementsAndEdits((asset) => asset.daUrl);
   await persistEditsToDb();
   reportProgress('editsSaved');

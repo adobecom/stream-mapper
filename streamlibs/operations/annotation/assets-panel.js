@@ -75,9 +75,7 @@ export default function createAssetsPanelController({
       annotationUI.panelListEl.appendChild(hint);
     }
 
-    // Render the image replacement history straight from the changelist: each
-    // image-src edit becomes a stack of From→To cards (newest on top), mirroring
-    // the edits panel. Only the current (top) card is actionable (Discard).
+    // One stack of From→To cards per image edit (newest on top).
     const imageEdits = (annotationState.store.easyEdits || [])
       .filter((edit) => edit && edit.editType === 'image-src');
 
@@ -102,9 +100,7 @@ export default function createAssetsPanelController({
     renderAssetMarkers();
   }
 
-  // Build the stacked From→To cards for one image edit, newest step first. Steps
-  // whose From and To resolve to the same image (e.g. discarded back to original)
-  // are dropped, so a no-op edit shows nothing.
+  // Stacked From→To cards for one image edit, newest first; no-op steps dropped.
   function buildAssetEditStepCards(edit) {
     const steps = [];
     let prev = { to: edit.from || '', fileKey: '' };
@@ -130,8 +126,7 @@ export default function createAssetsPanelController({
     const card = document.createElement('article');
     card.className = `annotation-panel-comment annotation-panel-asset-item${step.isCurrent ? '' : ' annotation-asset-card-history'}`;
 
-    // Only the current, uncommitted step is discardable. Once saved/pushed the
-    // edit is committed, so no Discard (mirrors text edits).
+    // Only the current, uncommitted step is discardable.
     if (step.isCurrent && !edit.isCommitted) {
       const cancelBtn = document.createElement('button');
       cancelBtn.type = 'button';
@@ -190,8 +185,7 @@ export default function createAssetsPanelController({
     return card;
   }
 
-  // Discard the most recent step of an image edit: step back one entry in its
-  // history (to the previous image), or to the original when no steps remain.
+  // Step back one entry in the image edit's history (or to the original).
   function discardAssetEditStep(edit) {
     if (!edit) return;
     const result = store.undoLastChange(edit.id);
@@ -432,9 +426,7 @@ export default function createAssetsPanelController({
 
     const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
-    // The image being replaced may have a page-relative src that won't load inside
-    // the panel. Cache its absolute, currently-loaded URL so the "From" thumbnail
-    // renders (keyed by the originalSrc used for matching).
+    // Cache the absolute loaded URL so a page-relative originalSrc still renders.
     const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
     if (originalSrc && fromDisplaySrc) store.cacheAssetUrlBase64(originalSrc, fromDisplaySrc);
 
@@ -478,10 +470,8 @@ export default function createAssetsPanelController({
 
     annotationState.store.localAssets.push(localAsset);
 
-    // Track the replacement in the edit changelist right away (parity with text).
-    // `from` stays the true original; `to` is empty until Save assigns the
-    // content.da.live URL. The File + base64 live in the in-memory asset maps keyed
-    // by assetFileKey, so each replacement becomes a recoverable history step.
+    // Track the replacement as an image edit (from=original, to='' until Save);
+    // the File + base64 live in the in-memory maps under assetFileKey.
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
@@ -798,8 +788,7 @@ export default function createAssetsPanelController({
         }
 
         asset._base64Data = localAsset.base64Data;
-        // Cache the base64 against the saved content.da.live URL so cards/discards
-        // can render this image later without re-fetching it from DA.
+        // Cache base64 for the saved URL so cards/discards avoid a DA refetch.
         if (asset.daUrl) store.cacheAssetUrlBase64(asset.daUrl, localAsset.base64Data);
         annotationState.store.assets.push(asset);
 

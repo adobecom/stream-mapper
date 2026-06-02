@@ -1019,8 +1019,7 @@ export default function createCommentsPanelController({
     });
 
     if (assetsPanel) {
-      // One item per image edit; it renders as a stack of From→To history cards
-      // (newest on top). The image-src edit carries the full replacement history.
+      // One item per image edit; renders as a stack of From→To history cards.
       (annotationState.store.easyEdits || [])
         .filter((edit) => edit && edit.editType === 'image-src')
         .forEach((edit) => {

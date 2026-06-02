@@ -200,8 +200,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
       changeHistory: Array.isArray(edit.changeHistory) ? edit.changeHistory : [],
       isCommitted: !!edit.isCommitted,
-      // In-memory key into the asset File/base64 maps for an unsaved image edit.
-      // Not persisted to the backend (stripped in buildSavePayload).
+      // In-memory key into the asset maps; stripped in buildSavePayload.
       assetFileKey: edit.assetFileKey || '',
     };
   }
@@ -515,9 +514,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             const origCandidates = origAllPics.filter(
               (pic) => pic.innerHTML.includes(fromSrc),
             );
-            // When the `from` src is no longer in the baseline (e.g. a prior push
-            // already changed it), fall back to positioning among all pictures so a
-            // repeated replacement still lands on the right one.
+            // Fall back to all pictures when `from` is no longer in the baseline.
             const candidatePool = origCandidates.length ? origCandidates : origAllPics;
 
             const storedIdx = edit.picIndexInBlock ?? edit.elementProps?.picIndexInBlock ?? null;
@@ -542,9 +539,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
             if (targetEl) {
               const curEl = targetEl.outerHTML;
-              // Overwrite this picture's image source(s) with `to`, regardless of the
-              // current src, so repeated replacements apply even when the baseline no
-              // longer contains the original `from`.
+              // Overwrite the picture's source(s) with `to` regardless of current src.
               const replacementEl = targetEl.cloneNode(true);
               replacementEl.querySelectorAll('img').forEach((img) => {
                 img.setAttribute('src', toSrc);
@@ -651,12 +646,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           }
           if (updatedHtml !== beforeBlockReplace) return;
         }
-        // Block-scoped replacement didn't apply (block not found, text not in the
-        // block, or a serialization mismatch on the block HTML) — fall through to
-        // the global string fallback instead of dropping the edit.
+        // Block-scoped replacement didn't apply — fall through to global matching.
       }
 
-      // No positional info / block-scoped fallthrough: global string matching
       if (fromHtml) {
         const replaced = replaceFirstOccurrence(updatedHtml, fromHtml, toHtml || fromHtml);
         if (replaced !== updatedHtml) { updatedHtml = replaced; return; }
@@ -1214,9 +1206,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         || normalizedEditRecord.editType === 'image-alt'
         || existing.editType === 'image-src'
         || existing.editType === 'image-alt';
-      // For image edits the value is the picture (tracked via assetFileKey/to), so
-      // record a step when either the file or the URL changes — including the
-      // pre-save case where `to` stays '' but a new file was uploaded.
+      // Image edits: record a step when the file or URL changes (to may stay '').
       const valueChanged = isImageEdit
         ? (existing.to !== normalizedEditRecord.to
           || (existing.assetFileKey || '') !== (normalizedEditRecord.assetFileKey || ''))
@@ -1417,9 +1407,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   const easyEditOriginalByElement = new WeakMap();
 
-  // Asset image data kept in-memory (never serialized): File objects + base64 for
-  // unsaved replacements (by fileKey), plus a base64 cache for saved/original URLs
-  // so cards and discards can show an image without re-fetching it from DA.
+  // In-memory only (never serialized): File + base64 by fileKey, and base64 by URL.
   const assetFileByKey = new Map();
   const assetBase64ByKey = new Map();
   const assetBase64ByUrl = new Map();
@@ -1438,7 +1426,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return fileKey ? assetFileByKey.get(fileKey) || null : null;
   }
 
-  // Resolve a displayable image src for an edit step descriptor { to, fileKey }.
   function getAssetPreviewSrc({ to = '', fileKey = '' } = {}) {
     if (fileKey && assetBase64ByKey.has(fileKey)) return assetBase64ByKey.get(fileKey);
     if (to && assetBase64ByUrl.has(to)) return assetBase64ByUrl.get(to);
@@ -1473,8 +1460,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
       if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
 
-      // Pending asset edit (uploaded locally, not yet saved): the base64 preview is
-      // already on the element, so don't apply an empty `to` (it would blank it).
+      // Pending asset edit (empty `to`): keep the existing base64 preview.
       if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) return;
 
       if (edit.editType === 'text') {
