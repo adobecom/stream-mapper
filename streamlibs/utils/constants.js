@@ -225,7 +225,7 @@ export function getBlocksCreationMessage(current, total) {
 
 export const ANNOTATION_DEFAULT_USERNAME = 'stream';
 
-export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Resolved', 'Closed'];
+export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Accepted', 'Rejected', 'Closed'];
 
 export const ANNOTATION_MESSAGES = {
   collabUnavailableTitle: 'Collaboration unavailable',

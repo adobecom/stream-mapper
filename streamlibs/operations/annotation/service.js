@@ -4,14 +4,15 @@ import { normalizeCommentStatus } from './store.js';
 
 const SERVICE_STATUS_BY_COMMENT_STATUS = {
   Open: 'open',
-  Resolved: 'resolved',
+  Accepted: 'accepted',
+  Rejected: 'rejected',
   Closed: 'closed',
-  Complete: 'resolved',
 };
 
 const COMMENT_STATUS_BY_SERVICE_STATUS = {
   open: 'Open',
-  resolved: 'Resolved',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
   closed: 'Closed',
 };
 
@@ -64,7 +65,9 @@ function normalizeThreadPayload(thread) {
     threadType: isEditThread ? 'edit' : 'comment',
     elementPath: thread?.anchor?.elementPath || '',
     elementRef: '',
-    status: normalizeCommentStatus(COMMENT_STATUS_BY_SERVICE_STATUS[thread?.state] || ''),
+    status: normalizeCommentStatus(
+      COMMENT_STATUS_BY_SERVICE_STATUS[`${thread?.state || ''}`.toLowerCase()] || thread?.state || '',
+    ),
     username: rootComment?.authorName || ANNOTATION_DEFAULT_USERNAME,
     messages: comments.map((comment) => ({
       id: comment.id || '',

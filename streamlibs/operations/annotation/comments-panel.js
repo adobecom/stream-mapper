@@ -11,6 +11,8 @@ import requestParentCollabRefresh from './collab-sync.js';
 import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
 
+const THREAD_STATUS_OPTIONS = Object.freeze(['Open', 'Accepted', 'Rejected', 'Closed']);
+
 const MAX_LINK_DISPLAY_LENGTH = 60;
 
 function truncateUrl(url) {
@@ -1038,6 +1040,31 @@ export default function createCommentsPanelController({
     return items;
   }
 
+  function enforceThreadStatusSelectOptions(root) {
+    const scope = root || annotationUI.panelEl || annotationUI.panelListEl;
+    if (!scope || typeof scope.querySelectorAll !== 'function') return;
+    const statusSelects = scope.querySelectorAll(
+      '.annotation-panel-status-select:not(.annotation-reviewer-select)',
+    );
+    statusSelects.forEach((statusSelect) => {
+      if (!(statusSelect instanceof HTMLSelectElement)) return;
+      const { threadId } = statusSelect.dataset;
+      const thread = threadId ? store.getThreadById?.(threadId) : null;
+      const normalizedThreadStatus = store.normalizeCommentStatus(thread?.status || statusSelect.value || '');
+      const selectedStatus = THREAD_STATUS_OPTIONS.includes(normalizedThreadStatus)
+        ? normalizedThreadStatus
+        : THREAD_STATUS_OPTIONS[0];
+      statusSelect.innerHTML = '';
+      THREAD_STATUS_OPTIONS.forEach((status) => {
+        const option = document.createElement('option');
+        option.value = status;
+        option.textContent = status;
+        option.selected = selectedStatus === status;
+        statusSelect.appendChild(option);
+      });
+    });
+  }
+
   renderCommentsPanel = function renderCommentsPanelImpl() {
     if (!annotationUI.panelListEl) return;
     pendingCommentsPanelRefresh = false;
@@ -1213,11 +1240,15 @@ export default function createCommentsPanelController({
             statusSelect.title = restrictionMessage;
             statusSelect.setAttribute('aria-label', restrictionMessage);
           }
-          COMMENT_STATUSES.forEach((status) => {
+          const normalizedThreadStatus = store.normalizeCommentStatus(thread.status);
+          const selectedThreadStatus = THREAD_STATUS_OPTIONS.includes(normalizedThreadStatus)
+            ? normalizedThreadStatus
+            : THREAD_STATUS_OPTIONS[0];
+          THREAD_STATUS_OPTIONS.forEach((status) => {
             const option = document.createElement('option');
             option.value = status;
             option.textContent = status;
-            option.selected = thread.status === status;
+            option.selected = selectedThreadStatus === status;
             statusSelect.appendChild(option);
           });
           statusSelect.dataset.status = store.normalizeCommentStatus(thread.status);
@@ -1583,6 +1614,7 @@ export default function createCommentsPanelController({
       }
     }
     finalizeFragmentHints();
+    enforceThreadStatusSelectOptions(annotationUI.panelEl);
   };
 
   function getCommentsScrollContainer() {
