@@ -339,6 +339,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     ];
   }
 
+  function discardUncommittedEasyEditsOnLoad() {
+    const edits = annotationState.store?.easyEdits;
+    if (!Array.isArray(edits)) return;
+    annotationState.store.easyEdits = edits.filter((edit) => edit && edit.isCommitted);
+  }
+
   function loadAnnotationStore() {
     try {
       const reviewId = getReviewId();
@@ -353,11 +359,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
       if (reviewId && typeof parsed === 'object' && !Array.isArray(parsed) && parsed[reviewId]) {
         annotationState.store = parseAnnotationPayload(parsed[reviewId]);
+        discardUncommittedEasyEditsOnLoad();
         rebuildEditThreadsFromEasyEdits();
         return;
       }
 
       annotationState.store = parseAnnotationPayload(parsed);
+      discardUncommittedEasyEditsOnLoad();
       rebuildEditThreadsFromEasyEdits();
     } catch (error) {
       annotationState.store = {
@@ -1347,6 +1355,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     rebuildEditThreadsFromEasyEdits();
   }
 
+  const easyEditOriginalByElement = new WeakMap();
+
+  function getEasyEditOriginalForElement(element) {
+    if (!(element instanceof HTMLElement)) return null;
+    return easyEditOriginalByElement.get(element) || null;
+  }
+
   async function applyEasyEditsToDom() {
     if (!annotationUI.mainEl) return;
     removeEasyEditHighlights(annotationUI.mainEl);
@@ -1367,6 +1382,15 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
+
+      if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
+
+      if (edit.editType === 'text') {
+        easyEditOriginalByElement.set(target, {
+          from: edit.from,
+          fromHtml: edit.fromHtml || '',
+        });
+      }
 
       if (edit.editType === 'image-src') {
         const displayUrl = resolvedUrls.get(edit.to) || edit.to || '';
@@ -1426,6 +1450,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     getElementByCommentPath,
     getElementByThreadPath,
     getEasyEditByElement,
+    getEasyEditOriginalForElement,
     getElementByRef,
     getElementForThread,
     getStoredAnnotationPayload,
