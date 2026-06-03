@@ -100,6 +100,33 @@ export default function createAssetsPanelController({
     renderAssetMarkers();
   }
 
+  // Sets href on an anchor to realUrl when it's a proper URL, or attaches a
+  // blob-URL click handler when only a data URL (previewSrc) is available.
+  function setAssetLinkHref(anchorEl, previewSrc, realUrl) {
+    if (realUrl && !realUrl.startsWith('data:')) {
+      anchorEl.href = realUrl;
+      return;
+    }
+    if (previewSrc?.startsWith('data:')) {
+      anchorEl.href = '#';
+      anchorEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        try {
+          const [header, b64] = previewSrc.split(',');
+          const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch { /* ignore */ }
+      });
+      return;
+    }
+    anchorEl.href = previewSrc || '#';
+  }
+
   // Stacked From→To cards for one image edit, newest first; no-op steps dropped.
   function buildAssetEditStepCards(edit) {
     const steps = [];
@@ -154,13 +181,12 @@ export default function createAssetsPanelController({
     }
     const fromSrc = store.getAssetPreviewSrc(step.from);
     const toSrc = store.getAssetPreviewSrc(step.to);
-    const toLinkUrl = step.to?.to || '';
     const fromLink = document.createElement('a');
-    fromLink.href = fromSrc || '#';
     fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
     fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, step.from?.to || '');
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
@@ -169,29 +195,7 @@ export default function createAssetsPanelController({
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
     toLink.className = 'annotation-asset-link';
-    if (toLinkUrl && !toLinkUrl.startsWith('data:')) {
-      // Real URL (regen API URL or promoted DA URL) — directly navigable.
-      toLink.href = toLinkUrl;
-    } else if (toSrc?.startsWith('data:')) {
-      // Base64 data URL — Chrome blocks data: navigation; open via blob URL instead.
-      toLink.href = '#';
-      toLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        try {
-          const [header, b64] = toSrc.split(',');
-          const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
-          const binary = atob(b64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: mime });
-          const blobUrl = URL.createObjectURL(blob);
-          window.open(blobUrl, '_blank');
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-        } catch { /* ignore */ }
-      });
-    } else {
-      toLink.href = toSrc || '#';
-    }
+    setAssetLinkHref(toLink, toSrc, step.to?.to || '');
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -266,20 +270,20 @@ export default function createAssetsPanelController({
     const fromSrc = store.getAssetPreviewSrc({ to: localAsset.originalSrc }) || localAsset.originalSrc || '';
     const toSrc = localAsset.base64Data || '';
     const fromLink = document.createElement('a');
-    fromLink.href = fromSrc || localAsset.originalSrc || '#';
     fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
     fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, localAsset.originalSrc || '');
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
-    toLink.href = toSrc || localAsset.filename || '#';
     toLink.textContent = 'To Image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
     toLink.className = 'annotation-asset-link';
+    setAssetLinkHref(toLink, toSrc, '');
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -319,23 +323,22 @@ export default function createAssetsPanelController({
       text.appendChild(blockLabel);
     }
     const fromSrc = store.getAssetPreviewSrc({ to: asset.originalSrc }) || asset.originalSrc || '';
-    const toSrc = asset._base64Data
-      || store.getAssetPreviewSrc({ to: asset.daUrl }) || asset.daUrl || '';
+    const toSrc = asset._base64Data || store.getAssetPreviewSrc({ to: asset.daUrl }) || '';
     const fromLink = document.createElement('a');
-    fromLink.href = fromSrc || asset.originalSrc || '#';
     fromLink.textContent = 'From Image';
     fromLink.target = '_blank';
     fromLink.rel = 'noopener noreferrer';
     fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, asset.originalSrc || '');
     const arrow = document.createElement('span');
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
-    toLink.href = toSrc || asset.daUrl || asset.filename || '#';
     toLink.textContent = 'To Image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
     toLink.className = 'annotation-asset-link';
+    setAssetLinkHref(toLink, toSrc, asset.daUrl || '');
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
