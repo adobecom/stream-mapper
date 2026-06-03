@@ -5,9 +5,6 @@
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
 
-const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
-const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
-
 const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg',
 ];
@@ -616,8 +613,6 @@ export default function createAssetsPanelController({
       elementPath: asset.elementPath,
       targetImg,
     });
-
-    addPendingIndicator(targetImg);
   }
 
   async function applyAssetToPage(asset, targetImgOverride) {
@@ -716,42 +711,6 @@ export default function createAssetsPanelController({
     });
   }
 
-  function addPendingIndicator(imgEl) {
-    removePendingIndicator(imgEl);
-
-    const container = imgEl.closest('picture') || imgEl.parentElement;
-    if (!container) return;
-
-    const computedPosition = getComputedStyle(container).position;
-    if (computedPosition === 'static') {
-      container.style.position = 'relative';
-    }
-
-    imgEl.classList.add(ASSET_INDICATOR_CLASS);
-
-    const badge = document.createElement('span');
-    badge.className = ASSET_INDICATOR_BADGE_CLASS;
-    badge.textContent = 'Pending';
-    container.appendChild(badge);
-  }
-
-  function removePendingIndicator(imgEl) {
-    imgEl.classList.remove(ASSET_INDICATOR_CLASS);
-    const container = imgEl.closest('picture') || imgEl.parentElement;
-    if (!container) return;
-    const existingBadge = container.querySelector(`.${ASSET_INDICATOR_BADGE_CLASS}`);
-    if (existingBadge) existingBadge.remove();
-  }
-
-  function removeAllPendingIndicators() {
-    document.querySelectorAll(`.${ASSET_INDICATOR_CLASS}`).forEach((img) => {
-      img.classList.remove(ASSET_INDICATOR_CLASS);
-    });
-    document.querySelectorAll(`.${ASSET_INDICATOR_BADGE_CLASS}`).forEach((badge) => {
-      badge.remove();
-    });
-  }
-
   async function handleDeleteAsset(asset) {
     try {
       await assetService.deleteAsset(asset.id);
@@ -787,7 +746,6 @@ export default function createAssetsPanelController({
         }
       });
     }
-    removePendingIndicator(imgEl);
   }
 
   async function uploadLocalAssets() {
@@ -871,19 +829,17 @@ export default function createAssetsPanelController({
     });
     annotationState.store.assets = merged;
 
-    for (const [assetId, applied] of annotationUI.appliedAssets) {
+    for (const [assetId] of annotationUI.appliedAssets) {
       // eslint-disable-next-line no-continue
       if (String(assetId).startsWith('local-')) continue;
       const asset = merged.find((a) => a.id === assetId);
       if (!asset || asset.status !== 'pending') {
-        if (applied.targetImg) removePendingIndicator(applied.targetImg);
         annotationUI.appliedAssets.delete(assetId);
       }
     }
   }
 
   function clearAppliedAssets() {
-    removeAllPendingIndicators();
     annotationUI.appliedAssets.clear();
   }
 
@@ -921,11 +877,13 @@ export default function createAssetsPanelController({
       skipUploadAndPromotion: true,
     };
 
+    // eslint-disable-next-line max-len
     const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
     annotationState.store.localAssets = annotationState.store.localAssets
       .filter((a) => a.elementPath !== elementPath);
     for (const old of supersededLocal) annotationUI.appliedAssets.delete(old.localId);
 
+    // eslint-disable-next-line max-len
     const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
     annotationState.store.assets = (annotationState.store.assets || [])
       .filter((a) => a.elementPath !== elementPath);
@@ -986,7 +944,6 @@ export default function createAssetsPanelController({
 
   function cleanup() {
     exitSelectMode();
-    removeAllPendingIndicators();
     annotationUI.appliedAssets.clear();
     annotationState.store.localAssets = [];
     if (fileInputEl) {

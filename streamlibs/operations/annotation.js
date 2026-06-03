@@ -728,6 +728,7 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  // eslint-disable-next-line no-use-before-define
   await persistEditsToDb();
 }
 async function persistEditsToDb() {
@@ -774,7 +775,9 @@ export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') 
     elementRef, editAnchor.elementPath, editAnchor.elementProps,
   );
   const stampedOriginal = store.getEasyEditOriginalForElement(element);
+  // eslint-disable-next-line max-len
   const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot?.originalText ?? fromText;
+  // eslint-disable-next-line max-len
   const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot?.originalHtml ?? fromHtml;
   const segments = store.getChangedSegments(baselineText, toText);
 
