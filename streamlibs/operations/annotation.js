@@ -700,9 +700,37 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   const assetReplacements = buildAssetReplacementsAndEdits(
     (asset) => asset.finalDaUrl || asset.daUrl,
   );
-  const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements, {
+  let { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements, {
     excludeBlockClasses: ['metadata'],
   });
+
+  if (cachedPageMetadataHtml !== null) {
+    const metaContainer = document.createElement('div');
+    metaContainer.innerHTML = `<main>${daCompatibleHtml}</main>`;
+    const metaMain = metaContainer.querySelector('main');
+    metaMain.querySelectorAll('.metadata').forEach((el) => {
+      const parentSection = el.parentElement;
+      el.remove();
+      if (parentSection.children.length === 0) parentSection.remove();
+    });
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'metadata';
+    metadataDiv.innerHTML = cachedPageMetadataHtml;
+    metadataDiv.querySelectorAll('p').forEach((p) => {
+      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
+    });
+    metadataDiv.querySelectorAll('img').forEach((img) => {
+      const daSrc = img.getAttribute('data-stream-original-src');
+      if (daSrc) img.setAttribute('src', daSrc);
+      [...img.attributes].forEach((attr) => {
+        if (attr.name.startsWith('data-')) img.removeAttribute(attr.name);
+      });
+    });
+    const divWrapper = document.createElement('div');
+    divWrapper.append(metadataDiv);
+    metaMain.appendChild(divWrapper);
+    daCompatibleHtml = getDACompatibleHtml(metaMain.innerHTML);
+  }
 
   const cfg = window.streamConfig || {};
   const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
@@ -783,7 +811,6 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
       await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, htmlToPush, {
         suppressErrorPage: true,
       });
-      cachedCleanHtml = htmlToPush;
     }
   }
 
