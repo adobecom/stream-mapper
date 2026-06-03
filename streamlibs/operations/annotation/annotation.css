@@ -182,6 +182,13 @@ body.annotation-mode main::-webkit-scrollbar {
   border-radius: 8px;
   padding: 3px;
   margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.annotation-panel-filter-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .annotation-panel-filter-tab {
@@ -294,6 +301,48 @@ body.annotation-mode main::-webkit-scrollbar {
   .annotation-mode-toolbar {
     margin-left: 0;
   }
+
+  .annotation-panel-comment {
+    padding: 7px 8px;
+  }
+
+  .annotation-panel-comment-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .annotation-panel-comment-user {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    min-width: 40%;
+  }
+
+  .annotation-panel-status-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .annotation-panel-status-select {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .annotation-card-auto-apply-btn,
+  .annotation-panel-edit-btn {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+  }
+
+  .annotation-card-auto-apply-btn svg,
+  .annotation-panel-edit-btn svg {
+    width: 9px;
+    height: 9px;
+  }
+
 }
 
 .annotation-comments-disabled-overlay {
@@ -961,10 +1010,8 @@ body.annotation-mode main::-webkit-scrollbar {
   flex-direction: column;
   gap: 10px;
   margin-top: 8px;
-  padding: 10px 12px 12px;
   background: #f0f6ff;
   border: 1px solid #dbeafe;
-  border-left: 3px solid #3b82f6;
   border-radius: 10px;
 }
 
@@ -980,7 +1027,6 @@ body.annotation-mode main::-webkit-scrollbar {
   border-radius: 7px;
   background: #fff;
   color: #111827;
-  padding: 9px 11px;
   font-family: inherit;
   font-size: 12.5px;
   line-height: 1.6;
@@ -1005,8 +1051,8 @@ body.annotation-mode main::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
-  padding: 0 12px;
+  height: 24px;
+  padding: 0 8px;
   border-radius: 6px;
   font-family: inherit;
   font-size: 11.5px;
@@ -1481,6 +1527,7 @@ body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonl
   }
 }
 
+
 /* ── Assets panel ──────────────────────────────────────────────────── */
 
 .annotation-assets-upload-bar {
@@ -1570,7 +1617,7 @@ body.annotation-asset-select-mode main img:hover {
   border-color: #93c5fd;
 }
 
-.annotation-asset-thumb {
+.annotation-asset-card .annotation-asset-thumb {
   flex-shrink: 0;
   width: 48px;
   height: 48px;
@@ -2436,3 +2483,21 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
   main > .section, .fragment > .section {
     min-height: 50px;
   }
+
+
+@media (max-width: 500px) {
+  body.annotation-mode main {
+    transform: scale(0.60);
+  }
+
+  .annotation-comments-panel {
+    height: 80vh;
+    min-width: 40%;
+    max-width: 40%;
+  }
+
+  .annotation-panel-edit-save-btn::after,
+  .annotation-panel-edit-cancel-btn::after {
+    display: none;
+  }
+}
