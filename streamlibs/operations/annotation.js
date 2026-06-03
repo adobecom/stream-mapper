@@ -783,6 +783,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
       await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, htmlToPush, {
         suppressErrorPage: true,
       });
+      cachedCleanHtml = htmlToPush;
     }
   }
 
