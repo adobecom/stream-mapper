@@ -608,6 +608,22 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
               if (newBlockHtml !== originalBlockHtml) {
                 updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
               }
+            } else {
+              // fromAlt not in the block HTML — happens when cachedCleanHtml was refreshed
+              // from DA after a prior push (DA converts all quotes to single, so the previous
+              // push result is now the current text). Fall back to the image by position.
+              const picIdx = edit.picIndexInBlock ?? edit.elementProps?.picIndexInBlock ?? null;
+              const pics = Array.from(targetBlock.querySelectorAll('picture'));
+              const targetPic = picIdx != null ? pics[picIdx] : pics[0];
+              const targetImgEl = targetPic?.querySelector('img');
+              if (targetImgEl) {
+                targetImgEl.setAttribute('alt', toAlt);
+                const newBlockHtml = targetBlock.outerHTML;
+                if (newBlockHtml !== originalBlockHtml) {
+                  // eslint-disable-next-line max-len
+                  updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
+                }
+              }
             }
           }
           return;
@@ -617,6 +633,18 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           updatedHtml = updatedHtml.replace(doubleQuoteAlt, `alt="${toAlt}"`);
         } else if (singleQuoteAlt.test(updatedHtml)) {
           updatedHtml = updatedHtml.replace(singleQuoteAlt, `alt='${toAlt}'`);
+        } else {
+          // fromAlt not found globally — fall back to locating the element by elementPath.
+          const elPath = edit.elementPath;
+          if (elPath) {
+            const globalWrapper = document.createElement('div');
+            globalWrapper.innerHTML = `<main>${updatedHtml}</main>`;
+            const targetImgEl = globalWrapper.querySelector(elPath);
+            if (targetImgEl?.tagName === 'IMG') {
+              targetImgEl.setAttribute('alt', toAlt);
+              updatedHtml = globalWrapper.querySelector('main').innerHTML;
+            }
+          }
         }
         return;
       }

@@ -80,7 +80,7 @@ export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingA
   for (let i = 0; i < binaryStr.length; i += 1) bytes[i] = binaryStr.charCodeAt(i);
   const file = new File([bytes], `generated-${Date.now()}.${ext}`, { type: mimeType });
 
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt);
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt, generatedUrl);
 }
 
 const commentsPanel = createCommentsPanelController({
@@ -728,6 +728,7 @@ export async function persistAnnotationChangesToDA() {
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
   });
+  // eslint-disable-next-line no-use-before-define
   await persistEditsToDb();
 }
 async function persistEditsToDb() {
@@ -774,7 +775,9 @@ export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') 
     elementRef, editAnchor.elementPath, editAnchor.elementProps,
   );
   const stampedOriginal = store.getEasyEditOriginalForElement(element);
+  // eslint-disable-next-line max-len
   const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot?.originalText ?? fromText;
+  // eslint-disable-next-line max-len
   const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot?.originalHtml ?? fromHtml;
   const segments = store.getChangedSegments(baselineText, toText);
 
