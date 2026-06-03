@@ -34,7 +34,7 @@ function hideRegenBtn() {
 }
 
 function scheduleHideRegenBtn() {
-  regenState.hideTimer = setTimeout(hideRegenBtn, 5000);
+  regenState.hideTimer = setTimeout(hideRegenBtn, 1000);
 }
 
 function cancelHideRegenBtn() {
@@ -168,7 +168,7 @@ function hideImgRegenBtn() {
 }
 
 function scheduleHideImgRegenBtn() {
-  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 5000);
+  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 1000);
 }
 
 function cancelHideImgRegenBtn() {

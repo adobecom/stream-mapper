@@ -1739,28 +1739,6 @@ body.annotation-asset-select-mode main img:hover {
   background: #fef2f2;
 }
 
-/* Visual indicator on replaced images */
-.annotation-asset-pending-indicator {
-  outline: 3px dashed #2563eb !important;
-  outline-offset: 2px;
-}
-
-.annotation-asset-pending-badge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: #2563eb;
-  padding: 2px 8px;
-  border-radius: 4px;
-  z-index: 10;
-  pointer-events: none;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* Attach asset button in reply composer */
 .annotation-panel-attach-btn {
   display: inline-flex;

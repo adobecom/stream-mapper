@@ -154,6 +154,7 @@ export default function createAssetsPanelController({
     }
     const fromSrc = store.getAssetPreviewSrc(step.from);
     const toSrc = store.getAssetPreviewSrc(step.to);
+    const toLinkUrl = step.to?.to || '';
     const fromLink = document.createElement('a');
     fromLink.href = fromSrc || '#';
     fromLink.textContent = 'From Image';
@@ -164,11 +165,33 @@ export default function createAssetsPanelController({
     arrow.className = 'annotation-asset-arrow';
     arrow.innerHTML = ARROW_ICON_SVG;
     const toLink = document.createElement('a');
-    toLink.href = toSrc || '#';
     toLink.textContent = 'To Image';
     toLink.target = '_blank';
     toLink.rel = 'noopener noreferrer';
     toLink.className = 'annotation-asset-link';
+    if (toLinkUrl && !toLinkUrl.startsWith('data:')) {
+      // Real URL (regen API URL or promoted DA URL) — directly navigable.
+      toLink.href = toLinkUrl;
+    } else if (toSrc?.startsWith('data:')) {
+      // Base64 data URL — Chrome blocks data: navigation; open via blob URL instead.
+      toLink.href = '#';
+      toLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        try {
+          const [header, b64] = toSrc.split(',');
+          const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: mime });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch { /* ignore */ }
+      });
+    } else {
+      toLink.href = toSrc || '#';
+    }
     text.appendChild(fromLink);
     text.appendChild(arrow);
     text.appendChild(toLink);
@@ -771,6 +794,13 @@ export default function createAssetsPanelController({
     const uploadedIds = [];
 
     for (const localAsset of localAssets) {
+      if (localAsset.skipUploadAndPromotion) {
+        // Regen image — already at its final content.da.live URL.
+        // The image-src easyEdit carries the URL; no upload or promotion needed.
+        annotationUI.appliedAssets.delete(localAsset.localId);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       try {
         // eslint-disable-next-line no-await-in-loop
         const asset = await assetService.uploadAsset(
@@ -854,7 +884,7 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.clear();
   }
 
-  async function registerLocalAssetFromRegen(targetImg, file, base64Data, pendingAlt = '') {
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data, pendingAlt = '', generatedUrl = '') {
     if (!targetImg || !file || !base64Data) return null;
 
     const anchorTarget = targetImg.closest('picture') || targetImg;
@@ -884,6 +914,8 @@ export default function createAssetsPanelController({
       base64Data,
       targetImg,
       createdAt: new Date().toISOString(),
+      // Already at its final content.da.live URL; skip upload and promotion.
+      skipUploadAndPromotion: true,
     };
 
     const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
@@ -897,6 +929,22 @@ export default function createAssetsPanelController({
     for (const old of supersededRemote) annotationUI.appliedAssets.delete(old.id);
 
     annotationState.store.localAssets.push(localAsset);
+
+    const assetFileKey = store.generateId('asset-file');
+    store.registerAssetFile(assetFileKey, file, base64Data);
+    localAsset.assetFileKey = assetFileKey;
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath,
+      elementProps,
+      elementRef,
+      from: targetImg.getAttribute('data-stream-original-src') || originalSrc,
+      to: generatedUrl || '',
+      fromHtml: '',
+      toHtml: '',
+      assetFileKey,
+    });
+
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
     if (pendingAlt) {

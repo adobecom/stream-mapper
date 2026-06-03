@@ -80,7 +80,7 @@ export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingA
   for (let i = 0; i < binaryStr.length; i += 1) bytes[i] = binaryStr.charCodeAt(i);
   const file = new File([bytes], `generated-${Date.now()}.${ext}`, { type: mimeType });
 
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt);
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt, generatedUrl);
 }
 
 const commentsPanel = createCommentsPanelController({
