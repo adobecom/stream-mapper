@@ -2400,91 +2400,42 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata {
+  .annotation-mode .stream-metadata-section {
+    justify-self: center;
+    width: 80%;
+  }
+
+  .annotation-mode main div.metadata {
     width: 100%;
-    border-top: 2px dashed #ababab;
-    margin-top: 10px;
-    background: #eff5ff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    background: #fff;
-    padding-bottom: 50px;
+    border-collapse: collapse;
+    display: table;
+    margin-top: 16px;
+    font-size: 14px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata h3 {
-    display: flex;
-    align-items: start;
-    width: 80%;
-    padding: 20px;
-    color: #1d4ed8;
+  .annotation-mode main div.metadata > div {
+    display: table-row;
   }
 
-  .annotation-mode .page-metadata {
-    width: 80%;
-    display: flex;
-    flex-wrap: wrap;
+  .annotation-mode main div.metadata > div > div {
+    display: table-cell;
+    border: 1px solid #d1d5db;
+    padding: 8px 16px;
+    vertical-align: top;
   }
 
-  .annotation-mode .page-metadata > div {
-    display: flex;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .annotation-mode .page-metadata > div > div:first-child {
-    font-weight: bold;
-  }
-
-  .annotation-mode .page-metadata > div > div {
-    flex: 1 1 0;
-    min-width: 0;
-    border: 0.5px solid #cacaca;
-    padding: 10px;
-    padding-left: 20px;
-  }
-
-  .annotation-mode .page-metadata > div > div img {
-    width: 100px;
-    height: auto;
-    max-width: 100px;
-  }
-
-  .annotation-mode .stream-annotation-metadata-actions {
-    display: none;
-    width: 80%;
-    flex-direction: row;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .annotation-inline-edit-mode .stream-annotation-metadata-actions {
-    display: flex;
-  }
-
-  .annotation-mode .stream-annotation-add-metadata-row {
-    padding: 5px 14px;
-    background: #fff;
-    border: 1px solid #3d63ae;
-    border-radius: 4px;
-    color: #3d63ae;
-    font-size: 12px;
-    cursor: pointer;
+  .annotation-mode main div.metadata > div > div:first-child {
+    font-weight: 600;
+    width: 30%;
+    background: #f8fafc;
+    color: #374151;
     white-space: nowrap;
   }
 
-  .annotation-inline-edit-mode .stream-annotation-add-metadata-row:hover {
-    background: #3d63ae;
-    color: #fff;
-  }
-
-  .page-metadata .annotation-asset-pending-badge {
-    display: none;
-  }
-
-  main > .section, .fragment > .section {
-    min-height: 50px;
+  .annotation-mode main div.metadata > div > div img {
+    width: 50px;
+    height: auto;
+    max-width: 80px;
   }
 
 
