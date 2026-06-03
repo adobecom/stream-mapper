@@ -392,7 +392,7 @@ export async function persist(versionLabel = null) {
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (isAnnotationOp()) {
-      await persistAnnotationChangesToDA();
+      await persistAnnotationChangesToDA(versionLabel);
     } else {
       await persistOnTarget(versionLabel);
     }

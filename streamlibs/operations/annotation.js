@@ -695,7 +695,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 }
 
-export async function persistAnnotationChangesToDA() {
+export async function persistAnnotationChangesToDA(versionLabel = null) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
 
@@ -727,6 +727,7 @@ export async function persistAnnotationChangesToDA() {
   }
   await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, daCompatibleHtml, {
     suppressErrorPage: true,
+    ...(versionLabel ? { versionLabel } : {}),
   });
   // eslint-disable-next-line no-use-before-define
   await persistEditsToDb();
