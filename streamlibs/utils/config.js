@@ -40,9 +40,9 @@ export const CONFIG = {
   },
   dev: {
     streamMapper: {
-      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
+      serviceEP: 'http://localhost:8080',
       figmaMappingUrl: '/api/fig-comps',
-      figmaBlockContentUrl: '/api/fig-comp-details',
+      figmaBlockContentUrl: '/api/ai/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
       figmaAuthToken: '',

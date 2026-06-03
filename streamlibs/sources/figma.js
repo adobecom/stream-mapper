@@ -187,6 +187,7 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
     fetchContent(block.path),
     fetchBlockContent(block.figId, block.id, figmaUrl).finally(() => onDetailResponse()),
   ]);
+  if (!figContent.details) return '';
 
   const properties = figContent?.details?.properties;
   if (figContent?.success && isEmptyBlockContent(properties)) {
