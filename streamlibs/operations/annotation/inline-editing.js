@@ -12,6 +12,7 @@ export default function createInlineEditingController({
   renderThreadMarkers,
   renderCommentsPanel,
   removePopup,
+  getMetadataFromHtml,
 }) {
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
@@ -232,8 +233,9 @@ export default function createInlineEditingController({
       return;
     }
 
+    const isInMetadata = Boolean(element.closest('main div.metadata'));
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
@@ -248,6 +250,10 @@ export default function createInlineEditingController({
     const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
     const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
     const segments = store.getChangedSegments(baselineText, currentText);
+    const resolvedFromHtml = (isInMetadata && getMetadataFromHtml)
+      ? getMetadataFromHtml()
+      : baselineHtml;
+    const resolvedToHtml = currentHtml;
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
@@ -257,8 +263,8 @@ export default function createInlineEditingController({
       elementRef,
       from: baselineText,
       to: currentText,
-      fromHtml: baselineHtml,
-      toHtml: currentHtml,
+      fromHtml: resolvedFromHtml,
+      toHtml: resolvedToHtml,
       changedFrom: segments.changedFrom,
       changedTo: segments.changedTo,
       updatedAt: new Date().toISOString(),
@@ -322,7 +328,8 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const isInMetadata = Boolean(imageElement.closest('main div.metadata'));
+    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;

@@ -91,6 +91,32 @@ const commentsPanel = createCommentsPanelController({
 });
 commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
 
+let cachedCleanHtml = '';
+let cachedMetadata = null;
+const regenReplacements = [];
+
+function buildMetadataToHtml() {
+  const liveMetadata = document.querySelector('main div.metadata');
+  if (!liveMetadata) return '';
+  const clone = liveMetadata.cloneNode(true);
+  clone.querySelectorAll('picture').forEach((picture) => {
+    const img = picture.querySelector('img');
+    if (img) picture.replaceWith(img);
+    else picture.remove();
+  });
+  clone.querySelectorAll('img').forEach((img) => {
+    const originalSrc = img.getAttribute('data-stream-original-srcset')
+      || img.getAttribute('data-stream-original-src');
+    if (originalSrc) img.setAttribute('src', originalSrc);
+  });
+  clone.querySelectorAll('*').forEach((el) => {
+    [...el.attributes]
+      .filter((attr) => attr.name.startsWith('data-'))
+      .forEach((attr) => el.removeAttribute(attr.name));
+  });
+  return getDACompatibleHtml(clone.outerHTML);
+}
+
 const inlineEditing = createInlineEditingController({
   annotationState,
   annotationUI,
@@ -98,6 +124,8 @@ const inlineEditing = createInlineEditingController({
   renderThreadMarkers: commentsPanel.renderThreadMarkers,
   renderCommentsPanel: commentsPanel.renderCommentsPanel,
   removePopup: commentsPanel.removePopup,
+  getMetadataFromHtml: () => (cachedMetadata ? cachedMetadata.outerHTML : ''),
+  buildMetadataToHtml,
 });
 
 commentsPanel.setInlineModeHandlers({
@@ -110,9 +138,22 @@ assetsPanel.setOnAssetsChanged(() => {
   commentsPanel.renderCommentsPanel();
 });
 
-let cachedCleanHtml = '';
-let cachedPageMetadataHtml = null;
-const regenReplacements = [];
+function parseAndCacheCleanHtml(htmlDom) {
+  const metadataBlocks = [...htmlDom.querySelectorAll('div.metadata')];
+  let combinedInnerHtml = '';
+  metadataBlocks.forEach((block) => {
+    combinedInnerHtml += block.innerHTML;
+    const parent = block.parentElement;
+    block.remove();
+    if (parent && parent.children.length === 0) parent.remove();
+  });
+  if (metadataBlocks.length > 0) {
+    cachedMetadata = document.createElement('div');
+    cachedMetadata.className = 'metadata';
+    cachedMetadata.innerHTML = combinedInnerHtml;
+  }
+  cachedCleanHtml = htmlDom.innerHTML;
+}
 
 // ── Preview DOM helpers (annotationOperation only) ───────────────────────────
 
@@ -146,19 +187,11 @@ async function initializePreview() {
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
-  const metadataEle = document.createElement('div');
-  metadataEle.classList.add('page-metadata');
-  if (cachedPageMetadataHtml !== null) {
-    metadataEle.innerHTML = cachedPageMetadataHtml;
-  } else {
-    htmlDom.querySelectorAll('div.metadata').forEach((mb) => {
-      metadataEle.innerHTML += mb.innerHTML;
-    });
-  }
-  mainEle.innerHTML = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
-    ? htmlDom.innerHTML
-    : htmlDom;
-  document.body.append(metadataEle);
+  const rawHtml = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
+    ? htmlDom
+    : null;
+  if (rawHtml) parseAndCacheCleanHtml(rawHtml);
+  mainEle.innerHTML = rawHtml ? rawHtml.innerHTML : htmlDom;
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
 }
@@ -416,28 +449,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
-  const pageMetadataDom = document.body.querySelector('main .page-metadata');
-  if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-    mainEl.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.parentElement;
-      el.remove();
-      if (parentSection.children.length === 0) parentSection.remove();
-    });
-    const metadataDiv = document.createElement('div');
-    metadataDiv.className = 'metadata';
-    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
-    metadataDiv.querySelectorAll('p').forEach((p) => {
-      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
-    });
-    metadataDiv.querySelectorAll('img').forEach((img) => {
-      img.setAttribute('src', img.getAttribute('data-stream-original-src'));
-    });
-    const divWrapper = document.createElement('div');
-    divWrapper.append(metadataDiv);
-    mainEl.appendChild(divWrapper);
-  }
-
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
 
@@ -519,7 +530,26 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     }
   }
 
-  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
+  const resolvedAssets = Array.from(latestByPath.values()).map((asset) => {
+    const liveEl = asset.elementRef
+      ? document.querySelector(`[data-annotation-ref="${asset.elementRef}"]`)
+      : null;
+    const isMetadata = Boolean(liveEl?.closest('main div.metadata'));
+    const imgEl = liveEl?.tagName === 'IMG' ? liveEl : liveEl?.querySelector('img');
+    let { originalSrc } = asset;
+    if (isMetadata) {
+      const fromAttr = imgEl?.getAttribute('data-stream-original-src');
+      if (fromAttr) {
+        originalSrc = fromAttr;
+      } else if (cachedMetadata) {
+        const cachedImg = cachedMetadata.querySelector('img[src*="content.da.live"]');
+        if (cachedImg) originalSrc = cachedImg.getAttribute('src') || asset.originalSrc;
+      }
+    }
+    return { asset, isMetadata, originalSrc };
+  });
+
+  const assetReplacements = resolvedAssets.map(({ asset }) => ({
     elementPath: asset.elementPath,
     elementProps: asset.elementProps,
     originalSrc: asset.originalSrc,
@@ -527,23 +557,24 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     targetUrl: resolveTargetUrl(asset),
   }));
 
-  for (const asset of latestByPath.values()) {
+  for (const { asset, isMetadata, originalSrc } of resolvedAssets) {
     const finalUrl = resolveTargetUrl(asset);
     if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
+    const trackingPath = isMetadata ? 'metadata' : asset.elementPath;
     const existingEdit = store.getEasyEditByElement(
-      asset.elementRef || '', asset.elementPath, asset.elementProps,
+      asset.elementRef || '', trackingPath, asset.elementProps,
     );
     if (!existingEdit || existingEdit.editType === 'image-src') {
       store.upsertEasyEdit({
         ...(existingEdit || {}),
         editType: 'image-src',
-        elementPath: asset.elementPath,
+        elementPath: trackingPath,
         elementProps: asset.elementProps || {},
         elementRef: asset.elementRef || '',
-        from: existingEdit?.from || asset.originalSrc,
+        from: isMetadata ? originalSrc : (existingEdit?.from || originalSrc),
         to: finalUrl,
-        fromHtml: '',
-        toHtml: '',
+        fromHtml: isMetadata ? (cachedMetadata?.outerHTML || '') : '',
+        toHtml: isMetadata ? buildMetadataToHtml() : '',
         // Keep the original replacement time so panel ordering stays chronological.
         updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
@@ -586,8 +617,6 @@ export async function annotationOperation(options = {}) {
     });
   }
 
-  if (!cachedCleanHtml) cachedCleanHtml = mainEl.innerHTML || '';
-
   if (window.streamConfig?.source === 'da') {
     const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
     for (const root of insertedFragments) {
@@ -598,42 +627,39 @@ export async function annotationOperation(options = {}) {
 
   await miloLoadArea();
 
-  const metadataDom = document.body.querySelector('.page-metadata');
-  const metadataSeparator = document.createElement('div');
-  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
-  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
-  metadataSeparator.append(metadataDom);
-
-  const addAndRegisterRow = (row) => {
-    metadataDom.append(row);
-    row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
-  };
-
-  const addTextBtn = document.createElement('button');
-  addTextBtn.className = 'stream-annotation-add-metadata-row';
-  addTextBtn.textContent = '+ Add text/link row';
-  addTextBtn.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
-    addAndRegisterRow(row);
-  });
-
-  const addImageBtn = document.createElement('button');
-  addImageBtn.className = 'stream-annotation-add-metadata-row';
-  addImageBtn.textContent = '+ Add image row';
-  addImageBtn.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
-    addAndRegisterRow(row);
-  });
-
-  const metadataActions = document.createElement('div');
-  metadataActions.className = 'stream-annotation-metadata-actions';
-  metadataActions.append(addTextBtn, addImageBtn);
-  metadataSeparator.append(metadataActions);
-  mainEl.append(metadataSeparator);
-
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+
+  if (cachedMetadata) {
+    const divWrapper = document.createElement('div');
+    divWrapper.classList.add('section');
+    divWrapper.classList.add('stream-metadata-section');
+    const blocktitle = document.createElement('h3');
+    blocktitle.innerHTML += 'Page Metadata';
+    divWrapper.appendChild(blocktitle);
+    divWrapper.innerHTML += cachedMetadata.outerHTML;
+    mainEl.appendChild(divWrapper);
+
+    const metadataSection = mainEl.querySelector('.stream-metadata-section');
+    if (metadataSection) {
+      const imgResolves = [...metadataSection.querySelectorAll('img')].map(async (img) => {
+        const originalSrc = img.getAttribute('src') || '';
+        const resolved = await resolvePreviewUrl(originalSrc);
+        if (resolved && resolved !== originalSrc) {
+          img.setAttribute('data-stream-original-src', originalSrc);
+          img.setAttribute('src', resolved);
+        }
+      });
+      const sourceResolves = [...metadataSection.querySelectorAll('source')].map(async (source) => {
+        const originalSrcset = source.getAttribute('srcset') || '';
+        const resolved = await resolvePreviewUrl(originalSrcset);
+        if (resolved && resolved !== originalSrcset) {
+          source.setAttribute('data-stream-original-srcset', originalSrcset);
+          source.setAttribute('srcset', resolved);
+        }
+      });
+      await Promise.all([...imgResolves, ...sourceResolves]);
+    }
+  }
 }
 
 export async function annotationOperationOnHostPage(options = {}) {

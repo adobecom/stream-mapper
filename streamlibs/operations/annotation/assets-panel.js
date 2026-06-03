@@ -447,7 +447,7 @@ export default function createAssetsPanelController({
       return;
     }
 
-    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    const originalSrc = targetImg.dataset.streamOriginalSrc || targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
     // Cache the absolute loaded URL so a page-relative originalSrc still renders.
     const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
@@ -498,12 +498,13 @@ export default function createAssetsPanelController({
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
+    const isInMetadata = Boolean(targetImg.closest('main div.metadata'));
     store.upsertEasyEdit({
       editType: 'image-src',
-      elementPath,
+      elementPath: isInMetadata ? 'metadata' : elementPath,
       elementProps,
       elementRef,
-      from: originalSrc,
+      from: isInMetadata ? targetImg.dataset.streamOriginalSrc : originalSrc,
       to: '',
       fromHtml: '',
       toHtml: '',
