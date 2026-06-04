@@ -232,8 +232,9 @@ export default function createInlineEditingController({
       return;
     }
 
+    const isInMetadata = Boolean(element.closest('main div.metadata'));
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
@@ -248,17 +249,21 @@ export default function createInlineEditingController({
     const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
     const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
     const segments = store.getChangedSegments(baselineText, currentText);
+    const metadataFields = isInMetadata
+      ? store.metadataEasyEditFields(editAnchor.elementProps)
+      : {};
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
       attrName: '',
       elementPath: easyEditElementPath,
-      elementProps: editAnchor.elementProps,
+      elementProps: metadataFields.elementProps || editAnchor.elementProps,
       elementRef,
       from: baselineText,
       to: currentText,
       fromHtml: baselineHtml,
       toHtml: currentHtml,
+      ...(metadataFields.blockClass ? { blockClass: metadataFields.blockClass } : {}),
       changedFrom: segments.changedFrom,
       changedTo: segments.changedTo,
       updatedAt: new Date().toISOString(),
@@ -322,7 +327,8 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const isInMetadata = Boolean(imageElement.closest('main div.metadata'));
+    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
@@ -333,12 +339,15 @@ export default function createInlineEditingController({
       easyEditElementPath,
       editAnchor.elementProps,
     );
+    const metadataFields = isInMetadata
+      ? store.metadataEasyEditFields(editAnchor.elementProps)
+      : {};
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'image-alt',
       attrName: 'alt',
       elementPath: easyEditElementPath,
-      elementProps: editAnchor.elementProps,
+      elementProps: metadataFields.elementProps || editAnchor.elementProps,
       elementRef,
       from: originalAlt,
       to: currentAlt,
@@ -347,6 +356,7 @@ export default function createInlineEditingController({
       changedFrom: originalAlt,
       changedTo: currentAlt,
       updatedAt: new Date().toISOString(),
+      ...(metadataFields.blockClass ? { blockClass: metadataFields.blockClass } : {}),
     };
     const persistedEdit = store.upsertEasyEdit(editRecord);
     annotationUI.inlineImageAltSnapshot.set(elementRef, currentAlt);

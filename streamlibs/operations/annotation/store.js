@@ -494,6 +494,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origMainEl = origWrapper.querySelector('main');
     effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
+      if (edit.elementPath === 'metadata') return;
 
       if (edit.editType === 'image-src') {
         const fromSrc = `${edit.from || ''}`;
@@ -1162,6 +1163,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   function getElementForEdit(edit) {
     if (!annotationUI.mainEl) return null;
+    if (edit.elementRef) {
+      const byRef = getElementByRef(edit.elementRef);
+      if (byRef instanceof HTMLElement) return byRef;
+    }
+    if (edit.elementPath === 'metadata') {
+      return annotationUI.mainEl.querySelector('div.metadata');
+    }
     if (!edit.elementPath && !Object.keys(edit.elementProps || {}).length) {
       return edit.elementRef ? getElementByRef(edit.elementRef) : null;
     }
@@ -1287,7 +1295,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const edit = annotationState.store.easyEdits[index];
     const history = Array.isArray(edit.changeHistory) ? [...edit.changeHistory] : [];
 
-   if (!history.length && edit.from === edit.to) return null;
+    if (!history.length && edit.from === edit.to) return null;
     if (!history.length && edit.isCommitted) return null;
 
     let previousTo;
@@ -1326,6 +1334,29 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     rebuildEditThreadsFromEasyEdits();
   }
 
+  /*function isBloatedMetadataHtml(html) {
+    const value = `${html || ''}`;
+    if (!value) return false;
+    if (value.length > 4096) return true;
+    return /\bclass=["']metadata["']/.test(value)
+      || value.includes('<div class="metadata"');
+  }*/
+
+  function trimMetadataEditForSave(edit) {
+    if (!edit || edit.elementPath !== 'metadata') return edit;
+    const fromHtml = isBloatedMetadataHtml(edit.fromHtml) ? '' : `${edit.fromHtml || ''}`;
+    const toHtml = isBloatedMetadataHtml(edit.toHtml) ? '' : `${edit.toHtml || ''}`;
+    if (fromHtml === edit.fromHtml && toHtml === edit.toHtml) return edit;
+    return { ...edit, fromHtml, toHtml };
+  }
+
+  function metadataEasyEditFields(elementProps = {}) {
+    return {
+      blockClass: 'metadata',
+      elementProps: { ...elementProps, blockClass: 'metadata' },
+    };
+  }
+
   function buildSavePayload() {
     return annotationState.store.easyEdits
       .filter((edit) => {
@@ -1338,7 +1369,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       })
       .map((edit) => {
         const { changeHistory, assetFileKey, ...rest } = edit;
-        return rest;
+        return trimMetadataEditForSave(rest);
       });
   }
 
@@ -1595,5 +1626,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     undoLastChange,
     clearChangeHistoryAfterSave,
     buildSavePayload,
+    metadataEasyEditFields,
   };
 }

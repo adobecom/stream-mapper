@@ -447,7 +447,11 @@ export default function createAssetsPanelController({
       return;
     }
 
-    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    const originalSrc = targetImg.dataset.streamOriginalSrc
+      || targetImg.dataset.originalSrc
+      || elementProps?.src
+      || targetImg.src
+      || '';
 
     // Cache the absolute loaded URL so a page-relative originalSrc still renders.
     const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
@@ -498,16 +502,21 @@ export default function createAssetsPanelController({
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
+    const isInMetadata = Boolean(targetImg.closest('main div.metadata'));
+    const metadataFields = isInMetadata ? store.metadataEasyEditFields(elementProps) : {};
     store.upsertEasyEdit({
       editType: 'image-src',
-      elementPath,
-      elementProps,
+      elementPath: isInMetadata ? 'metadata' : elementPath,
+      elementProps: metadataFields.elementProps || elementProps,
       elementRef,
-      from: originalSrc,
+      from: isInMetadata
+        ? (targetImg.getAttribute('data-stream-original-src') || originalSrc)
+        : originalSrc,
       to: '',
       fromHtml: '',
       toHtml: '',
       assetFileKey,
+      ...(metadataFields.blockClass ? { blockClass: metadataFields.blockClass } : {}),
     });
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
@@ -592,6 +601,15 @@ export default function createAssetsPanelController({
       // Store the attribute value (not the resolved .src property) so it
       // matches the literal src string in cachedCleanHtml for reliable lookup.
       targetImg.dataset.originalSrc = targetImg.getAttribute('src') || targetImg.src;
+    }
+    if (targetImg.closest('main div.metadata') && !targetImg.getAttribute('data-stream-original-src')) {
+      targetImg.setAttribute(
+        'data-stream-original-src',
+        targetImg.getAttribute('data-stream-original-src')
+          || targetImg.dataset.originalSrc
+          || targetImg.getAttribute('src')
+          || '',
+      );
     }
 
     targetImg.src = base64Data;
