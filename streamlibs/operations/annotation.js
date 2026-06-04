@@ -147,7 +147,7 @@ async function initializePreview() {
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
   const metadataEle = document.createElement('div');
-  metadataEle.classList.add('page-metadata');
+  metadataEle.classList.add('metadata', 'page-metadata');
   if (cachedPageMetadataHtml !== null) {
     metadataEle.innerHTML = cachedPageMetadataHtml;
   } else {
@@ -325,8 +325,12 @@ function findAssetElement(doc, elementPath, elementProps, originalSrc) {
 
 // ── HTML export ───────────────────────────────────────────────────────────────
 
-function buildHtmlWithEditsAndAssets(assetReplacements) {
-  const easyEdits = annotationState.store.easyEdits || [];
+function buildHtmlWithEditsAndAssets(assetReplacements, { excludeBlockClasses = [] } = {}) {
+  const isExcluded = (bc) => excludeBlockClasses.includes(bc);
+  const allEasyEdits = annotationState.store.easyEdits || [];
+  const easyEdits = excludeBlockClasses.length
+    ? allEasyEdits.filter((e) => !isExcluded(e?.blockClass || e?.elementProps?.blockClass))
+    : allEasyEdits;
   const html = store.applyEasyEditsToHtmlString(cachedCleanHtml, easyEdits);
   const container = document.createElement('div');
   container.innerHTML = `<main>${html}</main>`;
@@ -335,6 +339,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     // Assets with block+globalIndex were already applied viewport-aware in the string phase
     const assetBc = asset.elementProps?.blockClass;
     const assetBgi = asset.elementProps?.blockGlobalIndex;
+    if (isExcluded(assetBc)) continue; // eslint-disable-line no-continue
     if (assetBc && assetBgi != null) continue; // eslint-disable-line no-continue
     const element = findAssetElement(
       container, asset.elementPath, asset.elementProps, asset.originalSrc,
@@ -378,7 +383,8 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   // image-src easyEdits take priority — they carry the final promoted URL and
   // reliable original src, so they overwrite the assetReplacements pass above.
   const imageSrcEdits = (annotationState.store.easyEdits || [])
-    .filter((e) => e?.editType === 'image-src' && e.to);
+    .filter((e) => e?.editType === 'image-src' && e.to)
+    .filter((e) => !isExcluded(e?.blockClass || e?.elementProps?.blockClass));
   // Edits with blockClass+blockGlobalIndex were already applied viewport-aware in the string phase
   imageSrcEdits
     .filter((edit) => {
@@ -415,28 +421,6 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
 
   rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
-
-  const pageMetadataDom = document.body.querySelector('main .page-metadata');
-  if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-    mainEl.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.parentElement;
-      el.remove();
-      if (parentSection.children.length === 0) parentSection.remove();
-    });
-    const metadataDiv = document.createElement('div');
-    metadataDiv.className = 'metadata';
-    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
-    metadataDiv.querySelectorAll('p').forEach((p) => {
-      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
-    });
-    metadataDiv.querySelectorAll('img').forEach((img) => {
-      img.setAttribute('src', img.getAttribute('data-stream-original-src'));
-    });
-    const divWrapper = document.createElement('div');
-    divWrapper.append(metadataDiv);
-    mainEl.appendChild(divWrapper);
-  }
 
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
@@ -716,7 +700,37 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   const assetReplacements = buildAssetReplacementsAndEdits(
     (asset) => asset.finalDaUrl || asset.daUrl,
   );
-  const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
+  let { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements, {
+    excludeBlockClasses: ['metadata'],
+  });
+
+  if (cachedPageMetadataHtml !== null) {
+    const metaContainer = document.createElement('div');
+    metaContainer.innerHTML = `<main>${daCompatibleHtml}</main>`;
+    const metaMain = metaContainer.querySelector('main');
+    metaMain.querySelectorAll('.metadata').forEach((el) => {
+      const parentSection = el.parentElement;
+      el.remove();
+      if (parentSection.children.length === 0) parentSection.remove();
+    });
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'metadata';
+    metadataDiv.innerHTML = cachedPageMetadataHtml;
+    metadataDiv.querySelectorAll('p').forEach((p) => {
+      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
+    });
+    metadataDiv.querySelectorAll('img').forEach((img) => {
+      const daSrc = img.getAttribute('data-stream-original-src');
+      if (daSrc) img.setAttribute('src', daSrc);
+      [...img.attributes].forEach((attr) => {
+        if (attr.name.startsWith('data-')) img.removeAttribute(attr.name);
+      });
+    });
+    const divWrapper = document.createElement('div');
+    divWrapper.append(metadataDiv);
+    metaMain.appendChild(divWrapper);
+    daCompatibleHtml = getDACompatibleHtml(metaMain.innerHTML);
+  }
 
   const cfg = window.streamConfig || {};
   const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
@@ -755,7 +769,51 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
   // Save assigns each image edit its content.da.live URL (no DA push here).
-  buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  // eslint-disable-next-line no-unused-vars
+  const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
+
+  // Apply page metadata edits to the outgoing HTML
+  const pageMetadataDom = document.body.querySelector('main .page-metadata');
+  let htmlToPush = cachedCleanHtml;
+  if (pageMetadataDom && pageMetadataDom.children.length) {
+    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
+    const metaContainer = document.createElement('div');
+    metaContainer.innerHTML = `<main>${cachedCleanHtml}</main>`;
+    const metaMain = metaContainer.querySelector('main');
+    metaMain.querySelectorAll('.metadata').forEach((el) => {
+      const parentSection = el.parentElement;
+      el.remove();
+      if (parentSection.children.length === 0) parentSection.remove();
+    });
+    const metadataDiv = document.createElement('div');
+    metadataDiv.className = 'metadata';
+    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
+    metadataDiv.querySelectorAll('p').forEach((p) => {
+      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
+    });
+    metadataDiv.querySelectorAll('img').forEach((img) => {
+      const daSrc = img.getAttribute('data-stream-original-src');
+      img.setAttribute('src', daSrc);
+      [...img.attributes].forEach((attr) => {
+        if (attr.name.startsWith('data-')) {
+          img.removeAttribute(attr.name);
+        }
+      });
+    });
+    const divWrapper = document.createElement('div');
+    divWrapper.append(metadataDiv);
+    metaMain.appendChild(divWrapper);
+    htmlToPush = getDACompatibleHtml(metaMain.innerHTML);
+    const cfg = window.streamConfig || {};
+    const rawPushUrl = `${cfg.draftLocation || cfg.contentUrl || ''}`.trim();
+    if (rawPushUrl) {
+      await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, htmlToPush, {
+        suppressErrorPage: true,
+      });
+    }
+  }
+
   await persistEditsToDb();
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
