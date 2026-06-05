@@ -24,14 +24,30 @@ export function sanitizeMetadataHtmlRoot(root) {
 
   root.querySelectorAll('picture').forEach((picture) => {
     const img = picture.querySelector('img');
-    if (img) picture.replaceWith(img);
-    else picture.remove();
+    if (img) {
+      const sourceOriginal = picture.querySelector('source')?.getAttribute('data-stream-original-srcset')
+        || picture.querySelector('source')?.getAttribute('data-stream-original-src')
+        || '';
+      const fallbackSrc = `${sourceOriginal}`.split(/[\s,]/).find((part) => part && !part.startsWith('data:'));
+      if (fallbackSrc && !img.getAttribute('data-stream-original-src')) {
+        img.setAttribute('data-stream-original-src', fallbackSrc);
+      }
+      picture.replaceWith(img);
+    } else {
+      picture.remove();
+    }
   });
 
   root.querySelectorAll('img').forEach((img) => {
     const persistSrc = resolvePersistableImgSrc(img);
-    if (persistSrc) img.setAttribute('src', persistSrc);
-    else img.removeAttribute('src');
+    if (persistSrc) {
+      img.setAttribute('src', persistSrc);
+      img.src = persistSrc;
+    } else {
+      img.removeAttribute('src');
+      img.removeAttribute('srcset');
+      img.src = '';
+    }
 
     const srcset = img.getAttribute('srcset') || '';
     if (!srcset || srcset.startsWith('data:') || srcset.includes('base64')) {
@@ -58,4 +74,20 @@ export function sanitizeMetadataInnerHtml(htmlString) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = htmlString || '';
   return sanitizeMetadataHtmlRoot(wrapper).innerHTML;
+}
+
+/** PR #197 parity — restore CDN URLs on live metadata imgs before Save/Push. */
+export function restoreMetadataImageUrlsOnLiveDom(metadataRoot) {
+  if (!(metadataRoot instanceof HTMLElement)) return;
+  metadataRoot.querySelectorAll('img').forEach((img) => {
+    const persistSrc = resolvePersistableImgSrc(img);
+    if (!persistSrc) return;
+    img.setAttribute('src', persistSrc);
+    img.src = persistSrc;
+    img.removeAttribute('srcset');
+    const picture = img.closest('picture');
+    if (picture) {
+      picture.querySelectorAll('source').forEach((source) => source.remove());
+    }
+  });
 }

@@ -21,6 +21,7 @@ import createAssetsPanelController from './annotation/assets-panel.js';
 import {
   sanitizeMetadataInnerHtml,
   sanitizeMetadataBlockHtml,
+  restoreMetadataImageUrlsOnLiveDom,
 } from './annotation/metadata-sanitize.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
@@ -100,8 +101,12 @@ let cachedMetadata = null;
 let cachedMetadataBaselineInnerHtml = '';
 const regenReplacements = [];
 
+function getLiveMetadataElement() {
+  return document.querySelector('main .stream-metadata-section div.metadata');
+}
+
 function buildMetadataToHtml() {
-  const liveMetadata = document.querySelector('main div.metadata');
+  const liveMetadata = getLiveMetadataElement();
   if (!liveMetadata) return '';
   const metadataDiv = document.createElement('div');
   metadataDiv.className = 'metadata';
@@ -110,22 +115,27 @@ function buildMetadataToHtml() {
 }
 
 function getSanitizedMetadataInnerHtml() {
-  const liveMetadata = document.querySelector('main div.metadata');
+  const liveMetadata = getLiveMetadataElement();
   if (!liveMetadata) return '';
   return getDACompatibleHtml(sanitizeMetadataBlockHtml(liveMetadata));
 }
 
-function refreshMetadataEditsFromLiveDom() {
-  const liveMetadata = document.querySelector('main div.metadata')
-    || document.querySelector('main .stream-metadata-section div.metadata');
-  if (!(liveMetadata instanceof HTMLElement)) return;
+/** After asset upload — PR #197: replace preview base64 with final CDN URLs before Save/Push. */
+function prepareLiveMetadataForPersist() {
+  const liveMetadata = getLiveMetadataElement();
+  if (!liveMetadata) return;
 
-  const sanitizedToHtml = sanitizeMetadataBlockHtml(liveMetadata);
-  annotationState.store.easyEdits = annotationState.store.easyEdits.map((edit) => {
-    if (edit?.elementPath !== 'metadata') return edit;
-    if (edit.editType !== 'text') return edit;
-    return { ...edit, toHtml: sanitizedToHtml };
+  (annotationState.store.easyEdits || []).forEach((edit) => {
+    if (edit?.elementPath !== 'metadata' || edit.editType !== 'image-src' || !edit.to) return;
+    const el = edit.elementRef
+      ? liveMetadata.querySelector(`[data-annotation-ref="${edit.elementRef}"]`)
+      : null;
+    const img = el?.tagName === 'IMG' ? el : el?.querySelector('img');
+    if (!(img instanceof HTMLImageElement)) return;
+    img.setAttribute('data-stream-original-src', edit.to);
   });
+
+  restoreMetadataImageUrlsOnLiveDom(liveMetadata);
 }
 
 const inlineEditing = createInlineEditingController({
@@ -189,7 +199,7 @@ function waitForMiloPageLoad(timeoutMs = 15000) {
 const DEFAULT_METADATA_PLACEHOLDER_IMG = 'https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png';
 
 function syncCachedMetadataFromLiveDom() {
-  const liveMetadata = document.querySelector('main .stream-metadata-section div.metadata');
+  const liveMetadata = getLiveMetadataElement();
   if (liveMetadata && cachedMetadata) {
     cachedMetadata.innerHTML = liveMetadata.innerHTML;
   }
@@ -198,8 +208,9 @@ function syncCachedMetadataFromLiveDom() {
 function buildMetadataChunkForSave() {
   if (!cachedMetadata) return null;
 
+  prepareLiveMetadataForPersist();
   syncCachedMetadataFromLiveDom();
-  const fromHtml = cachedMetadataBaselineInnerHtml || '';
+  const fromHtml = sanitizeMetadataInnerHtml(cachedMetadataBaselineInnerHtml || '');
   const toHtml = getSanitizedMetadataInnerHtml();
   const hasMetadataEdits = (annotationState.store.easyEdits || []).some((edit) => {
     if (!edit || edit.elementPath !== 'metadata') return false;
@@ -302,10 +313,10 @@ async function injectMetadataSection(mainEl) {
   const imgResolves = [...metadataSection.querySelectorAll('img')].map(async (img) => {
     const originalSrc = img.getAttribute('src') || '';
     const resolved = await resolvePreviewUrl(originalSrc);
-    if (resolved && resolved !== originalSrc) {
-      img.setAttribute('data-stream-original-src', originalSrc);
-      img.setAttribute('src', resolved);
-    }
+    if (!resolved || resolved === originalSrc) return;
+    // PR #197 — keep DA URL for Save/Push; preview may use base64.
+    img.setAttribute('data-stream-original-src', originalSrc);
+    img.setAttribute('src', resolved);
   });
   const sourceResolves = [...metadataSection.querySelectorAll('source')].map(async (source) => {
     const originalSrcset = source.getAttribute('srcset') || '';
@@ -917,6 +928,8 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   const assetReplacements = buildAssetReplacementsAndEdits(
     (asset) => asset.finalDaUrl || asset.daUrl,
   );
+  prepareLiveMetadataForPersist();
+  syncCachedMetadataFromLiveDom();
   const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
 
   const cfg = window.streamConfig || {};
@@ -935,10 +948,15 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
 }
 async function persistEditsToDb() {
   let metadataChunk = buildMetadataChunkForSave();
-  if (metadataChunk && typeof metadataChunk.toHtml === 'string') {
+  if (metadataChunk) {
     metadataChunk = {
       ...metadataChunk,
-      toHtml: sanitizeMetadataInnerHtml(metadataChunk.toHtml),
+      ...(typeof metadataChunk.fromHtml === 'string'
+        ? { fromHtml: sanitizeMetadataInnerHtml(metadataChunk.fromHtml) }
+        : {}),
+      ...(typeof metadataChunk.toHtml === 'string'
+        ? { toHtml: sanitizeMetadataInnerHtml(metadataChunk.toHtml) }
+        : {}),
     };
   }
   const savePayload = store.buildSavePayload({ metadataChunk });
@@ -968,7 +986,8 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   syncCachedMetadataFromLiveDom();
   await uploadAndDecideAssets();
   buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  refreshMetadataEditsFromLiveDom();
+  prepareLiveMetadataForPersist();
+  syncCachedMetadataFromLiveDom();
   await persistEditsToDb();
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');

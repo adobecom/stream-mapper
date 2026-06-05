@@ -612,8 +612,12 @@ export default function createAssetsPanelController({
       );
     }
 
+    targetImg.setAttribute('src', base64Data);
     targetImg.src = base64Data;
-    if (targetImg.srcset) targetImg.srcset = base64Data;
+    if (targetImg.srcset) {
+      targetImg.setAttribute('srcset', base64Data);
+      targetImg.srcset = base64Data;
+    }
 
     const pictureEl = targetImg.closest('picture');
     if (pictureEl) {
@@ -810,7 +814,13 @@ export default function createAssetsPanelController({
             targetImg: applied.targetImg,
           });
           if (applied.targetImg && asset.daUrl) {
-            applied.targetImg.dataset.streamOriginalSrc = asset.daUrl;
+            const { targetImg } = applied;
+            targetImg.setAttribute('data-stream-original-src', asset.daUrl);
+            const inMetadata = targetImg.closest('main div.metadata');
+            if (inMetadata) {
+              targetImg.setAttribute('src', asset.daUrl);
+              targetImg.removeAttribute('srcset');
+            }
           }
         }
 

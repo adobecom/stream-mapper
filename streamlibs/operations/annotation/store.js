@@ -1341,10 +1341,20 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     };
   }
 
+  function isLegacyMetadataEdit(edit) {
+    if (!edit) return false;
+    if (edit.editType === 'metadata-block') return true;
+    const blockClass = `${edit.blockClass || edit.elementProps?.blockClass || ''}`;
+    if (blockClass === 'page-metadata') return true;
+    const blockSelector = `${edit.blockSelector || ''}`;
+    if (blockSelector.includes('page-metadata')) return true;
+    return false;
+  }
+
   function collapseMetadataEasyEdits(metadataChunk) {
     if (!metadataChunk || typeof metadataChunk !== 'object') return;
     const nonMetadata = annotationState.store.easyEdits.filter(
-      (edit) => edit?.elementPath !== 'metadata',
+      (edit) => edit?.elementPath !== 'metadata' && !isLegacyMetadataEdit(edit),
     );
     annotationState.store.easyEdits = [
       ...nonMetadata,
@@ -1358,6 +1368,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       .filter((edit) => {
         if (!edit) return false;
         if (edit.elementPath === 'metadata') return false;
+        if (isLegacyMetadataEdit(edit)) return false;
         // Don't persist a pending asset edit that hasn't been assigned a URL yet.
         if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
           return false;
