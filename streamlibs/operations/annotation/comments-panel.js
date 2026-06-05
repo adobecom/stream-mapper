@@ -1720,6 +1720,62 @@ export default function createCommentsPanelController({
     window.setTimeout(runScroll, 60);
   }
 
+  function findAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
+    if (!annotationUI.layerEl) return null;
+    if (threadId) {
+      if (messageId) {
+        const specificMarker = annotationUI.layerEl.querySelector(
+          `.annotation-thread-marker[data-thread-id="${threadId}"][data-message-id="${messageId}"], .annotation-edit-marker[data-thread-id="${threadId}"][data-message-id="${messageId}"]`,
+        );
+        if (specificMarker instanceof HTMLElement) return specificMarker;
+      }
+      const marker = annotationUI.layerEl.querySelector(
+        `.annotation-thread-marker[data-thread-id="${threadId}"], .annotation-edit-marker[data-thread-id="${threadId}"]`,
+      );
+      return marker instanceof HTMLElement ? marker : null;
+    }
+    if (elementPath) {
+      try {
+        const marker = annotationUI.layerEl.querySelector(
+          `.annotation-asset-marker[data-element-path="${CSS.escape(elementPath)}"]`,
+        );
+        return marker instanceof HTMLElement ? marker : null;
+      } catch { /* invalid selector */ }
+    }
+    return null;
+  }
+
+  function applyPendingMarkerPulse() {
+    const pending = annotationState.pendingMarkerPulse;
+    if (!pending) return;
+    const marker = findAnnotationMarker(pending.threadId, pending.elementPath, pending.messageId);
+    if (!marker) return;
+    marker.classList.remove('annotation-marker-pulse');
+    void marker.offsetWidth; // eslint-disable-line no-void
+    marker.classList.add('annotation-marker-pulse');
+    marker.addEventListener('animationend', () => {
+      marker.classList.remove('annotation-marker-pulse');
+      if (annotationState.pendingMarkerPulse === pending) {
+        annotationState.pendingMarkerPulse = null;
+      }
+    }, { once: true });
+  }
+
+  function queueMarkerPulseAfterScroll() {
+    if (annotationState.markerPulseScrollTimer) {
+      window.clearTimeout(annotationState.markerPulseScrollTimer);
+    }
+    annotationState.markerPulseScrollTimer = window.setTimeout(() => {
+      annotationState.markerPulseScrollTimer = null;
+      applyPendingMarkerPulse();
+    }, 150);
+  }
+
+  function pulseAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
+    annotationState.pendingMarkerPulse = { threadId, elementPath, messageId };
+    queueMarkerPulseAfterScroll();
+  }
+
   function scrollThreadInPanel(threadId, messageId = '', commentIndex = 0) {
     if (!annotationUI.panelEl || !annotationUI.panelListEl || !threadId) return;
     const thread = store.getThreadById(threadId);
@@ -2310,6 +2366,9 @@ export default function createCommentsPanelController({
   }
 
   function scheduleFloatingUISync() {
+    if (annotationState.pendingMarkerPulse) {
+      queueMarkerPulseAfterScroll();
+    }
     if (annotationState.floatingUiFrameId) return;
     annotationState.floatingUiFrameId = window.requestAnimationFrame(() => {
       annotationState.floatingUiFrameId = null;
@@ -2468,12 +2527,23 @@ export default function createCommentsPanelController({
 
       if (card instanceof HTMLElement && card.classList.contains('annotation-panel-asset-item')) {
         if (target.closest('.annotation-asset-actions')) return;
+        if (target.closest('.annotation-panel-cancel-btn')) return;
+        const { editId, localAssetId, assetId } = card.dataset;
+        if (editId) {
+          const edit = (annotationState.store.easyEdits || []).find((item) => item.id === editId);
+          const targetEl = edit ? store.getElementForEdit(edit) : null;
+          if (targetEl instanceof HTMLElement) {
+            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', edit?.elementPath || '');
+          }
+          return;
+        }
         let elementPath = null;
-        const { localAssetId, assetId } = card.dataset;
         if (localAssetId) {
           const local = (annotationState.store.localAssets || []).find((a) => a.localId === localAssetId);
           if (local?.targetImg instanceof HTMLElement) {
             local.targetImg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', local.elementPath || '');
             return;
           }
           elementPath = local?.elementPath || null;
@@ -2481,9 +2551,17 @@ export default function createCommentsPanelController({
           const asset = (annotationState.store.assets || []).find((a) => String(a.id) === String(assetId));
           elementPath = asset?.elementPath || null;
         }
-        if (elementPath && annotationUI.mainEl) {
-          const el = annotationUI.mainEl.querySelector(elementPath);
-          if (el instanceof HTMLElement) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        if (elementPath) {
+          const edit = (annotationState.store.easyEdits || []).find((item) => (
+            item?.editType === 'image-src' && item.elementPath === elementPath
+          ));
+          const targetEl = edit
+            ? store.getElementForEdit(edit)
+            : annotationUI.mainEl?.querySelector(elementPath);
+          if (targetEl instanceof HTMLElement) {
+            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', elementPath);
+          }
         }
         return;
       }
@@ -2496,6 +2574,7 @@ export default function createCommentsPanelController({
         annotationState.activeThreadId = thread.id;
         annotationState.activeMessageId = card.dataset.messageId || '';
         renderCommentsPanel();
+        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
         return;
       }
 
@@ -2578,9 +2657,11 @@ export default function createCommentsPanelController({
         annotationState.activeThreadId = thread.id;
         renderCommentsPanel();
         targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
         return;
       }
       openPopupForElement(targetEl, true);
+      pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
     };
     annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);
 

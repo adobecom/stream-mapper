@@ -131,6 +131,15 @@ body.annotation-mode main::-webkit-scrollbar {
   fill: #059669;
 }
 
+@keyframes annotation-marker-pulse {
+  0%, 100% { transform: translate(-100%, 0) scale(1); }
+  50%       { transform: translate(-100%, 0) scale(1.5); }
+}
+
+.annotation-marker-pulse {
+  animation: annotation-marker-pulse 0.4s ease-in-out 2;
+}
+
 .annotation-comments-panel {
   position: fixed;
   top: 0;
