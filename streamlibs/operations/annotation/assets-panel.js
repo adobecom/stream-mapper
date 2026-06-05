@@ -149,6 +149,7 @@ export default function createAssetsPanelController({
   function buildAssetStepCard(edit, step) {
     const card = document.createElement('article');
     card.className = `annotation-panel-comment annotation-panel-asset-item${step.isCurrent ? '' : ' annotation-asset-card-history'}`;
+    if (edit?.id) card.dataset.editId = edit.id;
 
     // Only the current, uncommitted step is discardable.
     if (step.isCurrent && !edit.isCommitted) {
