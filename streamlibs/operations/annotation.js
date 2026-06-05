@@ -18,6 +18,10 @@ import createInlineEditingController from './annotation/inline-editing.js';
 import createAnnotationServiceClient from './annotation/service.js';
 import createAssetServiceClient from './annotation/asset-service.js';
 import createAssetsPanelController from './annotation/assets-panel.js';
+import {
+  sanitizeMetadataInnerHtml,
+  sanitizeMetadataBlockHtml,
+} from './annotation/metadata-sanitize.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
 
@@ -96,36 +100,32 @@ let cachedMetadata = null;
 let cachedMetadataBaselineInnerHtml = '';
 const regenReplacements = [];
 
-function sanitizeMetadataClone(metadataEl) {
-  const clone = metadataEl.cloneNode(true);
-  clone.querySelectorAll('picture').forEach((picture) => {
-    const img = picture.querySelector('img');
-    if (img) picture.replaceWith(img);
-    else picture.remove();
-  });
-  clone.querySelectorAll('img').forEach((img) => {
-    const originalSrc = img.getAttribute('data-stream-original-srcset')
-      || img.getAttribute('data-stream-original-src');
-    if (originalSrc) img.setAttribute('src', originalSrc);
-  });
-  clone.querySelectorAll('*').forEach((el) => {
-    [...el.attributes]
-      .filter((attr) => attr.name.startsWith('data-'))
-      .forEach((attr) => el.removeAttribute(attr.name));
-  });
-  return clone;
-}
-
 function buildMetadataToHtml() {
   const liveMetadata = document.querySelector('main div.metadata');
   if (!liveMetadata) return '';
-  return getDACompatibleHtml(sanitizeMetadataClone(liveMetadata).outerHTML);
+  const metadataDiv = document.createElement('div');
+  metadataDiv.className = 'metadata';
+  metadataDiv.innerHTML = sanitizeMetadataBlockHtml(liveMetadata);
+  return getDACompatibleHtml(metadataDiv.outerHTML);
 }
 
 function getSanitizedMetadataInnerHtml() {
   const liveMetadata = document.querySelector('main div.metadata');
   if (!liveMetadata) return '';
-  return getDACompatibleHtml(sanitizeMetadataClone(liveMetadata).innerHTML);
+  return getDACompatibleHtml(sanitizeMetadataBlockHtml(liveMetadata));
+}
+
+function refreshMetadataEditsFromLiveDom() {
+  const liveMetadata = document.querySelector('main div.metadata')
+    || document.querySelector('main .stream-metadata-section div.metadata');
+  if (!(liveMetadata instanceof HTMLElement)) return;
+
+  const sanitizedToHtml = sanitizeMetadataBlockHtml(liveMetadata);
+  annotationState.store.easyEdits = annotationState.store.easyEdits.map((edit) => {
+    if (edit?.elementPath !== 'metadata') return edit;
+    if (edit.editType !== 'text') return edit;
+    return { ...edit, toHtml: sanitizedToHtml };
+  });
 }
 
 const inlineEditing = createInlineEditingController({
@@ -934,7 +934,13 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   await persistEditsToDb();
 }
 async function persistEditsToDb() {
-  const metadataChunk = buildMetadataChunkForSave();
+  let metadataChunk = buildMetadataChunkForSave();
+  if (metadataChunk && typeof metadataChunk.toHtml === 'string') {
+    metadataChunk = {
+      ...metadataChunk,
+      toHtml: sanitizeMetadataInnerHtml(metadataChunk.toHtml),
+    };
+  }
   const savePayload = store.buildSavePayload({ metadataChunk });
   const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
@@ -962,6 +968,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   syncCachedMetadataFromLiveDom();
   await uploadAndDecideAssets();
   buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  refreshMetadataEditsFromLiveDom();
   await persistEditsToDb();
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
