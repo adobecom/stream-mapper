@@ -1334,22 +1334,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     rebuildEditThreadsFromEasyEdits();
   }
 
-  /*function isBloatedMetadataHtml(html) {
-    const value = `${html || ''}`;
-    if (!value) return false;
-    if (value.length > 4096) return true;
-    return /\bclass=["']metadata["']/.test(value)
-      || value.includes('<div class="metadata"');
-  }*/
-
-  function trimMetadataEditForSave(edit) {
-    if (!edit || edit.elementPath !== 'metadata') return edit;
-    const fromHtml = isBloatedMetadataHtml(edit.fromHtml) ? '' : `${edit.fromHtml || ''}`;
-    const toHtml = isBloatedMetadataHtml(edit.toHtml) ? '' : `${edit.toHtml || ''}`;
-    if (fromHtml === edit.fromHtml && toHtml === edit.toHtml) return edit;
-    return { ...edit, fromHtml, toHtml };
-  }
-
   function metadataEasyEditFields(elementProps = {}) {
     return {
       blockClass: 'metadata',
@@ -1357,10 +1341,23 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     };
   }
 
-  function buildSavePayload() {
-    return annotationState.store.easyEdits
+  function collapseMetadataEasyEdits(metadataChunk) {
+    if (!metadataChunk || typeof metadataChunk !== 'object') return;
+    const nonMetadata = annotationState.store.easyEdits.filter(
+      (edit) => edit?.elementPath !== 'metadata',
+    );
+    annotationState.store.easyEdits = [
+      ...nonMetadata,
+      { ...normalizeEasyEdit(metadataChunk), isCommitted: true },
+    ];
+    rebuildEditThreadsFromEasyEdits();
+  }
+
+  function buildSavePayload({ metadataChunk = null } = {}) {
+    const pending = annotationState.store.easyEdits
       .filter((edit) => {
         if (!edit) return false;
+        if (edit.elementPath === 'metadata') return false;
         // Don't persist a pending asset edit that hasn't been assigned a URL yet.
         if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
           return false;
@@ -1369,8 +1366,15 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       })
       .map((edit) => {
         const { changeHistory, assetFileKey, ...rest } = edit;
-        return trimMetadataEditForSave(rest);
+        return rest;
       });
+
+    if (metadataChunk) {
+      const { changeHistory, assetFileKey, ...rest } = metadataChunk;
+      pending.push(rest);
+    }
+
+    return pending;
   }
 
   function replaceEasyEdits(nextEasyEdits = []) {
@@ -1626,6 +1630,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     undoLastChange,
     clearChangeHistoryAfterSave,
     buildSavePayload,
+    collapseMetadataEasyEdits,
     metadataEasyEditFields,
   };
 }

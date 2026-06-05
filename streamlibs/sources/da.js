@@ -11,7 +11,11 @@ function restoreImgToPicture(html) {
       const picture = document.createElement('picture');
       const newImg = document.createElement('img');
       Array.from(img.attributes).forEach((attr) => {
-        newImg.setAttribute(attr.name, attr.value);
+        try {
+          newImg.setAttribute(attr.name, attr.value);
+        } catch {
+          // Skip invalid attribute names from DA source HTML (e.g. Milo icon tokens).
+        }
       });
       picture.appendChild(newImg);
       p.replaceWith(picture);

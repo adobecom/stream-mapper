@@ -93,12 +93,11 @@ commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
 
 let cachedCleanHtml = '';
 let cachedMetadata = null;
+let cachedMetadataBaselineInnerHtml = '';
 const regenReplacements = [];
 
-function buildMetadataToHtml() {
-  const liveMetadata = document.querySelector('main div.metadata');
-  if (!liveMetadata) return '';
-  const clone = liveMetadata.cloneNode(true);
+function sanitizeMetadataClone(metadataEl) {
+  const clone = metadataEl.cloneNode(true);
   clone.querySelectorAll('picture').forEach((picture) => {
     const img = picture.querySelector('img');
     if (img) picture.replaceWith(img);
@@ -114,7 +113,19 @@ function buildMetadataToHtml() {
       .filter((attr) => attr.name.startsWith('data-'))
       .forEach((attr) => el.removeAttribute(attr.name));
   });
-  return getDACompatibleHtml(clone.outerHTML);
+  return clone;
+}
+
+function buildMetadataToHtml() {
+  const liveMetadata = document.querySelector('main div.metadata');
+  if (!liveMetadata) return '';
+  return getDACompatibleHtml(sanitizeMetadataClone(liveMetadata).outerHTML);
+}
+
+function getSanitizedMetadataInnerHtml() {
+  const liveMetadata = document.querySelector('main div.metadata');
+  if (!liveMetadata) return '';
+  return getDACompatibleHtml(sanitizeMetadataClone(liveMetadata).innerHTML);
 }
 
 const inlineEditing = createInlineEditingController({
@@ -149,8 +160,10 @@ function parseAndCacheCleanHtml(htmlDom) {
     cachedMetadata = document.createElement('div');
     cachedMetadata.className = 'metadata';
     cachedMetadata.innerHTML = combinedInnerHtml;
+    cachedMetadataBaselineInnerHtml = combinedInnerHtml;
   } else {
     cachedMetadata = null;
+    cachedMetadataBaselineInnerHtml = '';
   }
   cachedCleanHtml = htmlDom.innerHTML;
 }
@@ -180,6 +193,43 @@ function syncCachedMetadataFromLiveDom() {
   if (liveMetadata && cachedMetadata) {
     cachedMetadata.innerHTML = liveMetadata.innerHTML;
   }
+}
+
+function buildMetadataChunkForSave() {
+  if (!cachedMetadata) return null;
+
+  syncCachedMetadataFromLiveDom();
+  const fromHtml = cachedMetadataBaselineInnerHtml || '';
+  const toHtml = getSanitizedMetadataInnerHtml();
+  const hasMetadataEdits = (annotationState.store.easyEdits || []).some((edit) => {
+    if (!edit || edit.elementPath !== 'metadata') return false;
+    if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
+      return false;
+    }
+    return edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '');
+  });
+  if (!hasMetadataEdits && fromHtml === toHtml) return null;
+
+  const existing = (annotationState.store.easyEdits || []).find(
+    (edit) => edit?.elementPath === 'metadata',
+  );
+  const segments = store.getChangedSegments(fromHtml, toHtml);
+
+  return {
+    id: existing?.id || store.generateId('easy-edit'),
+    editType: 'text',
+    elementPath: 'metadata',
+    blockClass: 'metadata',
+    elementProps: { blockClass: 'metadata' },
+    elementRef: '',
+    from: 'metadata',
+    to: 'metadata',
+    fromHtml,
+    toHtml,
+    changedFrom: segments.changedFrom,
+    changedTo: segments.changedTo,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function attachMetadataAddRowControls(sectionEl) {
@@ -884,13 +934,18 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   await persistEditsToDb();
 }
 async function persistEditsToDb() {
-  const savePayload = store.buildSavePayload();
+  const metadataChunk = buildMetadataChunkForSave();
+  const savePayload = store.buildSavePayload({ metadataChunk });
   const savedEditIds = savePayload.map((edit) => edit.id).filter(Boolean);
 
   if (annotationService.isAvailable()) {
     const persistedEditSnapshot = await annotationService.saveEdits(savePayload);
     if (persistedEditSnapshot) {
       store.clearChangeHistoryAfterSave(savedEditIds);
+      if (metadataChunk) {
+        store.collapseMetadataEasyEdits(metadataChunk);
+        cachedMetadataBaselineInnerHtml = metadataChunk.toHtml;
+      }
       annotationState.latestSavedEditsUpdatedAt = persistedEditSnapshot.updatedAt
         || persistedEditSnapshot.createdAt
         || null;
