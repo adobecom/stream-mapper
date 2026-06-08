@@ -3,6 +3,7 @@ import {
   recordTextRegenAsEdit,
   recordImageRegenAsLocalAsset,
 } from '../annotation.js';
+import { getMapperEnv } from '../../utils/utils.js';
 
 // eslint-disable-next-line max-len
 function getBlockName(el) {
@@ -147,6 +148,15 @@ function getImageRegenEndpoint() {
   return `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
 }
 
+const ENABLE_IMAGE_MODEL = getMapperEnv() !== 'prod';
+
+const IMAGE_MODELS_URL = 'https://main--stream-mapper--adobecom.aem.live/configuration/seo-forms/default/image-models.json';
+
+let imageModelOptions = [
+  { label: 'firefly', value: 'Firefly' },
+  { label: 'nano-banana', value: 'Nano Banana' },
+];
+
 const imgRegenState = {
   btn: null,
   overlay: null,
@@ -236,10 +246,18 @@ function ensureImgRegenElements() {
   // Prompt overlay
   const overlay = document.createElement('div');
   overlay.className = 'stream-img-prompt-overlay';
+  const modelSelectHtml = ENABLE_IMAGE_MODEL
+    ? '<label class="stream-img-model-label">Select an image model</label>'
+      + '<select class="stream-img-model-select">'
+      + imageModelOptions.map((o) => `<option value="${o.label}">${o.value}</option>`).join('')
+      + '</select>'
+    : '';
+
   overlay.innerHTML = '<button class="stream-img-prompt-close" type="button" aria-label="Close">'
     + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">'
     + '<path d="M18 6 6 18M6 6l12 12"/>'
     + '</svg></button>'
+    + modelSelectHtml
     + '<label>Describe the new image</label>'
     + '<textarea class="stream-img-prompt-input" placeholder="e.g. a vibrant teal forest at dusk…" rows="3"></textarea>'
     + '<div class="stream-img-prompt-actions">'
@@ -260,6 +278,9 @@ function ensureImgRegenElements() {
     const prompt = input.value.trim();
     if (!prompt) { input.focus(); return; }
 
+    const modelSelect = overlay.querySelector('.stream-img-model-select');
+    const imageModel = modelSelect ? modelSelect.value : imageModelOptions[0].label;
+
     const submitBtn = overlay.querySelector('.stream-img-prompt-submit');
     submitBtn.disabled = true;
     submitBtn.lastChild.textContent = 'Generating…';
@@ -272,7 +293,7 @@ function ensureImgRegenElements() {
           'content-type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, ...(ENABLE_IMAGE_MODEL ? { imageModel } : {}) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -343,6 +364,13 @@ function isSvgImage(img) {
 function attachImageRegenHandlers() {
   const main = document.querySelector('main');
   if (!main) return;
+
+  if (ENABLE_IMAGE_MODEL) {
+    fetch(IMAGE_MODELS_URL)
+      .then((r) => r.json())
+      .then((json) => { if (json.data?.length) imageModelOptions = json.data; })
+      .catch(() => {});
+  }
 
   main.addEventListener('mouseover', (e) => {
     const img = e.target.closest('img');
