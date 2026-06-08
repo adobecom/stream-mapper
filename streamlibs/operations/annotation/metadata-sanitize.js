@@ -76,7 +76,7 @@ export function sanitizeMetadataInnerHtml(htmlString) {
   return sanitizeMetadataHtmlRoot(wrapper).innerHTML;
 }
 
-/** PR #197 parity — restore CDN URLs on live metadata imgs before Save/Push. */
+
 export function restoreMetadataImageUrlsOnLiveDom(metadataRoot) {
   if (!(metadataRoot instanceof HTMLElement)) return;
   metadataRoot.querySelectorAll('img').forEach((img) => {

@@ -120,7 +120,6 @@ function getSanitizedMetadataInnerHtml() {
   return getDACompatibleHtml(sanitizeMetadataBlockHtml(liveMetadata));
 }
 
-/** After asset upload — PR #197: replace preview base64 with final CDN URLs before Save/Push. */
 function prepareLiveMetadataForPersist() {
   const liveMetadata = getLiveMetadataElement();
   if (!liveMetadata) return;
