@@ -144,6 +144,28 @@
 
 .stream-img-prompt-submit:hover:not(:disabled) { background: #1e40af; }
 
+.stream-img-model-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+  padding-right: 20px;
+}
+
+.stream-img-model-select {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #222;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.stream-img-model-select:focus { border-color: #1d4ed8; }
+
 main div.fragment {
     position: relative;
     pointer-events: none;
