@@ -1351,6 +1351,20 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return false;
   }
 
+  function pruneMetadataEasyEditsForElementRefs(elementRefs = []) {
+    const refSet = new Set((elementRefs || []).filter(Boolean));
+    if (!refSet.size) return;
+    const beforeCount = annotationState.store.easyEdits.length;
+    annotationState.store.easyEdits = annotationState.store.easyEdits.filter((edit) => {
+      if (!edit || edit.elementPath !== 'metadata') return true;
+      if (!edit.elementRef) return true;
+      return !refSet.has(edit.elementRef);
+    });
+    if (annotationState.store.easyEdits.length !== beforeCount) {
+      rebuildEditThreadsFromEasyEdits();
+    }
+  }
+
   function collapseMetadataEasyEdits(metadataChunk) {
     if (!metadataChunk || typeof metadataChunk !== 'object') return;
     const nonMetadata = annotationState.store.easyEdits.filter(
@@ -1642,6 +1656,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     clearChangeHistoryAfterSave,
     buildSavePayload,
     collapseMetadataEasyEdits,
+    pruneMetadataEasyEditsForElementRefs,
     metadataEasyEditFields,
   };
 }

@@ -1828,6 +1828,43 @@ export default function createCommentsPanelController({
     });
     clearMarkers();
 
+    const METADATA_DELETE_MARKER_RESERVE = 32;
+    const METADATA_CELL_PADDING_TOP = 10;
+
+    const getMarkerAnchorForTarget = (targetEl) => {
+      if (!(targetEl instanceof Element)) {
+        return { anchorEl: targetEl, leftOffset: 0, alignTopWithCell: false };
+      }
+      const metadataRow = targetEl.closest('.stream-metadata-section div.metadata > div');
+      if (!(metadataRow instanceof HTMLElement)) {
+        return { anchorEl: targetEl, leftOffset: 0, alignTopWithCell: false };
+      }
+
+      const valueCell = targetEl.closest('.stream-annotation-metadata-value-cell');
+      if (valueCell instanceof HTMLElement) {
+        return {
+          anchorEl: valueCell,
+          leftOffset: METADATA_DELETE_MARKER_RESERVE,
+          alignTopWithCell: true,
+        };
+      }
+
+      const keyCell = targetEl.closest('.stream-annotation-metadata-key-cell');
+      if (keyCell instanceof HTMLElement) {
+        return {
+          anchorEl: keyCell,
+          leftOffset: 0,
+          alignTopWithCell: true,
+        };
+      }
+
+      return { anchorEl: targetEl, leftOffset: 0, alignTopWithCell: false };
+    };
+
+    const getMarkerTop = (rect, alignTopWithCell) => (
+      alignTopWithCell ? rect.top + METADATA_CELL_PADDING_TOP : rect.top - 8
+    );
+
     const resolveMarkerPosition = (baseTop, baseLeft) => {
       const row = Math.max(0, Math.round(baseTop));
       let nextLeft = Math.max(MIN_MARKER_LEFT, Math.round(baseLeft));
@@ -1890,7 +1927,8 @@ export default function createCommentsPanelController({
         const targetEl = getCachedThreadTarget(thread);
         if (!targetEl) return;
 
-        const rect = targetEl.getBoundingClientRect();
+        const { anchorEl, leftOffset, alignTopWithCell } = getMarkerAnchorForTarget(targetEl);
+        const rect = anchorEl.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
         const groups = buildCommentGroups(thread);
@@ -1910,8 +1948,8 @@ export default function createCommentsPanelController({
           `;
 
           const position = resolveMarkerPosition(
-            rect.top - 8,
-            rect.right - 8 - (idx * MARKER_STEP),
+            getMarkerTop(rect, alignTopWithCell),
+            rect.right - 8 - (idx * MARKER_STEP) - leftOffset,
           );
           marker.style.top = `${position.top}px`;
           marker.style.left = `${position.left}px`;
@@ -1933,10 +1971,14 @@ export default function createCommentsPanelController({
         if (!el) return;
         const targetImg = el.tagName === 'IMG' ? el : el.querySelector('img');
         const targetEl = targetImg || el;
-        const rect = targetEl.getBoundingClientRect();
+        const { anchorEl, leftOffset, alignTopWithCell } = getMarkerAnchorForTarget(targetEl);
+        const rect = anchorEl.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
-        const position = resolveMarkerPosition(rect.top - 8, rect.right - 8);
+        const position = resolveMarkerPosition(
+          getMarkerTop(rect, alignTopWithCell),
+          rect.right - 8 - leftOffset,
+        );
         const marker = document.createElement('button');
         marker.type = 'button';
         marker.className = 'annotation-asset-marker';

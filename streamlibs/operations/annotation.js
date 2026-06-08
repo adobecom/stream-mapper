@@ -201,7 +201,11 @@ const DEFAULT_METADATA_PLACEHOLDER_IMG = 'https://main--stream-mapper--adobecom.
 function syncCachedMetadataFromLiveDom() {
   const liveMetadata = getLiveMetadataElement();
   if (liveMetadata && cachedMetadata) {
-    cachedMetadata.innerHTML = liveMetadata.innerHTML;
+    const clone = liveMetadata.cloneNode(true);
+    if (clone instanceof HTMLElement) {
+      clone.querySelectorAll('.stream-annotation-metadata-row-delete').forEach((btn) => btn.remove());
+      cachedMetadata.innerHTML = clone.innerHTML;
+    }
   }
 }
 
@@ -243,14 +247,107 @@ function buildMetadataChunkForSave() {
   };
 }
 
+function collectMetadataElementRefs(rootEl) {
+  if (!(rootEl instanceof HTMLElement)) return [];
+  const refs = new Set();
+  rootEl.querySelectorAll('[data-annotation-ref]').forEach((el) => {
+    const ref = el.dataset.annotationRef;
+    if (ref) refs.add(ref);
+  });
+  rootEl.querySelectorAll('p, img').forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    store.ensureElementRef(el);
+    const ref = el.dataset.annotationRef;
+    if (ref) refs.add(ref);
+  });
+  return [...refs];
+}
+
+function deleteMetadataRow(rowEl) {
+  if (!(rowEl instanceof HTMLElement)) return;
+  const metadataDom = rowEl.parentElement;
+  if (!(metadataDom instanceof HTMLElement) || !metadataDom.classList.contains('metadata')) return;
+
+  const refs = collectMetadataElementRefs(rowEl);
+  inlineEditing.unregisterElementsInSubtree(rowEl);
+  if (refs.length) {
+    store.pruneMetadataEasyEditsForElementRefs(refs);
+    const refSet = new Set(refs);
+    annotationState.store.assets = (annotationState.store.assets || []).filter(
+      (asset) => !refSet.has(asset.elementRef),
+    );
+  }
+
+  rowEl.remove();
+  syncCachedMetadataFromLiveDom();
+  store.saveAnnotationStore();
+  commentsPanel.renderThreadMarkers({ resolveTargets: true });
+  commentsPanel.renderCommentsPanel();
+}
+
+function createMetadataRowDeleteButton(rowEl) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'stream-annotation-metadata-row-delete';
+  btn.setAttribute('aria-label', 'Delete metadata row');
+  btn.innerHTML = '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+  btn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteMetadataRow(rowEl);
+  });
+  return btn;
+}
+
+function getMetadataRowValueCell(rowEl) {
+  if (!(rowEl instanceof HTMLElement)) return null;
+  const cells = [...rowEl.children].filter(
+    (child) => child instanceof HTMLElement
+      && !child.classList.contains('stream-annotation-metadata-row-delete'),
+  );
+  return cells[cells.length - 1] || null;
+}
+
+function attachMetadataRowDeleteButton(rowEl) {
+  if (!(rowEl instanceof HTMLElement)) return;
+  rowEl.classList.add('stream-annotation-metadata-row');
+  rowEl.querySelector('.stream-annotation-metadata-row-delete')?.remove();
+
+  const cells = [...rowEl.children].filter(
+    (child) => child instanceof HTMLElement
+      && !child.classList.contains('stream-annotation-metadata-row-delete'),
+  );
+  const keyCell = cells[0];
+  const valueCell = cells[cells.length - 1];
+
+  if (keyCell instanceof HTMLElement) {
+    keyCell.classList.add('stream-annotation-metadata-key-cell');
+  }
+  if (!(valueCell instanceof HTMLElement)) return;
+  valueCell.classList.add('stream-annotation-metadata-value-cell');
+  valueCell.append(createMetadataRowDeleteButton(rowEl));
+}
+
+function attachMetadataRowDeleteButtons(metadataDom) {
+  if (!(metadataDom instanceof HTMLElement)) return;
+  metadataDom.querySelectorAll('.stream-annotation-metadata-row-delete').forEach((btn) => btn.remove());
+  [...metadataDom.children].forEach((child) => {
+    if (!(child instanceof HTMLElement)) return;
+    if (child.classList.contains('stream-annotation-metadata-row-delete')) return;
+    attachMetadataRowDeleteButton(child);
+  });
+}
+
 function attachMetadataAddRowControls(sectionEl) {
   const metadataDom = sectionEl?.querySelector('div.metadata');
   if (!metadataDom) return;
 
   sectionEl.querySelectorAll('.stream-annotation-metadata-actions').forEach((el) => el.remove());
+  attachMetadataRowDeleteButtons(metadataDom);
 
   const addAndRegisterRow = (row) => {
     metadataDom.append(row);
+    attachMetadataRowDeleteButton(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
     syncCachedMetadataFromLiveDom();
   };

@@ -688,6 +688,51 @@ export default function createInlineEditingController({
     store.saveAnnotationStore();
   }
 
+  function detachInlineElementHandlers(element) {
+    if (!(element instanceof HTMLElement)) return;
+    const elementRef = element.dataset.annotationRef;
+    if (!elementRef) return;
+    const focusHandler = annotationUI.inlineFocusHandlers.get(elementRef);
+    const blurHandler = annotationUI.inlineBlurHandlers.get(elementRef);
+    if (focusHandler) {
+      element.removeEventListener('focus', focusHandler, true);
+      element.removeEventListener('click', focusHandler, true);
+      annotationUI.inlineFocusHandlers.delete(elementRef);
+    }
+    if (blurHandler) {
+      element.removeEventListener('blur', blurHandler, true);
+      annotationUI.inlineBlurHandlers.delete(elementRef);
+    }
+    element.classList.remove('annotation-inline-editable', 'annotation-inline-editable-image');
+    annotationUI.inlineElementSnapshot.delete(elementRef);
+    annotationUI.inlineImageAltSnapshot.delete(elementRef);
+    clearExplicitFormattingIntent(elementRef);
+    annotationUI.editableElements = annotationUI.editableElements.filter((el) => el !== element);
+    annotationUI.editableImages = annotationUI.editableImages.filter((el) => el !== element);
+  }
+
+  function unregisterElementsInSubtree(rootEl) {
+    if (!(rootEl instanceof HTMLElement)) return;
+    const tracked = new Set();
+    rootEl.querySelectorAll('[data-annotation-ref]').forEach((el) => {
+      if (el instanceof HTMLElement) tracked.add(el);
+    });
+    rootEl.querySelectorAll('p, img').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      store.ensureElementRef(el);
+      tracked.add(el);
+    });
+    const elements = [...tracked];
+    if (elements.length && annotationUI.mediumEditorInstance?.removeElements) {
+      try {
+        annotationUI.mediumEditorInstance.removeElements(elements);
+      } catch {
+        // Element may already be detached from MediumEditor.
+      }
+    }
+    elements.forEach(detachInlineElementHandlers);
+  }
+
   function registerNewEditableElement(element) {
     if (!annotationUI.inlineMode || !annotationUI.mediumEditorInstance) return;
     if (!(element instanceof HTMLElement) || isInsideStreamFragment(element)) return;
@@ -712,6 +757,7 @@ export default function createInlineEditingController({
     disableInlineEditMode,
     enableInlineEditMode,
     registerNewEditableElement,
+    unregisterElementsInSubtree,
     resetInlineEditModeState,
     syncInlineEditsBeforePersist,
   };

@@ -2420,15 +2420,14 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
   .annotation-mode .stream-metadata-section div.metadata,
   .annotation-mode main .stream-metadata-section div.metadata {
     width: 80%;
-    display: flex;
-    flex-wrap: wrap;
+    display: table;
+    border-collapse: collapse;
+    table-layout: fixed;
   }
 
   .annotation-mode .stream-metadata-section div.metadata > div,
   .annotation-mode main .stream-metadata-section div.metadata > div {
-    display: flex;
-    width: 100%;
-    box-sizing: border-box;
+    display: table-row;
   }
 
   .annotation-mode .stream-metadata-section div.metadata > div > div:first-child,
@@ -2438,11 +2437,13 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
 
   .annotation-mode .stream-metadata-section div.metadata > div > div,
   .annotation-mode main .stream-metadata-section div.metadata > div > div {
-    flex: 1 1 0;
-    min-width: 0;
+    display: table-cell;
+    vertical-align: top;
+    box-sizing: border-box;
     border: 0.5px solid #cacaca;
     padding: 10px;
     padding-left: 20px;
+    padding-right: 10px;
   }
 
   .annotation-mode .stream-metadata-section div.metadata > div > div img,
@@ -2478,6 +2479,50 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
   .annotation-inline-edit-mode .stream-annotation-add-metadata-row:hover {
     background: #3d63ae;
     color: #fff;
+  }
+
+  .annotation-mode .stream-metadata-section div.metadata > div > .stream-annotation-metadata-key-cell,
+  .annotation-mode .stream-metadata-section div.metadata > div > .stream-annotation-metadata-value-cell {
+    position: relative;
+  }
+
+  /* Reserve a consistent top strip for action icons in pencil mode */
+  .annotation-inline-edit-mode .stream-metadata-section div.metadata > div > div {
+    padding-top: 34px;
+    padding-bottom: 10px;
+  }
+
+  .annotation-inline-edit-mode .stream-metadata-section div.metadata > div > .stream-annotation-metadata-value-cell {
+    padding-right: 40px;
+  }
+
+  .annotation-mode .stream-metadata-section div.metadata .stream-annotation-metadata-row-delete {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    background: #fef2f2;
+    color: #dc2626;
+    box-shadow: 0 1px 4px rgb(220 38 38 / 15%);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .annotation-inline-edit-mode .stream-metadata-section div.metadata .stream-annotation-metadata-row-delete {
+    display: inline-flex;
+  }
+
+  .annotation-inline-edit-mode .stream-metadata-section div.metadata .stream-annotation-metadata-row-delete:hover {
+    background: #fee2e2;
+    border-color: #f87171;
   }
 
   .stream-metadata-section div.metadata .annotation-asset-pending-badge {
