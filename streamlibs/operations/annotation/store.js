@@ -1,4 +1,5 @@
 import { ANNOTATION_COMMENT_STATUSES, ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
+import { resolveMetadataImagesForPreview } from './metadata-sanitize.js';
 
 const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
 export const DEFAULT_USERNAME = ANNOTATION_DEFAULT_USERNAME;
@@ -1549,15 +1550,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       );
     }
 
-    keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
+    const editsToApply = keepLatestImageEdits(annotationState.store.easyEdits);
+    for (const edit of editsToApply) {
       const target = getElementForEdit(edit);
-      if (!(target instanceof HTMLElement)) return;
-      if (target.closest('[data-class="fragment"]')) return;
+      if (!(target instanceof HTMLElement)) continue; // eslint-disable-line no-continue
+      if (target.closest('[data-class="fragment"]')) continue; // eslint-disable-line no-continue
 
-      if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
+      if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) continue; // eslint-disable-line no-continue
 
       // Pending asset edit (empty `to`): keep the existing base64 preview.
-      if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) return;
+      if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) continue; // eslint-disable-line no-continue
 
       if (edit.editType === 'text') {
         easyEditOriginalByElement.set(target, {
@@ -1577,31 +1579,35 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         if (picture) {
           picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', displayUrl));
         }
-        return;
+        continue; // eslint-disable-line no-continue
       }
 
       if (edit.editType === 'image-alt') {
         target.setAttribute('alt', edit.to || '');
-        return;
+        continue; // eslint-disable-line no-continue
       }
 
       if (edit.toHtml) {
         if (target.innerHTML !== edit.toHtml) {
           target.innerHTML = edit.toHtml;
         }
-        return;
+        if (edit.elementPath === 'metadata' && previewUrlResolverFn) {
+          // eslint-disable-next-line no-await-in-loop
+          await resolveMetadataImagesForPreview(target, previewUrlResolverFn);
+        }
+        continue; // eslint-disable-line no-continue
       }
 
       const currentText = target.textContent || '';
       if (edit.from && edit.to && edit.from !== edit.to && currentText.includes(edit.to)) {
-        return;
+        continue; // eslint-disable-line no-continue
       }
       if (edit.from && currentText.includes(edit.from)) {
         target.textContent = currentText.replace(edit.from, edit.to);
       } else if (edit.to) {
         target.textContent = edit.to;
       }
-    });
+    }
   }
 
   return {

@@ -77,6 +77,23 @@ export function sanitizeMetadataInnerHtml(htmlString) {
 }
 
 
+export async function resolveMetadataImagesForPreview(metadataRoot, resolvePreviewUrl) {
+  if (!(metadataRoot instanceof HTMLElement) || typeof resolvePreviewUrl !== 'function') return;
+  await Promise.all([...metadataRoot.querySelectorAll('img')].map(async (img) => {
+    const originalSrc = img.getAttribute('data-stream-original-src') || img.getAttribute('src') || '';
+    if (!originalSrc || originalSrc.startsWith('data:')) return;
+    const resolved = await resolvePreviewUrl(originalSrc);
+    if (!resolved || resolved === originalSrc) return;
+    img.setAttribute('data-stream-original-src', originalSrc);
+    img.setAttribute('src', resolved);
+    img.removeAttribute('srcset');
+    const picture = img.closest('picture');
+    if (picture) {
+      picture.querySelectorAll('source').forEach((source) => source.remove());
+    }
+  }));
+}
+
 export function restoreMetadataImageUrlsOnLiveDom(metadataRoot) {
   if (!(metadataRoot instanceof HTMLElement)) return;
   metadataRoot.querySelectorAll('img').forEach((img) => {

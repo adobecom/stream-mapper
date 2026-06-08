@@ -21,7 +21,7 @@ import createAssetsPanelController from './annotation/assets-panel.js';
 import {
   sanitizeMetadataInnerHtml,
   sanitizeMetadataBlockHtml,
-  restoreMetadataImageUrlsOnLiveDom,
+  resolveMetadataImagesForPreview,
 } from './annotation/metadata-sanitize.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
@@ -133,8 +133,6 @@ function prepareLiveMetadataForPersist() {
     if (!(img instanceof HTMLImageElement)) return;
     img.setAttribute('data-stream-original-src', edit.to);
   });
-
-  restoreMetadataImageUrlsOnLiveDom(liveMetadata);
 }
 
 const inlineEditing = createInlineEditingController({
@@ -406,14 +404,10 @@ async function injectMetadataSection(mainEl) {
   const metadataSection = mainEl.querySelector('.stream-metadata-section');
   if (!metadataSection) return;
 
-  const imgResolves = [...metadataSection.querySelectorAll('img')].map(async (img) => {
-    const originalSrc = img.getAttribute('src') || '';
-    const resolved = await resolvePreviewUrl(originalSrc);
-    if (!resolved || resolved === originalSrc) return;
-    // PR #197 — keep DA URL for Save/Push; preview may use base64.
-    img.setAttribute('data-stream-original-src', originalSrc);
-    img.setAttribute('src', resolved);
-  });
+  const metadataRoot = metadataSection.querySelector('div.metadata');
+  if (metadataRoot) {
+    await resolveMetadataImagesForPreview(metadataRoot, resolvePreviewUrl);
+  }
   const sourceResolves = [...metadataSection.querySelectorAll('source')].map(async (source) => {
     const originalSrcset = source.getAttribute('srcset') || '';
     const resolved = await resolvePreviewUrl(originalSrcset);
@@ -422,7 +416,7 @@ async function injectMetadataSection(mainEl) {
       source.setAttribute('srcset', resolved);
     }
   });
-  await Promise.all([...imgResolves, ...sourceResolves]);
+  await Promise.all(sourceResolves);
 }
 
 // ── Preview DOM helpers (annotationOperation only) ───────────────────────────
@@ -1007,6 +1001,11 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   syncCachedMetadataFromLiveDom();
   await uploadAndDecideAssets();
 
+  const liveMetadataForPush = getLiveMetadataElement();
+  if (liveMetadataForPush) {
+    await resolveMetadataImagesForPreview(liveMetadataForPush, resolvePreviewUrl);
+  }
+
   let promotedAssets = [];
   try {
     const result = await assetService.batchPromote();
@@ -1081,10 +1080,17 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   syncCachedMetadataFromLiveDom();
   await uploadAndDecideAssets();
+  const liveMetadataAfterUpload = getLiveMetadataElement();
+  if (liveMetadataAfterUpload) {
+    await resolveMetadataImagesForPreview(liveMetadataAfterUpload, resolvePreviewUrl);
+  }
   buildAssetReplacementsAndEdits((asset) => asset.daUrl);
   prepareLiveMetadataForPersist();
   syncCachedMetadataFromLiveDom();
   await persistEditsToDb();
+  if (liveMetadataAfterUpload) {
+    await resolveMetadataImagesForPreview(liveMetadataAfterUpload, resolvePreviewUrl);
+  }
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
 }
