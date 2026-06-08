@@ -1945,7 +1945,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn {
   border-width: 2px;
   bottom: 10px;
   right: 10px;
-  transform: scale(2);
   transform-origin: bottom right;
   box-shadow:
     0 0 0 2px rgba(59, 130, 246, 0.45),
@@ -1977,11 +1976,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
 body.editor-mode .da-panel .has-block-action .block-action-btn.block-action-btn--selected:hover,
 body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-btn--selected:hover {
   transform: scale(2);
-}
-
-body.editor-mode .da-panel .has-block-action .block-action-btn:hover:not(.block-action-btn--disabled),
-body.editor-mode .figma-panel .has-block-action .block-action-btn:hover:not(.block-action-btn--disabled) {
-  transform: scale(2) translateY(-3px);
 }
 
 body.editor-mode .da-panel .has-block-action .block-action-btn.block-action-btn--disabled,
