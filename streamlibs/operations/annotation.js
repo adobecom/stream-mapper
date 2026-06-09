@@ -112,7 +112,196 @@ assetsPanel.setOnAssetsChanged(() => {
 
 let cachedCleanHtml = '';
 let cachedPageMetadataHtml = null;
+let pageMetadataBaselineHtml = null;
 const regenReplacements = [];
+
+const PAGE_METADATA_EDIT_PATH = '__PAGE_METADATA__';
+const PAGE_METADATA_EDIT_ID = 'easy-edit-page-metadata';
+const METADATA_USER_ROW_ATTR = 'data-stream-user-added-row';
+
+function getPageMetadataContainer() {
+  return document.body.querySelector('main .page-metadata');
+}
+
+function stripMetadataFromMainHtml(html) {
+  const container = document.createElement('div');
+  container.innerHTML = `<main>${html}</main>`;
+  const main = container.querySelector('main');
+  if (!main) return html;
+  main.querySelectorAll('.metadata').forEach((el) => {
+    const parentSection = el.parentElement;
+    el.remove();
+    if (parentSection && parentSection.children.length === 0) parentSection.remove();
+  });
+  return main.innerHTML;
+}
+
+function sanitizeMetadataInnerHtml(innerHtml, { forDaPush = false } = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = innerHtml || '';
+  wrapper.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((el) => el.remove());
+  wrapper.querySelectorAll('.stream-metadata-user-row-inner').forEach((inner) => {
+    const plain = document.createElement('div');
+    while (inner.firstChild) plain.appendChild(inner.firstChild);
+    inner.replaceWith(plain);
+  });
+  wrapper.querySelectorAll('[class*="stream-metadata"], [class*="stream-annotation"]').forEach((el) => {
+    el.classList.remove('stream-metadata-user-row', 'stream-metadata-user-row-inner');
+    [...el.classList].forEach((cls) => {
+      if (cls.startsWith('stream-metadata-') || cls.startsWith('stream-annotation-')) {
+        el.classList.remove(cls);
+      }
+    });
+  });
+  wrapper.querySelectorAll('[data-stream-user-added-metadata-row]').forEach((el) => {
+    delete el.dataset.streamUserAddedMetadataRow;
+  });
+  if (forDaPush) {
+    wrapper.querySelectorAll(`[${METADATA_USER_ROW_ATTR}]`).forEach((el) => {
+      el.removeAttribute(METADATA_USER_ROW_ATTR);
+    });
+    wrapper.querySelectorAll('*').forEach((el) => {
+      [...el.attributes].forEach((attr) => {
+        if (attr.name.startsWith('data-stream-')) el.removeAttribute(attr.name);
+      });
+    });
+  }
+  return wrapper.innerHTML;
+}
+
+function appendMetadataToMainHtml(mainInnerHtml, metadataInnerHtml) {
+  const cleanMetadataInner = sanitizeMetadataInnerHtml(metadataInnerHtml, { forDaPush: true });
+  const metaContainer = document.createElement('div');
+  metaContainer.innerHTML = `<main>${mainInnerHtml}</main>`;
+  const metaMain = metaContainer.querySelector('main');
+  metaMain.querySelectorAll('.metadata').forEach((el) => {
+    const parentSection = el.parentElement;
+    el.remove();
+    if (parentSection && parentSection.children.length === 0) parentSection.remove();
+  });
+  const metadataDiv = document.createElement('div');
+  metadataDiv.className = 'metadata';
+  metadataDiv.innerHTML = cleanMetadataInner;
+  metadataDiv.querySelectorAll('p').forEach((p) => {
+    [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
+  });
+  metadataDiv.querySelectorAll('img').forEach((img) => {
+    const daSrc = img.getAttribute('data-stream-original-src');
+    if (daSrc) img.setAttribute('src', daSrc);
+    [...img.attributes].forEach((attr) => {
+      if (attr.name.startsWith('data-')) img.removeAttribute(attr.name);
+    });
+  });
+  const divWrapper = document.createElement('div');
+  divWrapper.append(metadataDiv);
+  metaMain.appendChild(divWrapper);
+  return getDACompatibleHtml(metaMain.innerHTML);
+}
+
+function syncCachedPageMetadataFromDom() {
+  const pageMetadataDom = getPageMetadataContainer();
+  if (pageMetadataDom) {
+    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
+  }
+}
+
+function getPageMetadataEdit() {
+  return (annotationState.store.easyEdits || []).find(
+    (edit) => edit?.editType === 'page-metadata'
+      || edit?.elementPath === PAGE_METADATA_EDIT_PATH,
+  ) || null;
+}
+
+function ensurePageMetadataBaseline() {
+  if (pageMetadataBaselineHtml !== null) return;
+  const container = getPageMetadataContainer();
+  if (!container) return;
+  pageMetadataBaselineHtml = sanitizeMetadataInnerHtml(container.innerHTML, { forDaPush: true });
+}
+
+function syncPageMetadataEdit() {
+  const container = getPageMetadataContainer();
+  if (!container) return;
+  ensurePageMetadataBaseline();
+  const toHtml = sanitizeMetadataInnerHtml(container.innerHTML);
+  store.upsertEasyEdit({
+    id: PAGE_METADATA_EDIT_ID,
+    editType: 'page-metadata',
+    elementPath: PAGE_METADATA_EDIT_PATH,
+    elementProps: {},
+    elementRef: '',
+    from: '',
+    to: '',
+    fromHtml: pageMetadataBaselineHtml || toHtml,
+    toHtml,
+    updatedAt: new Date().toISOString(),
+  });
+  store.saveAnnotationStore();
+}
+
+function applyPageMetadataFromEasyEdits() {
+  const edit = getPageMetadataEdit();
+  if (!edit?.toHtml) return;
+  const container = getPageMetadataContainer();
+  if (!container) return;
+  container.innerHTML = edit.toHtml;
+  cachedPageMetadataHtml = edit.toHtml;
+  if (edit.fromHtml && pageMetadataBaselineHtml === null) {
+    pageMetadataBaselineHtml = edit.fromHtml;
+  }
+}
+
+function ensureUserMetadataRowDeleteButton(row) {
+  if (!(row instanceof HTMLElement)) return;
+  if (!row.hasAttribute(METADATA_USER_ROW_ATTR)) return;
+  if (row.querySelector(':scope > .stream-annotation-delete-metadata-row')) return;
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'stream-annotation-delete-metadata-row';
+  deleteBtn.setAttribute('aria-label', 'Delete metadata row');
+  deleteBtn.textContent = '×';
+  deleteBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    removeUserMetadataRow(row);
+  });
+  row.append(deleteBtn);
+}
+
+function refreshPageMetadataDeleteButtons() {
+  const container = getPageMetadataContainer();
+  if (!container) return;
+  container.querySelectorAll(':scope > div').forEach((row) => {
+    row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((btn) => btn.remove());
+    if (row.hasAttribute(METADATA_USER_ROW_ATTR)) {
+      ensureUserMetadataRowDeleteButton(row);
+    }
+  });
+}
+
+function removeUserMetadataRow(row) {
+  if (!(row instanceof HTMLElement) || !row.hasAttribute(METADATA_USER_ROW_ATTR)) return;
+  row.remove();
+}
+
+function commitMetadataRowsAfterSave() {
+  const container = getPageMetadataContainer();
+  if (!container) return;
+  container.querySelectorAll(`[${METADATA_USER_ROW_ATTR}]`).forEach((row) => {
+    row.removeAttribute(METADATA_USER_ROW_ATTR);
+    row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((btn) => btn.remove());
+  });
+  syncCachedPageMetadataFromDom();
+}
+
+commentsPanel.setOnEditsAppliedBefore(() => {
+  applyPageMetadataFromEasyEdits();
+  refreshPageMetadataDeleteButtons();
+});
+
+commentsPanel.setOnEditsApplied(() => {
+  syncCachedPageMetadataFromDom();
+});
 
 // ── Preview DOM helpers (annotationOperation only) ───────────────────────────
 
@@ -155,9 +344,10 @@ async function initializePreview() {
       metadataEle.innerHTML += mb.innerHTML;
     });
   }
-  mainEle.innerHTML = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
+  const rawMainHtml = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
     ? htmlDom.innerHTML
     : htmlDom;
+  mainEle.innerHTML = stripMetadataFromMainHtml(rawMainHtml);
   document.body.append(metadataEle);
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
@@ -454,6 +644,8 @@ async function finishAnnotationSession(mainEl, {
   }
   store.setPreviewUrlResolver(resolvePreviewUrl);
   store.rebindEasyEditsToCurrentDom();
+  applyPageMetadataFromEasyEdits();
+  refreshPageMetadataDeleteButtons();
   await store.applyEasyEditsToDom();
   store.saveAnnotationStore();
   if (shouldRestoreInlineMode) {
@@ -467,6 +659,7 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderCommentsPanel();
   }
   await store.applyEasyEditsToDom();
+  syncCachedPageMetadataFromDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────
@@ -570,7 +763,7 @@ export async function annotationOperation(options = {}) {
     });
   }
 
-  if (!cachedCleanHtml) cachedCleanHtml = mainEl.innerHTML || '';
+  if (!cachedCleanHtml) cachedCleanHtml = stripMetadataFromMainHtml(mainEl.innerHTML || '');
 
   if (window.streamConfig?.source === 'da') {
     const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
@@ -589,8 +782,10 @@ export async function annotationOperation(options = {}) {
   metadataSeparator.append(metadataDom);
 
   const addAndRegisterRow = (row) => {
+    row.setAttribute(METADATA_USER_ROW_ATTR, 'true');
     metadataDom.append(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
+    ensureUserMetadataRowDeleteButton(row);
   };
 
   const addTextBtn = document.createElement('button');
@@ -618,6 +813,8 @@ export async function annotationOperation(options = {}) {
   mainEl.append(metadataSeparator);
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+
+  ensurePageMetadataBaseline();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -646,13 +843,13 @@ export async function annotationOperationOnHostPage(options = {}) {
       try {
         const cfg = window.streamConfig;
         const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
-        cachedCleanHtml = daMain?.innerHTML || '';
+        cachedCleanHtml = stripMetadataFromMainHtml(daMain?.innerHTML || '');
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
         cachedCleanHtml = '';
       }
     } else {
-      cachedCleanHtml = baselineHtml || mainEl.innerHTML || '';
+      cachedCleanHtml = stripMetadataFromMainHtml(baselineHtml || mainEl.innerHTML || '');
     }
   }
 
@@ -704,36 +901,14 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
     excludeBlockClasses: ['metadata'],
   });
 
-  if (cachedPageMetadataHtml !== null) {
-    const metaContainer = document.createElement('div');
-    metaContainer.innerHTML = `<main>${daCompatibleHtml}</main>`;
-    const metaMain = metaContainer.querySelector('main');
-    metaMain.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.parentElement;
-      el.remove();
-      if (parentSection.children.length === 0) parentSection.remove();
-    });
-    const metadataDiv = document.createElement('div');
-    metadataDiv.className = 'metadata';
-    metadataDiv.innerHTML = cachedPageMetadataHtml;
-    metadataDiv.querySelectorAll('p').forEach((p) => {
-      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
-    });
-    metadataDiv.querySelectorAll('img').forEach((img) => {
-      const daSrc = img.getAttribute('data-stream-original-src');
-      if (daSrc) img.setAttribute('src', daSrc);
-      [...img.attributes].forEach((attr) => {
-        if (attr.name.startsWith('data-')) img.removeAttribute(attr.name);
-      });
-    });
-    const divWrapper = document.createElement('div');
-    divWrapper.append(metadataDiv);
-    metaMain.appendChild(divWrapper);
-    daCompatibleHtml = getDACompatibleHtml(metaMain.innerHTML);
+  const metaEdit = getPageMetadataEdit();
+  const metadataInner = metaEdit?.toHtml || pageMetadataBaselineHtml || '';
+  if (metadataInner) {
+    daCompatibleHtml = appendMetadataToMainHtml(daCompatibleHtml, metadataInner);
   }
 
   const cfg = window.streamConfig || {};
-  const rawPushUrl = `${cfg.pageUrl || cfg.targetUrl || ''}`.trim();
+  const rawPushUrl = `${cfg.pageUrl || ''}`.trim();
   if (!rawPushUrl) {
     throw new Error(
       'persistAnnotationChangesToDA: streamConfig.pageUrl is required (set via STREAM_HTML_REVIEW_INIT).',
@@ -769,52 +944,11 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
   // Save assigns each image edit its content.da.live URL (no DA push here).
-  const assetReplacements = buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  // eslint-disable-next-line no-unused-vars
-  const { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements);
-
-  // Apply page metadata edits to the outgoing HTML
-  const pageMetadataDom = document.body.querySelector('main .page-metadata');
-  let htmlToPush = cachedCleanHtml;
-  if (pageMetadataDom && pageMetadataDom.children.length) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-    const metaContainer = document.createElement('div');
-    metaContainer.innerHTML = `<main>${cachedCleanHtml}</main>`;
-    const metaMain = metaContainer.querySelector('main');
-    metaMain.querySelectorAll('.metadata').forEach((el) => {
-      const parentSection = el.parentElement;
-      el.remove();
-      if (parentSection.children.length === 0) parentSection.remove();
-    });
-    const metadataDiv = document.createElement('div');
-    metadataDiv.className = 'metadata';
-    metadataDiv.innerHTML = pageMetadataDom.innerHTML;
-    metadataDiv.querySelectorAll('p').forEach((p) => {
-      [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
-    });
-    metadataDiv.querySelectorAll('img').forEach((img) => {
-      const daSrc = img.getAttribute('data-stream-original-src');
-      img.setAttribute('src', daSrc);
-      [...img.attributes].forEach((attr) => {
-        if (attr.name.startsWith('data-')) {
-          img.removeAttribute(attr.name);
-        }
-      });
-    });
-    const divWrapper = document.createElement('div');
-    divWrapper.append(metadataDiv);
-    metaMain.appendChild(divWrapper);
-    htmlToPush = getDACompatibleHtml(metaMain.innerHTML);
-    const cfg = window.streamConfig || {};
-    const rawPushUrl = `${cfg.draftLocation || cfg.contentUrl || ''}`.trim();
-    if (rawPushUrl) {
-      await postData(normalizePersistUrlForDaApi(rawPushUrl) || rawPushUrl, htmlToPush, {
-        suppressErrorPage: true,
-      });
-    }
-  }
+  buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  syncPageMetadataEdit();
 
   await persistEditsToDb();
+  commitMetadataRowsAfterSave();
   reportProgress('editsSaved');
   requestParentCollabRefresh('edits-saved');
 }

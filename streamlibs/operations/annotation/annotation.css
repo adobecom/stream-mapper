@@ -2479,6 +2479,32 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     color: #fff;
   }
 
+  .annotation-mode .page-metadata > div[data-stream-user-added-row] {
+    position: relative;
+  }
+
+  .annotation-inline-edit-mode .page-metadata .stream-annotation-delete-metadata-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    padding: 0 6px;
+    min-width: 22px;
+    height: 22px;
+    border: 1px solid #b3b3b3;
+    border-radius: 4px;
+    background: #fff;
+    color: #505050;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  .annotation-mode:not(.annotation-inline-edit-mode) .page-metadata .stream-annotation-delete-metadata-row {
+    display: none;
+  }
+
   .page-metadata .annotation-asset-pending-badge {
     display: none;
   }

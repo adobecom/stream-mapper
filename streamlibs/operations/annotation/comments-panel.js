@@ -48,6 +48,8 @@ export default function createCommentsPanelController({
   let activeCommentEditor = null;
   let popupDraft = '';
   let popupDraftKey = '';
+  let onEditsAppliedCallback = null;
+  let onEditsAppliedBeforeCallback = null;
   let pendingCommentsPanelRefresh = false;
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
@@ -869,13 +871,23 @@ export default function createCommentsPanelController({
     annotationState.pendingRemoteEditsSnapshot = null;
     annotationState.hasLoadedInitialEditsSnapshot = true;
     store.rebindEasyEditsToCurrentDom();
+    if (onEditsAppliedBeforeCallback) onEditsAppliedBeforeCallback();
     store.applyEasyEditsToDom();
     store.saveAnnotationStore();
+    if (onEditsAppliedCallback) onEditsAppliedCallback();
     // eslint-disable-next-line no-use-before-define
     clearThreadTargetCache();
     // eslint-disable-next-line no-use-before-define
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
+  }
+
+  function setOnEditsApplied(callback) {
+    onEditsAppliedCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  function setOnEditsAppliedBefore(callback) {
+    onEditsAppliedBeforeCallback = typeof callback === 'function' ? callback : null;
   }
 
   function applyRemoteEditsSnapshot(remoteEditSnapshot, options = {}) {
@@ -2870,6 +2882,8 @@ export default function createCommentsPanelController({
     renderThreadMarkers,
     setImageRegenHandler,
     setInlineModeHandlers,
+    setOnEditsApplied,
+    setOnEditsAppliedBefore,
     setupAnnotationUI,
   };
 }

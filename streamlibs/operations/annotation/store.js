@@ -337,6 +337,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         edit
         && typeof edit === 'object'
         && edit.editType !== 'image-src'
+        && edit.editType !== 'page-metadata'
         && (edit.from !== edit.to || (Array.isArray(edit.changeHistory) && edit.changeHistory.length > 0))
       ))
       .map((edit) => buildEditThreadFromEasyEdit(edit));
@@ -494,6 +495,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origMainEl = origWrapper.querySelector('main');
     effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
+      if (edit.editType === 'page-metadata') return;
 
       if (edit.editType === 'image-src') {
         const fromSrc = `${edit.from || ''}`;
@@ -1490,6 +1492,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     }
 
     keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
+      if (edit?.editType === 'page-metadata') return;
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
