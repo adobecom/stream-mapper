@@ -3,9 +3,7 @@
 /* eslint-disable no-use-before-define */
 /* eslint-disable no-restricted-syntax */
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
-
-const ASSET_INDICATOR_CLASS = 'annotation-asset-pending-indicator';
-const ASSET_INDICATOR_BADGE_CLASS = 'annotation-asset-pending-badge';
+import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
 
 const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg',
@@ -74,10 +72,16 @@ export default function createAssetsPanelController({
       annotationUI.panelListEl.appendChild(hint);
     }
 
-    const localAssets = annotationState.store.localAssets || [];
-    const remoteAssets = annotationState.store.assets || [];
+    // One stack of From→To cards per image edit (newest on top).
+    const imageEdits = (annotationState.store.easyEdits || [])
+      .filter((edit) => edit && edit.editType === 'image-src');
 
-    if (localAssets.length === 0 && remoteAssets.length === 0) {
+    const editCardGroups = [...imageEdits]
+      .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+      .map((edit) => buildAssetEditStepCards(edit))
+      .filter((cards) => cards.length > 0);
+
+    if (editCardGroups.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
       empty.textContent = 'No assets uploaded yet.';
@@ -87,21 +91,149 @@ export default function createAssetsPanelController({
 
     const list = document.createElement('div');
     list.className = 'annotation-assets-list';
-
-    for (const localAsset of localAssets) {
-      list.appendChild(buildLocalAssetCard(localAsset));
-    }
-
-    const sorted = [...remoteAssets].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-    for (const asset of sorted) {
-      list.appendChild(buildRemoteAssetCard(asset));
-    }
-
+    editCardGroups.forEach((cards) => cards.forEach((card) => list.appendChild(card)));
     annotationUI.panelListEl.appendChild(list);
 
     renderAssetMarkers();
+  }
+
+  // Sets href on an anchor to realUrl when it's a proper URL, or attaches a
+  // blob-URL click handler when only a data URL (previewSrc) is available.
+  function setAssetLinkHref(anchorEl, previewSrc, realUrl) {
+    if (realUrl && !realUrl.startsWith('data:')) {
+      anchorEl.href = realUrl;
+      return;
+    }
+    if (previewSrc?.startsWith('data:')) {
+      anchorEl.href = '#';
+      anchorEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        try {
+          const [header, b64] = previewSrc.split(',');
+          const mime = header.match(/:(.*?);/)?.[1] || 'image/jpeg';
+          const binary = atob(b64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          const blobUrl = URL.createObjectURL(new Blob([bytes], { type: mime }));
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch { /* ignore */ }
+      });
+      return;
+    }
+    anchorEl.href = previewSrc || '#';
+  }
+
+  // Stacked From→To cards for one image edit, newest first; no-op steps dropped.
+  function buildAssetEditStepCards(edit) {
+    const steps = [];
+    let prev = { to: edit.from || '', fileKey: '' };
+    (edit.changeHistory || []).forEach((entry) => {
+      const cur = { to: entry.to || '', fileKey: entry.fileKey || '' };
+      steps.push({ from: prev, to: cur, updatedAt: entry.updatedAt });
+      prev = cur;
+    });
+    steps.push({
+      from: prev,
+      to: { to: edit.to || '', fileKey: edit.assetFileKey || '' },
+      updatedAt: edit.updatedAt,
+      isCurrent: true,
+    });
+
+    return steps
+      .filter((step) => store.getAssetPreviewSrc(step.from) !== store.getAssetPreviewSrc(step.to))
+      .reverse()
+      .map((step) => buildAssetStepCard(edit, step));
+  }
+
+  function buildAssetStepCard(edit, step) {
+    const card = document.createElement('article');
+    card.className = `annotation-panel-comment annotation-panel-asset-item${step.isCurrent ? '' : ' annotation-asset-card-history'}`;
+    if (edit?.id) card.dataset.editId = edit.id;
+
+    // Only the current, uncommitted step is discardable.
+    if (step.isCurrent && !edit.isCommitted) {
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'annotation-panel-cancel-btn';
+      cancelBtn.setAttribute('aria-label', 'Discard last image change');
+      cancelBtn.title = 'Discard last change';
+      cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
+      cancelBtn.addEventListener('click', () => discardAssetEditStep(edit));
+      card.appendChild(cancelBtn);
+    }
+
+    const username = document.createElement('p');
+    username.className = 'annotation-panel-comment-user';
+    username.textContent = edit.authorUsername || window.streamConfig?.username || 'You';
+    card.appendChild(username);
+
+    const text = document.createElement('p');
+    text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const blockClass = edit.elementProps?.blockClass || edit.blockClass || '';
+    if (blockClass) {
+      const blockLabel = document.createElement('span');
+      blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-asset';
+      blockLabel.textContent = blockClass;
+      text.appendChild(blockLabel);
+    }
+    const fromSrc = store.getAssetPreviewSrc(step.from);
+    const toSrc = store.getAssetPreviewSrc(step.to);
+    const fromLink = document.createElement('a');
+    fromLink.textContent = 'From Image';
+    fromLink.target = '_blank';
+    fromLink.rel = 'noopener noreferrer';
+    fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, step.from?.to || '');
+    const arrow = document.createElement('span');
+    arrow.className = 'annotation-asset-arrow';
+    arrow.innerHTML = ARROW_ICON_SVG;
+    const toLink = document.createElement('a');
+    toLink.textContent = 'To Image';
+    toLink.target = '_blank';
+    toLink.rel = 'noopener noreferrer';
+    toLink.className = 'annotation-asset-link';
+    setAssetLinkHref(toLink, toSrc, step.to?.to || '');
+    text.appendChild(fromLink);
+    text.appendChild(arrow);
+    text.appendChild(toLink);
+    card.appendChild(text);
+
+    const timestamp = formatCardTimestamp(step.updatedAt);
+    if (timestamp) {
+      const time = document.createElement('p');
+      time.className = 'annotation-card-timestamp';
+      time.textContent = timestamp;
+      card.appendChild(time);
+    }
+
+    return card;
+  }
+
+  // Step back one entry in the image edit's history (or to the original).
+  function discardAssetEditStep(edit) {
+    if (!edit) return;
+    const result = store.undoLastChange(edit.id);
+
+    annotationState.store.localAssets = (annotationState.store.localAssets || [])
+      .filter((a) => {
+        if (a.elementPath !== edit.elementPath) return true;
+        annotationUI.appliedAssets.delete(a.localId);
+        return false;
+      });
+
+    const el = store.getElementForEdit(edit);
+    const targetImg = el?.tagName === 'IMG' ? el : el?.querySelector('img');
+
+    if (!result || result.from === result.to) {
+      if (targetImg) revertAssetPreview(targetImg);
+    } else {
+      const src = store.getAssetPreviewSrc({ to: result.to, fileKey: result.assetFileKey });
+      setAssetImgPreview(targetImg, src);
+    }
+
+    store.saveAnnotationStore();
+    notifyAssetsChanged();
   }
 
   function buildLocalAssetCard(localAsset) {
@@ -110,36 +242,65 @@ export default function createAssetsPanelController({
     card.dataset.localAssetId = localAsset.localId;
     if (localAsset.createdAt) card.dataset.createdAt = localAsset.createdAt;
 
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'annotation-panel-cancel-btn';
+    cancelBtn.setAttribute('aria-label', 'Discard last image change');
+    cancelBtn.title = 'Discard last change';
+    cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
+    cancelBtn.addEventListener('click', () => discardLastAssetStep(localAsset));
+    card.appendChild(cancelBtn);
+
     const username = document.createElement('p');
     username.className = 'annotation-panel-comment-user';
     username.textContent = window.streamConfig?.username || 'You';
     card.appendChild(username);
 
     const text = document.createElement('p');
-    text.className = 'annotation-panel-comment-text';
-    text.textContent = `replaced image "${truncateSrc(localAsset.originalSrc)}" → "${localAsset.filename}"`;
+    text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const blockClass = localAsset.elementProps?.blockClass || '';
+    if (blockClass) {
+      const blockLabel = document.createElement('span');
+      blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-asset';
+      blockLabel.textContent = blockClass;
+      text.appendChild(blockLabel);
+    }
+    const fromSrc = store.getAssetPreviewSrc({ to: localAsset.originalSrc }) || localAsset.originalSrc || '';
+    const toSrc = localAsset.base64Data || '';
+    const fromLink = document.createElement('a');
+    fromLink.textContent = 'From Image';
+    fromLink.target = '_blank';
+    fromLink.rel = 'noopener noreferrer';
+    fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, localAsset.originalSrc || '');
+    const arrow = document.createElement('span');
+    arrow.className = 'annotation-asset-arrow';
+    arrow.innerHTML = ARROW_ICON_SVG;
+    const toLink = document.createElement('a');
+    toLink.textContent = 'To Image';
+    toLink.target = '_blank';
+    toLink.rel = 'noopener noreferrer';
+    toLink.className = 'annotation-asset-link';
+    setAssetLinkHref(toLink, toSrc, '');
+    text.appendChild(fromLink);
+    text.appendChild(arrow);
+    text.appendChild(toLink);
     card.appendChild(text);
 
-    const statusBadge = document.createElement('span');
-    statusBadge.className = 'annotation-asset-status annotation-asset-status-unsaved';
-    statusBadge.textContent = 'unsaved';
-    card.appendChild(statusBadge);
-
-    const actions = document.createElement('div');
-    actions.className = 'annotation-asset-actions';
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'annotation-asset-action-btn annotation-asset-action-delete';
-    deleteBtn.textContent = 'Remove';
-    deleteBtn.addEventListener('click', () => removeLocalAsset(localAsset.localId));
-    actions.appendChild(deleteBtn);
-    card.appendChild(actions);
+    const timestamp = formatCardTimestamp(localAsset.createdAt);
+    if (timestamp) {
+      const time = document.createElement('p');
+      time.className = 'annotation-card-timestamp';
+      time.textContent = timestamp;
+      card.appendChild(time);
+    }
 
     return card;
   }
 
   function buildRemoteAssetCard(asset) {
     const card = document.createElement('article');
-    card.className = 'annotation-panel-comment annotation-panel-asset-item';
+    card.className = `annotation-panel-comment annotation-panel-asset-item${asset.status === 'rejected' ? ' annotation-asset-rejected' : ''}`;
     card.dataset.assetId = asset.id;
     if (asset.createdAt) card.dataset.createdAt = asset.createdAt;
 
@@ -151,20 +312,38 @@ export default function createAssetsPanelController({
     card.appendChild(username);
 
     const text = document.createElement('p');
-    text.className = 'annotation-panel-comment-text';
-    const fromLabel = truncateSrc(asset.originalSrc || '(none)');
-    const toLabel = truncateSrc(asset.daUrl || asset.filename || '(none)');
-    text.textContent = `replaced image "${fromLabel}" → "${toLabel}"`;
+    text.className = 'annotation-panel-comment-text annotation-panel-asset-links';
+    const blockClass = asset.elementProps?.blockClass || asset.blockClass || '';
+    if (blockClass) {
+      const blockLabel = document.createElement('span');
+      blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-asset';
+      blockLabel.textContent = blockClass;
+      text.appendChild(blockLabel);
+    }
+    const fromSrc = store.getAssetPreviewSrc({ to: asset.originalSrc }) || asset.originalSrc || '';
+    const toSrc = asset._base64Data || store.getAssetPreviewSrc({ to: asset.daUrl }) || '';
+    const fromLink = document.createElement('a');
+    fromLink.textContent = 'From Image';
+    fromLink.target = '_blank';
+    fromLink.rel = 'noopener noreferrer';
+    fromLink.className = 'annotation-asset-link';
+    setAssetLinkHref(fromLink, fromSrc, asset.originalSrc || '');
+    const arrow = document.createElement('span');
+    arrow.className = 'annotation-asset-arrow';
+    arrow.innerHTML = ARROW_ICON_SVG;
+    const toLink = document.createElement('a');
+    toLink.textContent = 'To Image';
+    toLink.target = '_blank';
+    toLink.rel = 'noopener noreferrer';
+    toLink.className = 'annotation-asset-link';
+    setAssetLinkHref(toLink, toSrc, asset.daUrl || '');
+    text.appendChild(fromLink);
+    text.appendChild(arrow);
+    text.appendChild(toLink);
     card.appendChild(text);
 
-    const statusBadge = document.createElement('span');
-    statusBadge.className = `annotation-asset-status annotation-asset-status-${asset.status}`;
-    statusBadge.textContent = asset.status;
-    if (isApplied && asset.status === 'pending') {
-      statusBadge.textContent = 'applied';
-      statusBadge.className = 'annotation-asset-status annotation-asset-status-applied';
-    }
-    card.appendChild(statusBadge);
+    const footer = document.createElement('div');
+    footer.className = 'annotation-asset-card-footer';
 
     const actions = document.createElement('div');
     actions.className = 'annotation-asset-actions';
@@ -186,15 +365,19 @@ export default function createAssetsPanelController({
       actions.appendChild(deleteBtn);
     }
 
-    card.appendChild(actions);
+    footer.appendChild(actions);
+
+    const timestamp = formatCardTimestamp(asset.updatedAt || asset.createdAt);
+    if (timestamp) {
+      const time = document.createElement('span');
+      time.className = 'annotation-card-timestamp';
+      time.textContent = timestamp;
+      footer.appendChild(time);
+    }
+
+    card.appendChild(footer);
 
     return card;
-  }
-
-  function truncateSrc(src) {
-    if (!src || src.length <= 50) return src;
-    // Show last 47 chars
-    return `...${src.slice(-47)}`;
   }
 
   function enterSelectMode() {
@@ -208,6 +391,8 @@ export default function createAssetsPanelController({
       if (!img) return;
       if (img.closest('.annotation-comments-panel') || img.closest('.annotation-asset-pending-badge')) return;
       if (img.closest('[data-class="fragment"]')) return;
+      const src = img.getAttribute('src') || '';
+      if (/\.svg(\?.*)?$/i.test(src) || src.startsWith('data:image/svg')) return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -265,6 +450,10 @@ export default function createAssetsPanelController({
 
     const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
+    // Cache the absolute loaded URL so a page-relative originalSrc still renders.
+    const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
+    if (originalSrc && fromDisplaySrc) store.cacheAssetUrlBase64(originalSrc, fromDisplaySrc);
+
     const base64Data = await readFileAsDataUrl(file);
     if (!base64Data) {
       console.warn('[assets-panel] Could not read file as data URL');
@@ -305,6 +494,23 @@ export default function createAssetsPanelController({
 
     annotationState.store.localAssets.push(localAsset);
 
+    // Track the replacement as an image edit (from=original, to='' until Save);
+    // the File + base64 live in the in-memory maps under assetFileKey.
+    const assetFileKey = store.generateId('asset-file');
+    store.registerAssetFile(assetFileKey, file, base64Data);
+    localAsset.assetFileKey = assetFileKey;
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath,
+      elementProps,
+      elementRef,
+      from: originalSrc,
+      to: '',
+      fromHtml: '',
+      toHtml: '',
+      assetFileKey,
+    });
+
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
     notifyAssetsChanged();
@@ -330,6 +536,53 @@ export default function createAssetsPanelController({
     annotationUI.appliedAssets.delete(localId);
 
     annotationState.store.localAssets.splice(idx, 1);
+    notifyAssetsChanged();
+  }
+
+  function setAssetImgPreview(targetImg, src) {
+    if (!targetImg || !src) return;
+    targetImg.src = src;
+    if (targetImg.srcset) targetImg.srcset = src;
+    const pictureEl = targetImg.closest('picture');
+    if (pictureEl) {
+      pictureEl.querySelectorAll('source').forEach((source) => { source.srcset = src; });
+    }
+  }
+
+  // Discard goes back ONE step in the image edit's history (parity with text edits):
+  // e.g. after Asset1→Asset2(saved)→Asset3, discarding restores Asset2, not Asset1.
+  // Only when there is no prior step does it fall back to the original image.
+  function discardLastAssetStep(localAsset) {
+    const { elementPath, elementProps, elementRef } = localAsset;
+    const edit = store.getEasyEditByElement(elementRef, elementPath, elementProps);
+    if (!edit) {
+      removeLocalAsset(localAsset.localId);
+      return;
+    }
+
+    const result = store.undoLastChange(edit.id);
+
+    // Drop the pending local asset for the step we just left.
+    const superseded = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
+    annotationState.store.localAssets = annotationState.store.localAssets
+      .filter((a) => a.elementPath !== elementPath);
+    superseded.forEach((a) => annotationUI.appliedAssets.delete(a.localId));
+
+    let targetImg = localAsset.targetImg;
+    if (!targetImg) {
+      const el = store.getElementForEdit(edit);
+      targetImg = el?.tagName === 'IMG' ? el : el?.querySelector('img');
+    }
+
+    if (!result || result.from === result.to) {
+      // No prior step left — revert to the original image.
+      if (targetImg) revertAssetPreview(targetImg);
+    } else {
+      const src = store.getAssetPreviewSrc({ to: result.to, fileKey: result.assetFileKey });
+      setAssetImgPreview(targetImg, src);
+    }
+
+    store.saveAnnotationStore();
     notifyAssetsChanged();
   }
 
@@ -361,8 +614,6 @@ export default function createAssetsPanelController({
       elementPath: asset.elementPath,
       targetImg,
     });
-
-    addPendingIndicator(targetImg);
   }
 
   async function applyAssetToPage(asset, targetImgOverride) {
@@ -461,42 +712,6 @@ export default function createAssetsPanelController({
     });
   }
 
-  function addPendingIndicator(imgEl) {
-    removePendingIndicator(imgEl);
-
-    const container = imgEl.closest('picture') || imgEl.parentElement;
-    if (!container) return;
-
-    const computedPosition = getComputedStyle(container).position;
-    if (computedPosition === 'static') {
-      container.style.position = 'relative';
-    }
-
-    imgEl.classList.add(ASSET_INDICATOR_CLASS);
-
-    const badge = document.createElement('span');
-    badge.className = ASSET_INDICATOR_BADGE_CLASS;
-    badge.textContent = 'Pending';
-    container.appendChild(badge);
-  }
-
-  function removePendingIndicator(imgEl) {
-    imgEl.classList.remove(ASSET_INDICATOR_CLASS);
-    const container = imgEl.closest('picture') || imgEl.parentElement;
-    if (!container) return;
-    const existingBadge = container.querySelector(`.${ASSET_INDICATOR_BADGE_CLASS}`);
-    if (existingBadge) existingBadge.remove();
-  }
-
-  function removeAllPendingIndicators() {
-    document.querySelectorAll(`.${ASSET_INDICATOR_CLASS}`).forEach((img) => {
-      img.classList.remove(ASSET_INDICATOR_CLASS);
-    });
-    document.querySelectorAll(`.${ASSET_INDICATOR_BADGE_CLASS}`).forEach((badge) => {
-      badge.remove();
-    });
-  }
-
   async function handleDeleteAsset(asset) {
     try {
       await assetService.deleteAsset(asset.id);
@@ -532,7 +747,6 @@ export default function createAssetsPanelController({
         }
       });
     }
-    removePendingIndicator(imgEl);
   }
 
   async function uploadLocalAssets() {
@@ -542,6 +756,13 @@ export default function createAssetsPanelController({
     const uploadedIds = [];
 
     for (const localAsset of localAssets) {
+      if (localAsset.skipUploadAndPromotion) {
+        // Regen image — already at its final content.da.live URL.
+        // The image-src easyEdit carries the URL; no upload or promotion needed.
+        annotationUI.appliedAssets.delete(localAsset.localId);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       try {
         // eslint-disable-next-line no-await-in-loop
         const asset = await assetService.uploadAsset(
@@ -559,6 +780,8 @@ export default function createAssetsPanelController({
         }
 
         asset._base64Data = localAsset.base64Data;
+        // Cache base64 for the saved URL so cards/discards avoid a DA refetch.
+        if (asset.daUrl) store.cacheAssetUrlBase64(asset.daUrl, localAsset.base64Data);
         annotationState.store.assets.push(asset);
 
         const applied = annotationUI.appliedAssets.get(localAsset.localId);
@@ -607,23 +830,21 @@ export default function createAssetsPanelController({
     });
     annotationState.store.assets = merged;
 
-    for (const [assetId, applied] of annotationUI.appliedAssets) {
+    for (const [assetId] of annotationUI.appliedAssets) {
       // eslint-disable-next-line no-continue
       if (String(assetId).startsWith('local-')) continue;
       const asset = merged.find((a) => a.id === assetId);
       if (!asset || asset.status !== 'pending') {
-        if (applied.targetImg) removePendingIndicator(applied.targetImg);
         annotationUI.appliedAssets.delete(assetId);
       }
     }
   }
 
   function clearAppliedAssets() {
-    removeAllPendingIndicators();
     annotationUI.appliedAssets.clear();
   }
 
-  async function registerLocalAssetFromRegen(targetImg, file, base64Data) {
+  async function registerLocalAssetFromRegen(targetImg, file, base64Data, pendingAlt = '', generatedUrl = '') {
     if (!targetImg || !file || !base64Data) return null;
 
     const anchorTarget = targetImg.closest('picture') || targetImg;
@@ -653,20 +874,69 @@ export default function createAssetsPanelController({
       base64Data,
       targetImg,
       createdAt: new Date().toISOString(),
+      // Already at its final content.da.live URL; skip upload and promotion.
+      skipUploadAndPromotion: true,
     };
 
+    // eslint-disable-next-line max-len
     const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
     annotationState.store.localAssets = annotationState.store.localAssets
       .filter((a) => a.elementPath !== elementPath);
     for (const old of supersededLocal) annotationUI.appliedAssets.delete(old.localId);
 
+    // eslint-disable-next-line max-len
     const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
     annotationState.store.assets = (annotationState.store.assets || [])
       .filter((a) => a.elementPath !== elementPath);
     for (const old of supersededRemote) annotationUI.appliedAssets.delete(old.id);
 
     annotationState.store.localAssets.push(localAsset);
+
+    const assetFileKey = store.generateId('asset-file');
+    store.registerAssetFile(assetFileKey, file, base64Data);
+    localAsset.assetFileKey = assetFileKey;
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath,
+      elementProps,
+      elementRef,
+      from: targetImg.getAttribute('data-stream-original-src') || originalSrc,
+      to: generatedUrl || '',
+      fromHtml: '',
+      toHtml: '',
+      assetFileKey,
+    });
+
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+
+    if (pendingAlt) {
+      const originalAlt = targetImg.getAttribute('alt') || '';
+      const imgRef = store.ensureElementRef(targetImg);
+      const imgAnchor = store.buildEditElementAnchor(targetImg);
+
+      targetImg.dataset.pendingAlt = pendingAlt;
+      targetImg.alt = pendingAlt;
+
+      const { elementPath: altPath, elementProps: altProps } = imgAnchor;
+      const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
+      if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
+        store.upsertEasyEdit({
+          ...(existingAltEdit || {}),
+          id: existingAltEdit?.id || store.generateId('easy-edit'),
+          editType: 'image-alt',
+          attrName: 'alt',
+          elementPath: imgAnchor.elementPath,
+          elementProps: imgAnchor.elementProps,
+          elementRef: imgRef,
+          from: existingAltEdit?.from ?? originalAlt,
+          to: pendingAlt,
+          fromHtml: '',
+          toHtml: '',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
+
     notifyAssetsChanged();
     return {
       elementPath, elementProps, elementRef, originalSrc,
@@ -675,7 +945,6 @@ export default function createAssetsPanelController({
 
   function cleanup() {
     exitSelectMode();
-    removeAllPendingIndicators();
     annotationUI.appliedAssets.clear();
     annotationState.store.localAssets = [];
     if (fileInputEl) {
@@ -697,6 +966,7 @@ export default function createAssetsPanelController({
     applyAssetToPage,
     buildLocalAssetCard,
     buildRemoteAssetCard,
+    buildAssetEditStepCards,
     cleanup,
     clearAppliedAssets,
     enterSelectMode,

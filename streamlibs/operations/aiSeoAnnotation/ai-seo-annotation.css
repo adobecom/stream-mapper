@@ -1,6 +1,7 @@
-/* ── Text regeneration button ─────────────────────────────────────────────── */
+/* ── Regeneration buttons (text + image) ──────────────────────────────────── */
 
-.stream-regen-btn {
+.stream-regen-btn,
+.stream-img-regen-btn {
   position: fixed;
   display: none;
   align-items: center;
@@ -8,60 +9,33 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #1473e6;
+  background: #1d4ed8;
   border: none;
   cursor: pointer;
   z-index: 2147483500;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 30%);
+  box-shadow: 0 2px 8px rgb(29 78 216 / 35%);
   padding: 0;
   transition: transform 0.1s, background 0.15s;
 }
 
-.stream-regen-btn:hover {
+.stream-regen-btn:hover,
+.stream-img-regen-btn:hover {
   transform: scale(1.12);
-  background: #0d66d0;
+  background: #1e40af;
 }
 
-.stream-regen-btn.stream-regen-visible { display: flex; }
-
-.stream-regen-btn.stream-regen-loading {
-  background: #888;
+.stream-regen-btn.stream-regen-loading,
+.stream-img-regen-btn.stream-img-regen-loading {
+  background: #64748b;
   cursor: wait;
   pointer-events: none;
 }
 
-.stream-regen-btn svg {
-  width: 15px;
-  height: 15px;
-  fill: #fff;
-}
-
-/* ── Image regeneration button ────────────────────────────────────────────── */
-
-.stream-img-regen-btn {
-  position: fixed;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1473e6;
-  border: none;
-  cursor: pointer;
-  z-index: 2147483500;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
-  padding: 0;
-  transition: transform 0.1s, background 0.15s;
-}
-
-.stream-img-regen-btn:hover {
-  transform: scale(1.1);
-  background: #0d66d0;
-}
+.stream-regen-btn.stream-regen-visible { display: flex; }
 
 .stream-img-regen-btn.stream-img-regen-visible { display: flex; }
 
+.stream-regen-btn svg,
 .stream-img-regen-btn svg {
   width: 16px;
   height: 16px;
@@ -86,11 +60,39 @@
 
 .stream-img-prompt-overlay.stream-img-prompt-visible { display: flex; }
 
+.stream-img-prompt-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #888;
+  padding: 0;
+}
+
+.stream-img-prompt-close:hover {
+  background: #f0f0f0;
+  color: #222;
+}
+
+.stream-img-prompt-close svg {
+  width: 14px;
+  height: 14px;
+}
+
 .stream-img-prompt-overlay label {
   font-size: 13px;
   font-weight: 600;
   color: #222;
   margin: 0;
+  padding-right: 20px;
 }
 
 .stream-img-prompt-input {
@@ -106,7 +108,7 @@
   line-height: 1.4;
 }
 
-.stream-img-prompt-input:focus { border-color: #1473e6; }
+.stream-img-prompt-input:focus { border-color: #1d4ed8; }
 
 .stream-img-prompt-actions {
   display: flex;
@@ -114,32 +116,78 @@
   justify-content: flex-end;
 }
 
-.stream-img-prompt-cancel {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  color: #555;
-}
-
-.stream-img-prompt-cancel:hover { background: #f4f4f4; }
-
 .stream-img-prompt-submit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border-radius: 6px;
   border: none;
-  background: #1473e6;
+  background: #1d4ed8;
   color: #fff;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
 }
 
+.stream-img-prompt-submit svg {
+  width: 13px;
+  height: 13px;
+  fill: #fff;
+  flex-shrink: 0;
+}
+
 .stream-img-prompt-submit:disabled {
-  background: #888;
+  background: #64748b;
   cursor: wait;
 }
 
-.stream-img-prompt-submit:hover:not(:disabled) { background: #0d66d0; }
+.stream-img-prompt-submit:hover:not(:disabled) { background: #1e40af; }
+
+.stream-img-model-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+  padding-right: 20px;
+}
+
+.stream-img-model-select {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #222;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+}
+
+.stream-img-model-select:focus { border-color: #1d4ed8; }
+
+main div.fragment {
+    position: relative;
+    pointer-events: none;
+}
+
+main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div {
+    filter: blur(2px);
+}
+
+main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before {
+    content: 'Fragment edit blocked';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    cursor: default;
+    background: rgba(107, 114, 128, 50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    font-weight: 600;
+    color: #bed9ff;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+}

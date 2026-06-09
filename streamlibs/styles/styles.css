@@ -303,4 +303,9 @@
     right: 20px;
     margin: 20px auto;
   }
+
+main > .section,
+.fragment > .section {
+  min-height: 100px;
+}
   

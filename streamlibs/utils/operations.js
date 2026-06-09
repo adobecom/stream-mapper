@@ -16,6 +16,7 @@ export {
   persistAnnotationChangesToDA,
   saveAnnotationChanges,
   annotationOperationOnHostPage,
+  setupCollabSpace,
 } from '../operations/annotation.js';
 export {
   default as attachRegenHandlers,
