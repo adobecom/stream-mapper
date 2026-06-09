@@ -120,7 +120,70 @@ const PAGE_METADATA_EDIT_ID = 'easy-edit-page-metadata';
 const METADATA_USER_ROW_ATTR = 'data-stream-user-added-row';
 
 function getPageMetadataContainer() {
-  return document.body.querySelector('main .page-metadata');
+  return document.body.querySelector('main .page-metadata')
+    || document.body.querySelector('main .metadata')
+    || document.body.querySelector('.page-metadata');
+}
+
+function setupPageMetadataUI(mainEl) {
+  if (!(mainEl instanceof HTMLElement)) return;
+  if (mainEl.querySelector('.stream-annotation-page-metadata')) return;
+
+  let metadataDom = getPageMetadataContainer();
+  if (!metadataDom) {
+    metadataDom = document.createElement('div');
+    metadataDom.classList.add('metadata', 'page-metadata');
+  } else {
+    metadataDom.classList.add('metadata', 'page-metadata');
+  }
+
+  const hostSection = (
+    metadataDom.parentElement instanceof HTMLElement
+    && metadataDom.parentElement.classList.contains('section')
+    && metadataDom.parentElement.parentElement === mainEl
+    && !metadataDom.parentElement.classList.contains('stream-annotation-page-metadata')
+  ) ? metadataDom.parentElement : null;
+
+  const metadataSeparator = document.createElement('div');
+  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
+  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
+  metadataSeparator.append(metadataDom);
+
+  const addAndRegisterRow = (row) => {
+    row.setAttribute(METADATA_USER_ROW_ATTR, 'true');
+    metadataDom.append(row);
+    row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
+    ensureUserMetadataRowDeleteButton(row);
+  };
+
+  const addTextBtn = document.createElement('button');
+  addTextBtn.className = 'stream-annotation-add-metadata-row';
+  addTextBtn.textContent = '+ Add text/link row';
+  addTextBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
+    addAndRegisterRow(row);
+  });
+
+  const addImageBtn = document.createElement('button');
+  addImageBtn.className = 'stream-annotation-add-metadata-row';
+  addImageBtn.textContent = '+ Add image row';
+  addImageBtn.addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
+    addAndRegisterRow(row);
+  });
+
+  const metadataActions = document.createElement('div');
+  metadataActions.className = 'stream-annotation-metadata-actions';
+  metadataActions.append(addTextBtn, addImageBtn);
+  metadataSeparator.append(metadataActions);
+
+  if (hostSection) {
+    hostSection.replaceWith(metadataSeparator);
+  } else {
+    mainEl.append(metadataSeparator);
+  }
 }
 
 function stripMetadataFromMainHtml(html) {
@@ -775,42 +838,7 @@ export async function annotationOperation(options = {}) {
 
   await miloLoadArea();
 
-  const metadataDom = document.body.querySelector('.page-metadata');
-  const metadataSeparator = document.createElement('div');
-  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
-  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
-  metadataSeparator.append(metadataDom);
-
-  const addAndRegisterRow = (row) => {
-    row.setAttribute(METADATA_USER_ROW_ATTR, 'true');
-    metadataDom.append(row);
-    row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
-    ensureUserMetadataRowDeleteButton(row);
-  };
-
-  const addTextBtn = document.createElement('button');
-  addTextBtn.className = 'stream-annotation-add-metadata-row';
-  addTextBtn.textContent = '+ Add text/link row';
-  addTextBtn.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.innerHTML = '<div><p>add metadata key</p></div><div><p>add text or link value</p></div>';
-    addAndRegisterRow(row);
-  });
-
-  const addImageBtn = document.createElement('button');
-  addImageBtn.className = 'stream-annotation-add-metadata-row';
-  addImageBtn.textContent = '+ Add image row';
-  addImageBtn.addEventListener('click', () => {
-    const row = document.createElement('div');
-    row.innerHTML = '<div><p>key</p></div><div><picture><img src="https://main--stream-mapper--adobecom.aem.live/assets/media_1bf6f8fe5a340bb3f4e022b300d7013821fe5ff89.png"></picture></div>';
-    addAndRegisterRow(row);
-  });
-
-  const metadataActions = document.createElement('div');
-  metadataActions.className = 'stream-annotation-metadata-actions';
-  metadataActions.append(addTextBtn, addImageBtn);
-  metadataSeparator.append(metadataActions);
-  mainEl.append(metadataSeparator);
+  setupPageMetadataUI(mainEl);
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
 
@@ -846,14 +874,18 @@ export async function annotationOperationOnHostPage(options = {}) {
         cachedCleanHtml = stripMetadataFromMainHtml(daMain?.innerHTML || '');
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
-        cachedCleanHtml = '';
+        cachedCleanHtml = stripMetadataFromMainHtml(mainEl.innerHTML || '');
       }
     } else {
       cachedCleanHtml = stripMetadataFromMainHtml(baselineHtml || mainEl.innerHTML || '');
     }
   }
 
+  setupPageMetadataUI(mainEl);
+
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+
+  ensurePageMetadataBaseline();
 
   const stripBase64QueryParam = (el) => {
     const attr = el.tagName === 'SOURCE' ? 'srcset' : 'src';
