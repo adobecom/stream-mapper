@@ -3,6 +3,7 @@ import {
   recordTextRegenAsEdit,
   recordImageRegenAsLocalAsset,
 } from '../annotation.js';
+import { getMapperEnv } from '../../utils/utils.js';
 
 // eslint-disable-next-line max-len
 function getBlockName(el) {
@@ -34,7 +35,7 @@ function hideRegenBtn() {
 }
 
 function scheduleHideRegenBtn() {
-  regenState.hideTimer = setTimeout(hideRegenBtn, 180);
+  regenState.hideTimer = setTimeout(hideRegenBtn, 1000);
 }
 
 function cancelHideRegenBtn() {
@@ -111,11 +112,13 @@ function showRegenBtn(el) {
   if (op !== 'aiSeoAnnotation') return;
   if (!document.body.classList.contains('annotation-inline-edit-mode')) return;
   cancelHideRegenBtn();
-  regenState.target = el;
   const btn = ensureRegenButton();
-  const r = el.getBoundingClientRect();
-  btn.style.top = `${Math.max(4, r.top + 2)}px`;
-  btn.style.left = `${r.right - 32}px`;
+  if (regenState.target !== el) {
+    regenState.target = el;
+    const r = el.getBoundingClientRect();
+    btn.style.top = `${Math.max(0, r.top - 14)}px`;
+    btn.style.left = `${r.right - 8}px`;
+  }
   btn.classList.add('stream-regen-visible');
 }
 
@@ -145,23 +148,37 @@ function getImageRegenEndpoint() {
   return `${window.streamConfig?.streamMapper?.serviceEP || ''}/api/image-generation`;
 }
 
+const ENABLE_IMAGE_MODEL = getMapperEnv() !== 'prod';
+
+const IMAGE_MODELS_URL = 'https://main--stream-mapper--adobecom.aem.live/configuration/seo-forms/default/image-models.json';
+
+let imageModelOptions = [
+  { label: 'firefly', value: 'Firefly' },
+  { label: 'nano-banana', value: 'Nano Banana' },
+];
+
 const imgRegenState = {
   btn: null,
   overlay: null,
   target: null,
   hideTimer: null,
+  onImgLeave: null,
 };
 
 function hideImgRegenBtn() {
   imgRegenState.hideTimer = null;
   if (imgRegenState.btn) imgRegenState.btn.classList.remove('stream-img-regen-visible');
   if (!imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) {
+    if (imgRegenState.target && imgRegenState.onImgLeave) {
+      imgRegenState.target.removeEventListener('mouseleave', imgRegenState.onImgLeave);
+      imgRegenState.onImgLeave = null;
+    }
     imgRegenState.target = null;
   }
 }
 
 function scheduleHideImgRegenBtn() {
-  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 200);
+  imgRegenState.hideTimer = setTimeout(hideImgRegenBtn, 1000);
 }
 
 function cancelHideImgRegenBtn() {
@@ -183,15 +200,17 @@ function hideImgPromptOverlay() {
 function positionOverlayNearImage(overlay, img) {
   const r = img.getBoundingClientRect();
   const ow = overlay.offsetWidth || 300;
-  const oh = overlay.offsetHeight || 160;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const oh = overlay.offsetHeight || 200;
+  const panelEl = document.querySelector('.annotation-panel');
+  const panelRect = panelEl?.getBoundingClientRect();
+  const maxRight = panelRect ? Math.max(24, panelRect.left - 12) : window.innerWidth - 12;
 
-  let left = r.left + (r.width - ow) / 2;
-  let top = r.top + (r.height - oh) / 2;
+  let left = r.right + 12;
+  if (left + ow > maxRight) left = r.left - ow - 12;
+  left = Math.max(12, Math.min(left, maxRight - ow));
 
-  left = Math.max(8, Math.min(left, vw - ow - 8));
-  top = Math.max(8, Math.min(top, vh - oh - 8));
+  let { top } = r;
+  top = Math.max(12, Math.min(top, window.innerHeight - oh - 12));
 
   overlay.style.left = `${left}px`;
   overlay.style.top = `${top}px`;
@@ -227,15 +246,30 @@ function ensureImgRegenElements() {
   // Prompt overlay
   const overlay = document.createElement('div');
   overlay.className = 'stream-img-prompt-overlay';
-  overlay.innerHTML = '<label>Describe the new image</label>'
+  const modelSelectHtml = ENABLE_IMAGE_MODEL
+    ? '<label class="stream-img-model-label">Select an image model</label>'
+      + '<select class="stream-img-model-select">'
+      + imageModelOptions.map((o) => `<option value="${o.label}">${o.value}</option>`).join('')
+      + '</select>'
+    : '';
+
+  overlay.innerHTML = '<button class="stream-img-prompt-close" type="button" aria-label="Close">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">'
+    + '<path d="M18 6 6 18M6 6l12 12"/>'
+    + '</svg></button>'
+    + modelSelectHtml
+    + '<label>Describe the new image</label>'
     + '<textarea class="stream-img-prompt-input" placeholder="e.g. a vibrant teal forest at dusk…" rows="3"></textarea>'
     + '<div class="stream-img-prompt-actions">'
-    + '<button class="stream-img-prompt-cancel" type="button">Cancel</button>'
-    + '<button class="stream-img-prompt-submit" type="button">Generate</button>'
+    + '<button class="stream-img-prompt-submit" type="button">'
+    + '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>'
+    + '<path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>'
+    + '</svg>Generate</button>'
     + '</div>';
   document.body.appendChild(overlay);
 
-  overlay.querySelector('.stream-img-prompt-cancel').addEventListener('click', hideImgPromptOverlay);
+  overlay.querySelector('.stream-img-prompt-close').addEventListener('click', hideImgPromptOverlay);
 
   overlay.querySelector('.stream-img-prompt-submit').addEventListener('click', async () => {
     const img = imgRegenState.target;
@@ -244,9 +278,12 @@ function ensureImgRegenElements() {
     const prompt = input.value.trim();
     if (!prompt) { input.focus(); return; }
 
+    const modelSelect = overlay.querySelector('.stream-img-model-select');
+    const imageModel = modelSelect ? modelSelect.value : imageModelOptions[0].label;
+
     const submitBtn = overlay.querySelector('.stream-img-prompt-submit');
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Generating…';
+    submitBtn.lastChild.textContent = 'Generating…';
 
     try {
       const token = (window.streamConfig && window.streamConfig.token) || '';
@@ -256,19 +293,20 @@ function ensureImgRegenElements() {
           'content-type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, ...(ENABLE_IMAGE_MODEL ? { imageModel } : {}) }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const newUrl = json?.response?.imageUrl || json?.response?.url || json.url || json.image_url || json.imageUrl || '';
+      const newAlt = json?.response?.alt || json.alt || 'Image Alt text';
       if (newUrl && img.isConnected) {
-        await recordImageRegenAsLocalAsset(img, newUrl);
+        await recordImageRegenAsLocalAsset(img, newUrl, newAlt);
       }
     } catch (err) {
       console.error('[ai-seo-annotation] image-generation failed', err);
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Generate';
+      submitBtn.lastChild.textContent = 'Generate';
       hideImgPromptOverlay();
     }
   });
@@ -298,42 +336,70 @@ function showImgRegenBtn(img) {
   if (!document.body.classList.contains('annotation-asset-select-mode')) return;
   ensureImgRegenElements();
   cancelHideImgRegenBtn();
-  imgRegenState.target = img;
+  if (imgRegenState.target !== img) {
+    if (imgRegenState.target) {
+      imgRegenState.target.removeEventListener('mouseleave', imgRegenState.onImgLeave);
+    }
+    imgRegenState.target = img;
+    imgRegenState.onImgLeave = (e) => {
+      const to = e.relatedTarget;
+      const { btn } = imgRegenState;
+      if (btn && (to === btn || btn.contains(to))) return;
+      scheduleHideImgRegenBtn();
+    };
+    img.addEventListener('mouseleave', imgRegenState.onImgLeave);
+  }
   const { btn } = imgRegenState;
   const r = img.getBoundingClientRect();
-  btn.style.top = `${Math.max(4, r.top + 6)}px`;
-  btn.style.left = `${r.right - 38}px`;
+  btn.style.top = `${Math.max(0, r.top - 14)}px`;
+  btn.style.left = `${r.right - 8}px`;
   btn.classList.add('stream-img-regen-visible');
+}
+
+function isSvgImage(img) {
+  const src = img.getAttribute('src') || '';
+  return /\.svg(\?.*)?$/i.test(src) || src.startsWith('data:image/svg');
 }
 
 function attachImageRegenHandlers() {
   const main = document.querySelector('main');
   if (!main) return;
 
+  if (ENABLE_IMAGE_MODEL) {
+    fetch(IMAGE_MODELS_URL)
+      .then((r) => r.json())
+      .then((json) => { if (json.data?.length) imageModelOptions = json.data; })
+      .catch(() => {});
+  }
+
   main.addEventListener('mouseover', (e) => {
     const img = e.target.closest('img');
     if (!img) return;
+    if (isSvgImage(img)) return;
     if (imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
     showImgRegenBtn(img);
   });
-
-  main.addEventListener('mouseout', (e) => {
-    const to = e.relatedTarget;
-    if (imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
-    if (imgRegenState.btn && (to === imgRegenState.btn || imgRegenState.btn.contains(to))) return;
-    scheduleHideImgRegenBtn();
-  });
-
-  // Close overlay on outside click
-  document.addEventListener('click', (e) => {
-    if (!imgRegenState.overlay?.classList.contains('stream-img-prompt-visible')) return;
-    if (!imgRegenState.overlay.contains(e.target)) hideImgPromptOverlay();
-  }, true);
 
   window.addEventListener('scroll', () => {
     hideImgRegenBtn();
     hideImgPromptOverlay();
   }, { passive: true });
+}
+
+function attachModeObserver() {
+  let hadTextMode = document.body.classList.contains('annotation-inline-edit-mode');
+  let hadImgMode = document.body.classList.contains('annotation-asset-select-mode');
+
+  new MutationObserver(() => {
+    const hasTextMode = document.body.classList.contains('annotation-inline-edit-mode');
+    const hasImgMode = document.body.classList.contains('annotation-asset-select-mode');
+
+    if (hadTextMode && !hasTextMode) hideRegenBtn();
+    if (hadImgMode && !hasImgMode) { hideImgRegenBtn(); hideImgPromptOverlay(); }
+
+    hadTextMode = hasTextMode;
+    hadImgMode = hasImgMode;
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 }
 
 // ---------------------------------------------------------------------------
@@ -343,4 +409,5 @@ function attachImageRegenHandlers() {
 export default function attachRegenHandlers() {
   attachContentRegenHandlers();
   attachImageRegenHandlers();
+  attachModeObserver();
 }

@@ -234,12 +234,20 @@ export default function createInlineEditingController({
 
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
     const easyEditElementPath = editAnchor.elementPath;
-    const segments = store.getChangedSegments(snapshot.originalText, currentText);
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
       editAnchor.elementProps,
     );
+    if (existing
+      && currentText.trim() === `${existing.to || ''}`.trim()
+      && currentHtml === `${existing.toHtml || ''}`) {
+      return;
+    }
+    const stampedOriginal = store.getEasyEditOriginalForElement(element);
+    const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
+    const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
+    const segments = store.getChangedSegments(baselineText, currentText);
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
@@ -247,9 +255,9 @@ export default function createInlineEditingController({
       elementPath: easyEditElementPath,
       elementProps: editAnchor.elementProps,
       elementRef,
-      from: snapshot.originalText,
+      from: baselineText,
       to: currentText,
-      fromHtml: snapshot.originalHtml,
+      fromHtml: baselineHtml,
       toHtml: currentHtml,
       changedFrom: segments.changedFrom,
       changedTo: segments.changedTo,
