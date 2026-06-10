@@ -1588,9 +1588,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     });
 
     if (blockSnapshotAppliedFn && appliedBlockClasses.size) {
-      appliedBlockClasses.forEach((blockClass) => {
-        blockSnapshotAppliedFn(blockClass);
-      });
+      await Promise.all(
+        [...appliedBlockClasses].map((blockClass) => blockSnapshotAppliedFn(blockClass)),
+      );
     }
   }
 

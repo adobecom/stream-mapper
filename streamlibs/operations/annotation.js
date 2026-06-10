@@ -44,6 +44,49 @@ async function resolvePreviewUrl(url) {
   return b64 || url;
 }
 
+async function resolveBlockPreviewUrls(root) {
+  if (!(root instanceof HTMLElement)) return;
+  const imgResolves = [...root.querySelectorAll('img')].map(async (img) => {
+    const originalSrc = img.getAttribute('data-stream-original-src')
+      || img.getAttribute('src')
+      || '';
+    if (!originalSrc) return;
+    const resolved = await resolvePreviewUrl(originalSrc);
+    if (resolved && resolved !== originalSrc) {
+      img.setAttribute('data-stream-original-src', originalSrc);
+      img.setAttribute('src', resolved);
+    }
+  });
+  const sourceResolves = [...root.querySelectorAll('source')].map(async (source) => {
+    const originalSrcset = source.getAttribute('data-stream-original-srcset')
+      || source.getAttribute('srcset')
+      || '';
+    if (!originalSrcset) return;
+    const resolved = await resolvePreviewUrl(originalSrcset);
+    if (resolved && resolved !== originalSrcset) {
+      source.setAttribute('data-stream-original-srcset', originalSrcset);
+      source.setAttribute('srcset', resolved);
+    }
+  });
+  await Promise.all([...imgResolves, ...sourceResolves]);
+}
+
+async function applyPersistedUrlPreviewToImg(imgEl, persistedUrl) {
+  if (!(imgEl instanceof HTMLImageElement) || !persistedUrl) return;
+  imgEl.setAttribute('data-stream-original-src', persistedUrl);
+  const resolved = await resolvePreviewUrl(persistedUrl);
+  imgEl.setAttribute('src', resolved || persistedUrl);
+  if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', resolved || persistedUrl);
+  const picture = imgEl.closest('picture');
+  if (picture) {
+    await Promise.all([...picture.querySelectorAll('source')].map(async (source) => {
+      source.setAttribute('data-stream-original-srcset', persistedUrl);
+      const resolvedSrcset = await resolvePreviewUrl(persistedUrl);
+      source.setAttribute('srcset', resolvedSrcset || persistedUrl);
+    }));
+  }
+}
+
 export async function setupCollabSpace() {
   if (
     !window.streamConfig.draftLocation
@@ -299,23 +342,7 @@ async function appendBlockClassToMain(mainEl, blockClass) {
 
   const blockSection = mainEl.querySelector(`.${sectionClass}`);
   if (blockSection) {
-    const imgResolves = [...blockSection.querySelectorAll('img')].map(async (img) => {
-      const originalSrc = img.getAttribute('src') || '';
-      const resolved = await resolvePreviewUrl(originalSrc);
-      if (resolved && resolved !== originalSrc) {
-        img.setAttribute('data-stream-original-src', originalSrc);
-        img.setAttribute('src', resolved);
-      }
-    });
-    const sourceResolves = [...blockSection.querySelectorAll('source')].map(async (source) => {
-      const originalSrcset = source.getAttribute('srcset') || '';
-      const resolved = await resolvePreviewUrl(originalSrcset);
-      if (resolved && resolved !== originalSrcset) {
-        source.setAttribute('data-stream-original-srcset', originalSrcset);
-        source.setAttribute('srcset', resolved);
-      }
-    });
-    await Promise.all([...imgResolves, ...sourceResolves]);
+    await resolveBlockPreviewUrls(blockSection);
   }
 
   if (blockClass === 'metadata') {
@@ -519,8 +546,11 @@ commentsPanel.setOnEditsAppliedBefore(() => {
   refreshPageMetadataDeleteButtons();
 });
 
-store.setOnBlockSnapshotApplied(() => {
+store.setOnBlockSnapshotApplied(async (blockClass) => {
   refreshPageMetadataDeleteButtons();
+  const sectionClass = getBlockClassSectionClass(blockClass);
+  const section = document.querySelector(`main .${sectionClass}`);
+  if (section) await resolveBlockPreviewUrls(section);
 });
 
 assetsPanel.setBlockSnapshotHandlers({
@@ -910,7 +940,7 @@ async function uploadAndDecideAssets() {
   return newlyUploadedIds;
 }
 
-function buildAssetReplacementsAndEdits(resolveTargetUrl) {
+async function buildAssetReplacementsAndEdits(resolveTargetUrl) {
   const latestByKey = new Map();
   for (const asset of (annotationState.store.assets || [])) {
     // eslint-disable-next-line no-continue
@@ -961,12 +991,8 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     if (isBlockSnapshot) {
       touchedBlockClasses.add(blockClass);
       if (imgEl) {
-        imgEl.setAttribute('src', finalUrl);
-        if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', finalUrl);
-        const picture = imgEl.closest('picture');
-        if (picture) {
-          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', finalUrl));
-        }
+        // eslint-disable-next-line no-await-in-loop
+        await applyPersistedUrlPreviewToImg(imgEl, finalUrl);
       }
       continue; // eslint-disable-line no-continue
     }
@@ -1147,7 +1173,7 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
     else annotationState.store.assets.push(promoted);
   }
 
-  const assetReplacements = buildAssetReplacementsAndEdits(
+  const assetReplacements = await buildAssetReplacementsAndEdits(
     (asset) => asset.finalDaUrl || asset.daUrl,
   );
   let { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements, {
@@ -1208,7 +1234,7 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await inlineEditing.syncInlineEditsBeforePersist();
   await uploadAndDecideAssets();
   // Save assigns each image edit its content.da.live URL (no DA push here).
-  buildAssetReplacementsAndEdits((asset) => asset.daUrl);
+  await buildAssetReplacementsAndEdits((asset) => asset.daUrl);
 
   await persistEditsToDb();
   commitMetadataRowsAfterSave();
