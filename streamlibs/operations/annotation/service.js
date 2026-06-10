@@ -318,6 +318,21 @@ export default function createAnnotationServiceClient() {
     });
   }
 
+  async function markReviewComplete(userId, completed = true) {
+    return withSyncIndicator('Updating review status...', async () => {
+      const collabId = getAnnotationCollabId();
+      if (!collabId || !userId) return null;
+      const data = await annotationServiceFetch(
+        `/api/collabs/${encodeURIComponent(collabId)}/participants/${encodeURIComponent(userId)}/review-complete`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ completed: completed !== false }),
+        },
+      );
+      return data || null;
+    });
+  }
+
   async function updateComment(commentId, body, threadId) {
     return withSyncIndicator('Saving comment...', async () => {
       if (!commentId || !threadId) return null;
@@ -384,6 +399,7 @@ export default function createAnnotationServiceClient() {
     isAvailable,
     listEdits,
     listThreads,
+    markReviewComplete,
     normalizeEditsSnapshot,
     normalizeThreadsPayload,
     saveEdits,
