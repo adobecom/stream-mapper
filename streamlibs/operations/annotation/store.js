@@ -1230,13 +1230,21 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       normalizedEditRecord.elementPath,
       normalizedEditRecord.elementProps,
     );
-    const index = annotationState.store.easyEdits.findIndex((edit) => (
-      edit.elementRef === normalizedEditRecord.elementRef
-        || (
-          normalizedEditPathKey
-          && getEditElementPathKey(edit.elementPath, edit.elementProps) === normalizedEditPathKey
-        )
-    ));
+    const isPageMetadataEdit = normalizedEditRecord.editType === 'page-metadata'
+      || normalizedEditRecord.elementPath === '__PAGE_METADATA__';
+    const index = annotationState.store.easyEdits.findIndex((edit) => {
+      if (normalizedEditRecord.id && edit?.id === normalizedEditRecord.id) return true;
+      if (isPageMetadataEdit && (
+        edit?.editType === 'page-metadata' || edit?.elementPath === '__PAGE_METADATA__'
+      )) return true;
+      if (normalizedEditRecord.elementRef && edit.elementRef === normalizedEditRecord.elementRef) {
+        return true;
+      }
+      return Boolean(
+        normalizedEditPathKey
+        && getEditElementPathKey(edit.elementPath, edit.elementProps) === normalizedEditPathKey,
+      );
+    });
     if (index > -1) {
       const existing = annotationState.store.easyEdits[index];
       const history = [...(existing.changeHistory || [])];
@@ -1244,11 +1252,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         || normalizedEditRecord.editType === 'image-alt'
         || existing.editType === 'image-src'
         || existing.editType === 'image-alt';
+      const isMetadataSnapshot = isPageMetadataEdit
+        || existing.editType === 'page-metadata'
+        || existing.elementPath === '__PAGE_METADATA__';
       // Image edits: record a step when the file or URL changes (to may stay '').
       const valueChanged = isImageEdit
         ? (existing.to !== normalizedEditRecord.to
           || (existing.assetFileKey || '') !== (normalizedEditRecord.assetFileKey || ''))
-        : (existing.to !== normalizedEditRecord.to);
+        : isMetadataSnapshot
+          ? ((existing.toHtml || '') !== (normalizedEditRecord.toHtml || ''))
+          : (existing.to !== normalizedEditRecord.to);
       if (valueChanged) {
         history.push({
           to: existing.to,
@@ -1260,8 +1273,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       annotationState.store.easyEdits[index] = {
         ...existing,
         ...normalizedEditRecord,
-        from: existing.from,
-        fromHtml: existing.fromHtml,
+        from: isMetadataSnapshot ? (existing.from || normalizedEditRecord.from) : existing.from,
+        fromHtml: isMetadataSnapshot
+          ? (existing.fromHtml || normalizedEditRecord.fromHtml)
+          : existing.fromHtml,
         changeHistory: history,
         // Preserve the viewport from when the edit was first created; don't let a
         // sync/update re-evaluate window.innerWidth at push time.
@@ -1332,6 +1347,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return annotationState.store.easyEdits
       .filter((edit) => {
         if (!edit) return false;
+        if (edit.editType === 'page-metadata' && `${edit.toHtml || ''}`.trim()) {
+          return true;
+        }
         // Don't persist a pending asset edit that hasn't been assigned a URL yet.
         if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
           return false;

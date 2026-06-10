@@ -199,7 +199,48 @@ function stripMetadataFromMainHtml(html) {
   return main.innerHTML;
 }
 
-function sanitizeMetadataInnerHtml(innerHtml, { forDaPush = false } = {}) {
+function resolveMetadataPersistedUrl(el) {
+  if (!(el instanceof HTMLElement)) return '';
+  return el.getAttribute('data-stream-original-src')
+    || el.getAttribute('data-original-src')
+    || '';
+}
+
+function isBase64MediaValue(value = '') {
+  const normalized = `${value}`.trim();
+  return normalized.includes('base64') || normalized.startsWith('data:');
+}
+
+function normalizeMetadataMediaInRoot(root) {
+  if (!(root instanceof HTMLElement)) return;
+
+  root.querySelectorAll('img').forEach((img) => {
+    const daSrc = resolveMetadataPersistedUrl(img);
+    const src = img.getAttribute('src') || '';
+    if (daSrc && isBase64MediaValue(src)) {
+      img.setAttribute('src', daSrc);
+    }
+    const srcset = img.getAttribute('srcset') || '';
+    if (isBase64MediaValue(srcset)) {
+      const resolvedSrc = img.getAttribute('src') || '';
+      const replacement = daSrc || (!isBase64MediaValue(resolvedSrc) ? resolvedSrc : '');
+      if (replacement) img.setAttribute('srcset', replacement);
+      else img.removeAttribute('srcset');
+    }
+  });
+
+  root.querySelectorAll('source').forEach((source) => {
+    const pictureImg = source.closest('picture')?.querySelector('img');
+    const daSrc = resolveMetadataPersistedUrl(source) || resolveMetadataPersistedUrl(pictureImg);
+    const srcset = source.getAttribute('srcset') || '';
+    if (isBase64MediaValue(srcset)) {
+      if (daSrc) source.setAttribute('srcset', daSrc);
+      else source.removeAttribute('srcset');
+    }
+  });
+}
+
+function sanitizeMetadataInnerHtml(innerHtml, { forDaPush = false, forPersist = false } = {}) {
   const wrapper = document.createElement('div');
   wrapper.innerHTML = innerHtml || '';
   wrapper.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((el) => el.remove());
@@ -219,16 +260,58 @@ function sanitizeMetadataInnerHtml(innerHtml, { forDaPush = false } = {}) {
   wrapper.querySelectorAll('[data-stream-user-added-metadata-row]').forEach((el) => {
     delete el.dataset.streamUserAddedMetadataRow;
   });
+
+  if (forPersist || forDaPush) {
+    normalizeMetadataMediaInRoot(wrapper);
+  }
   if (forDaPush) {
     wrapper.querySelectorAll(`[${METADATA_USER_ROW_ATTR}]`).forEach((el) => {
       el.removeAttribute(METADATA_USER_ROW_ATTR);
     });
+  }
+  if (forPersist || forDaPush) {
     wrapper.querySelectorAll('*').forEach((el) => {
       [...el.attributes].forEach((attr) => {
         if (attr.name.startsWith('data-stream-')) el.removeAttribute(attr.name);
       });
     });
   }
+  return wrapper.innerHTML;
+}
+
+function resolveMetadataUrlsForPush(metadataInnerHtml) {
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = metadataInnerHtml || '';
+  const assets = annotationState.store.assets || [];
+
+  const findPromotedUrl = (mediaUrl = '') => {
+    const normalized = `${mediaUrl}`.trim();
+    if (!normalized) return '';
+    const filename = extractFilename(normalized);
+    const match = assets.find((asset) => {
+      const finalUrl = `${asset.finalDaUrl || ''}`.trim();
+      if (!finalUrl) return false;
+      const draftUrl = `${asset.daUrl || ''}`.trim();
+      const originalSrc = `${asset.originalSrc || ''}`.trim();
+      return normalized === draftUrl
+        || normalized === originalSrc
+        || (filename && filename === extractFilename(draftUrl))
+        || (filename && filename === extractFilename(finalUrl));
+    });
+    return match?.finalDaUrl || '';
+  };
+
+  wrapper.querySelectorAll('img').forEach((img) => {
+    const promotedSrc = findPromotedUrl(img.getAttribute('src') || '');
+    if (promotedSrc) {
+      img.setAttribute('src', promotedSrc);
+      if (img.hasAttribute('srcset')) img.setAttribute('srcset', promotedSrc);
+    }
+  });
+  wrapper.querySelectorAll('source').forEach((source) => {
+    const promotedSrcset = findPromotedUrl(source.getAttribute('srcset') || '');
+    if (promotedSrcset) source.setAttribute('srcset', promotedSrcset);
+  });
   return wrapper.innerHTML;
 }
 
@@ -249,8 +332,6 @@ function appendMetadataToMainHtml(mainInnerHtml, metadataInnerHtml) {
     [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
   });
   metadataDiv.querySelectorAll('img').forEach((img) => {
-    const daSrc = img.getAttribute('data-stream-original-src');
-    if (daSrc) img.setAttribute('src', daSrc);
     [...img.attributes].forEach((attr) => {
       if (attr.name.startsWith('data-')) img.removeAttribute(attr.name);
     });
@@ -285,8 +366,7 @@ function ensurePageMetadataBaseline() {
 function syncPageMetadataEdit() {
   const container = getPageMetadataContainer();
   if (!container) return;
-  ensurePageMetadataBaseline();
-  const toHtml = sanitizeMetadataInnerHtml(container.innerHTML);
+  const toHtml = sanitizeMetadataInnerHtml(container.innerHTML, { forPersist: true });
   store.upsertEasyEdit({
     id: PAGE_METADATA_EDIT_ID,
     editType: 'page-metadata',
@@ -934,8 +1014,9 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
   });
 
   const metaEdit = getPageMetadataEdit();
-  const metadataInner = metaEdit?.toHtml || pageMetadataBaselineHtml || '';
+  let metadataInner = metaEdit?.toHtml || pageMetadataBaselineHtml || '';
   if (metadataInner) {
+    metadataInner = resolveMetadataUrlsForPush(metadataInner);
     daCompatibleHtml = appendMetadataToMainHtml(daCompatibleHtml, metadataInner);
   }
 
