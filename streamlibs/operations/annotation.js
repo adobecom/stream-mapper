@@ -230,8 +230,10 @@ function setupMetadataSectionUI(mainEl) {
   if (!metadataDom) return;
 
   const addAndRegisterRow = (row) => {
+    const liveMetadataDom = getMetadataContainer();
+    if (!liveMetadataDom) return;
     row.setAttribute(METADATA_USER_ROW_ATTR, 'true');
-    metadataDom.append(row);
+    liveMetadataDom.append(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
     ensureUserMetadataRowDeleteButton(row);
     syncBlockClassEditFromDom('metadata');
@@ -514,6 +516,10 @@ function commitMetadataRowsAfterSave() {
 }
 
 commentsPanel.setOnEditsAppliedBefore(() => {
+  refreshPageMetadataDeleteButtons();
+});
+
+store.setOnBlockSnapshotApplied(() => {
   refreshPageMetadataDeleteButtons();
 });
 

@@ -22,9 +22,14 @@ export function normalizeCommentStatus(status) {
 
 export function createAnnotationStore({ annotationState, annotationUI }) {
   let previewUrlResolverFn = null;
+  let blockSnapshotAppliedFn = null;
 
   function setPreviewUrlResolver(fn) {
     previewUrlResolverFn = fn;
+  }
+
+  function setOnBlockSnapshotApplied(fn) {
+    blockSnapshotAppliedFn = typeof fn === 'function' ? fn : null;
   }
 
   function generateId(prefix) {
@@ -1512,15 +1517,19 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       );
     }
 
+    const appliedBlockClasses = new Set();
     keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
       if (isBlockSnapshotEdit(edit) && edit.toHtml) {
         const blockClass = edit.elementPath || edit.blockClass || edit.elementProps?.blockClass;
-        const block = annotationUI.mainEl.querySelector(`main div.${blockClass}`);
+        const block = annotationUI.mainEl.querySelector(`div.${blockClass}`);
         if (block) {
           const wrapper = document.createElement('div');
           wrapper.innerHTML = edit.toHtml;
           const newBlock = wrapper.querySelector(`div.${blockClass}`) || wrapper.firstElementChild;
-          if (newBlock) block.replaceWith(newBlock);
+          if (newBlock) {
+            block.replaceWith(newBlock);
+            if (blockClass) appliedBlockClasses.add(blockClass);
+          }
         }
         return;
       }
@@ -1577,12 +1586,19 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         target.textContent = edit.to;
       }
     });
+
+    if (blockSnapshotAppliedFn && appliedBlockClasses.size) {
+      appliedBlockClasses.forEach((blockClass) => {
+        blockSnapshotAppliedFn(blockClass);
+      });
+    }
   }
 
   return {
     applyEasyEditsToDom,
     applyEasyEditsToHtmlString,
     setPreviewUrlResolver,
+    setOnBlockSnapshotApplied,
     buildElementPath,
     buildCommentElementPath,
     buildEditElementAnchor,
