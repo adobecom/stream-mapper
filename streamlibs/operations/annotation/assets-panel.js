@@ -19,9 +19,41 @@ export default function createAssetsPanelController({
   let fileInputEl = null;
   let pendingUploadTarget = null;
   let onAssetsChanged = null;
+  let getBlockSnapshotFromHtml = null;
+  let buildBlockSnapshotToHtml = null;
+  let getBlockClassForElement = null;
 
   function setOnAssetsChanged(handler) {
     onAssetsChanged = typeof handler === 'function' ? handler : null;
+  }
+
+  function setBlockSnapshotHandlers(handlers = {}) {
+    getBlockSnapshotFromHtml = handlers.getBlockSnapshotFromHtml || null;
+    buildBlockSnapshotToHtml = handlers.buildBlockSnapshotToHtml || null;
+    getBlockClassForElement = handlers.getBlockClassForElement || null;
+  }
+
+  function assetMatchesSupersedeTarget(asset, trackingPath, elementRef, isBlockSnapshot) {
+    if (isBlockSnapshot) return asset.elementRef === elementRef;
+    return asset.elementPath === trackingPath;
+  }
+
+  function supersedeAssetsForUpload(trackingPath, elementRef, isBlockSnapshot) {
+    const supersededLocal = annotationState.store.localAssets
+      .filter((a) => assetMatchesSupersedeTarget(a, trackingPath, elementRef, isBlockSnapshot));
+    annotationState.store.localAssets = annotationState.store.localAssets
+      .filter((a) => !assetMatchesSupersedeTarget(a, trackingPath, elementRef, isBlockSnapshot));
+    for (const old of supersededLocal) {
+      annotationUI.appliedAssets.delete(old.localId);
+    }
+
+    const supersededRemote = (annotationState.store.assets || [])
+      .filter((a) => assetMatchesSupersedeTarget(a, trackingPath, elementRef, isBlockSnapshot));
+    annotationState.store.assets = (annotationState.store.assets || [])
+      .filter((a) => !assetMatchesSupersedeTarget(a, trackingPath, elementRef, isBlockSnapshot));
+    for (const old of supersededRemote) {
+      annotationUI.appliedAssets.delete(old.id);
+    }
   }
 
   function notifyAssetsChanged() {
@@ -448,7 +480,11 @@ export default function createAssetsPanelController({
       return;
     }
 
-    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    const originalSrc = targetImg.dataset.streamOriginalSrc
+      || targetImg.dataset.originalSrc
+      || elementProps?.src
+      || targetImg.src
+      || '';
 
     // Cache the absolute loaded URL so a page-relative originalSrc still renders.
     const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';
@@ -462,56 +498,54 @@ export default function createAssetsPanelController({
 
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    const blockClass = getBlockClassForElement
+      ? getBlockClassForElement(targetImg)
+      : '';
+    const isBlockSnapshot = Boolean(blockClass);
+    const trackingPath = isBlockSnapshot ? blockClass : elementPath;
+    const trackingProps = isBlockSnapshot ? { blockClass } : elementProps;
+
     const localAsset = {
       localId,
       file, // raw File object — sent to BE on Save Changes
       filename: file.name,
       mimeType: file.type,
       size: file.size,
-      elementPath,
+      elementPath: trackingPath,
       elementRef,
-      elementProps,
+      elementProps: trackingProps,
       originalSrc,
       base64Data,
       targetImg,
       createdAt: new Date().toISOString(),
     };
 
-    // eslint-disable-next-line max-len
-    const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
-    annotationState.store.localAssets = annotationState.store.localAssets
-      .filter((a) => a.elementPath !== elementPath);
-    for (const old of supersededLocal) {
-      annotationUI.appliedAssets.delete(old.localId);
-    }
-    // eslint-disable-next-line max-len
-    const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
-    annotationState.store.assets = (annotationState.store.assets || [])
-      .filter((a) => a.elementPath !== elementPath);
-    for (const old of supersededRemote) {
-      annotationUI.appliedAssets.delete(old.id);
-    }
+    supersedeAssetsForUpload(trackingPath, elementRef, isBlockSnapshot);
 
     annotationState.store.localAssets.push(localAsset);
 
-    // Track the replacement as an image edit (from=original, to='' until Save);
-    // the File + base64 live in the in-memory maps under assetFileKey.
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
-    store.upsertEasyEdit({
-      editType: 'image-src',
-      elementPath,
-      elementProps,
-      elementRef,
-      from: originalSrc,
-      to: '',
-      fromHtml: '',
-      toHtml: '',
-      assetFileKey,
-    });
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath: trackingPath,
+      elementProps: trackingProps,
+      blockClass: isBlockSnapshot ? blockClass : undefined,
+      elementRef,
+      from: isBlockSnapshot ? (targetImg.dataset.streamOriginalSrc || originalSrc) : originalSrc,
+      to: '',
+      fromHtml: isBlockSnapshot && getBlockSnapshotFromHtml
+        ? getBlockSnapshotFromHtml(blockClass)
+        : '',
+      toHtml: isBlockSnapshot && buildBlockSnapshotToHtml
+        ? buildBlockSnapshotToHtml(blockClass)
+        : '',
+      assetFileKey,
+    });
 
     notifyAssetsChanged();
   }
@@ -856,9 +890,16 @@ export default function createAssetsPanelController({
     // Use the stored attribute value (set by applyAssetPreviewToImg on a previous regen)
     // or the current src attribute (before this regen overwrites it).  Both are attribute
     // values so they match the literal src string in cachedCleanHtml.
-    const originalSrc = targetImg.getAttribute('data-original-src')
+    const originalSrc = targetImg.getAttribute('data-stream-original-src')
+      || targetImg.getAttribute('data-original-src')
       || targetImg.getAttribute('src')
       || '';
+    const blockClass = getBlockClassForElement
+      ? getBlockClassForElement(targetImg)
+      : '';
+    const isBlockSnapshot = Boolean(blockClass);
+    const trackingPath = isBlockSnapshot ? blockClass : elementPath;
+    const trackingProps = isBlockSnapshot ? { blockClass } : elementProps;
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     const localAsset = {
@@ -867,9 +908,9 @@ export default function createAssetsPanelController({
       filename: file.name,
       mimeType: file.type,
       size: file.size,
-      elementPath,
+      elementPath: trackingPath,
       elementRef,
-      elementProps,
+      elementProps: trackingProps,
       originalSrc,
       base64Data,
       targetImg,
@@ -878,46 +919,42 @@ export default function createAssetsPanelController({
       skipUploadAndPromotion: true,
     };
 
-    // eslint-disable-next-line max-len
-    const supersededLocal = annotationState.store.localAssets.filter((a) => a.elementPath === elementPath);
-    annotationState.store.localAssets = annotationState.store.localAssets
-      .filter((a) => a.elementPath !== elementPath);
-    for (const old of supersededLocal) annotationUI.appliedAssets.delete(old.localId);
-
-    // eslint-disable-next-line max-len
-    const supersededRemote = (annotationState.store.assets || []).filter((a) => a.elementPath === elementPath);
-    annotationState.store.assets = (annotationState.store.assets || [])
-      .filter((a) => a.elementPath !== elementPath);
-    for (const old of supersededRemote) annotationUI.appliedAssets.delete(old.id);
+    supersedeAssetsForUpload(trackingPath, elementRef, isBlockSnapshot);
 
     annotationState.store.localAssets.push(localAsset);
 
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
-    store.upsertEasyEdit({
-      editType: 'image-src',
-      elementPath,
-      elementProps,
-      elementRef,
-      from: targetImg.getAttribute('data-stream-original-src') || originalSrc,
-      to: generatedUrl || '',
-      fromHtml: '',
-      toHtml: '',
-      assetFileKey,
-    });
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
+
+    store.upsertEasyEdit({
+      editType: 'image-src',
+      elementPath: trackingPath,
+      elementProps: trackingProps,
+      blockClass: isBlockSnapshot ? blockClass : undefined,
+      elementRef,
+      from: isBlockSnapshot ? (targetImg.getAttribute('data-stream-original-src') || originalSrc) : originalSrc,
+      to: generatedUrl || '',
+      fromHtml: isBlockSnapshot && getBlockSnapshotFromHtml
+        ? getBlockSnapshotFromHtml(blockClass)
+        : '',
+      toHtml: isBlockSnapshot && buildBlockSnapshotToHtml
+        ? buildBlockSnapshotToHtml(blockClass)
+        : '',
+      assetFileKey,
+    });
 
     if (pendingAlt) {
       const originalAlt = targetImg.getAttribute('alt') || '';
       const imgRef = store.ensureElementRef(targetImg);
-      const imgAnchor = store.buildEditElementAnchor(targetImg);
 
       targetImg.dataset.pendingAlt = pendingAlt;
       targetImg.alt = pendingAlt;
 
-      const { elementPath: altPath, elementProps: altProps } = imgAnchor;
+      const altPath = isBlockSnapshot ? blockClass : elementPath;
+      const altProps = isBlockSnapshot ? { blockClass } : elementProps;
       const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
       if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
         store.upsertEasyEdit({
@@ -925,13 +962,18 @@ export default function createAssetsPanelController({
           id: existingAltEdit?.id || store.generateId('easy-edit'),
           editType: 'image-alt',
           attrName: 'alt',
-          elementPath: imgAnchor.elementPath,
-          elementProps: imgAnchor.elementProps,
+          elementPath: altPath,
+          elementProps: altProps,
+          blockClass: isBlockSnapshot ? blockClass : undefined,
           elementRef: imgRef,
           from: existingAltEdit?.from ?? originalAlt,
           to: pendingAlt,
-          fromHtml: '',
-          toHtml: '',
+          fromHtml: isBlockSnapshot && getBlockSnapshotFromHtml
+            ? getBlockSnapshotFromHtml(blockClass)
+            : '',
+          toHtml: isBlockSnapshot && buildBlockSnapshotToHtml
+            ? buildBlockSnapshotToHtml(blockClass)
+            : '',
           updatedAt: new Date().toISOString(),
         });
       }
@@ -976,6 +1018,7 @@ export default function createAssetsPanelController({
     registerLocalAssetFromRegen,
     renderAssetMarkers,
     renderAssetsPanel,
+    setBlockSnapshotHandlers,
     setOnAssetsChanged,
     updateAssetsFromSnapshot,
     uploadLocalAssets,

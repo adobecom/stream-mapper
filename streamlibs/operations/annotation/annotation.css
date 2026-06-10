@@ -2400,52 +2400,57 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata {
+  .annotation-mode .stream-metadata-section {
     width: 100%;
     border-top: 2px dashed #ababab;
     margin-top: 10px;
-    background: #eff5ff;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 10px;
-    background: #fff;
     padding-bottom: 50px;
+    background: #fff;
+    justify-self: center;
   }
 
-  .annotation-mode .stream-annotation-page-metadata h3 {
+  .annotation-mode .stream-metadata-section h3 {
     display: flex;
     align-items: start;
     width: 80%;
     padding: 20px;
     color: #1d4ed8;
+    margin: 0;
   }
 
-  .annotation-mode .page-metadata {
+  .annotation-mode main div.metadata {
     width: 80%;
-    display: flex;
-    flex-wrap: wrap;
+    border-collapse: collapse;
+    display: table;
+    margin-top: 0;
+    font-size: 14px;
   }
 
-  .annotation-mode .page-metadata > div {
-    display: flex;
-    width: 100%;
-    box-sizing: border-box;
+  .annotation-mode main div.metadata > div {
+    display: table-row;
   }
 
-  .annotation-mode .page-metadata > div > div:first-child {
-    font-weight: bold;
-  }
-
-  .annotation-mode .page-metadata > div > div {
-    flex: 1 1 0;
-    min-width: 0;
+  .annotation-mode main div.metadata > div > div {
+    display: table-cell;
     border: 0.5px solid #cacaca;
     padding: 10px;
     padding-left: 20px;
+    vertical-align: top;
   }
 
-  .annotation-mode .page-metadata > div > div img {
+  .annotation-mode main div.metadata > div > div:first-child {
+    font-weight: bold;
+    width: 30%;
+    background: transparent;
+    color: inherit;
+    white-space: nowrap;
+  }
+
+  .annotation-mode main div.metadata > div > div img {
     width: 100px;
     height: auto;
     max-width: 100px;
@@ -2479,11 +2484,11 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     color: #fff;
   }
 
-  .annotation-mode .page-metadata > div[data-stream-user-added-row] {
+  .annotation-mode main div.metadata > div[data-stream-user-added-row] {
     position: relative;
   }
 
-  .annotation-inline-edit-mode .page-metadata .stream-annotation-delete-metadata-row {
+  .annotation-inline-edit-mode main div.metadata .stream-annotation-delete-metadata-row {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2501,11 +2506,11 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     vertical-align: middle;
   }
 
-  .annotation-mode:not(.annotation-inline-edit-mode) .page-metadata .stream-annotation-delete-metadata-row {
+  .annotation-mode:not(.annotation-inline-edit-mode) main div.metadata .stream-annotation-delete-metadata-row {
     display: none;
   }
 
-  .page-metadata .annotation-asset-pending-badge {
+  main div.metadata .annotation-asset-pending-badge {
     display: none;
   }
 

@@ -12,7 +12,7 @@ import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { fetchImageAsBase64 } from './edit/dom.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
-import { createAnnotationStore } from './annotation/store.js';
+import { createAnnotationStore, BLOCK_CLASSES } from './annotation/store.js';
 import createCommentsPanelController from './annotation/comments-panel.js';
 import createInlineEditingController from './annotation/inline-editing.js';
 import createAnnotationServiceClient from './annotation/service.js';
@@ -91,6 +91,10 @@ const commentsPanel = createCommentsPanelController({
 });
 commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
 
+let cachedCleanHtml = '';
+const cachedBlocks = {};
+const regenReplacements = [];
+
 const inlineEditing = createInlineEditingController({
   annotationState,
   annotationUI,
@@ -98,6 +102,9 @@ const inlineEditing = createInlineEditingController({
   renderThreadMarkers: commentsPanel.renderThreadMarkers,
   renderCommentsPanel: commentsPanel.renderCommentsPanel,
   removePopup: commentsPanel.removePopup,
+  getBlockClassForElement,
+  getBlockSnapshotFromHtml,
+  buildBlockSnapshotToHtml,
 });
 
 commentsPanel.setInlineModeHandlers({
@@ -110,50 +117,124 @@ assetsPanel.setOnAssetsChanged(() => {
   commentsPanel.renderCommentsPanel();
 });
 
-let cachedCleanHtml = '';
-let cachedPageMetadataHtml = null;
-let pageMetadataBaselineHtml = null;
-const regenReplacements = [];
-
-const PAGE_METADATA_EDIT_PATH = '__PAGE_METADATA__';
-const PAGE_METADATA_EDIT_ID = 'easy-edit-page-metadata';
 const METADATA_USER_ROW_ATTR = 'data-stream-user-added-row';
 
-function getPageMetadataContainer() {
-  return document.body.querySelector('main .page-metadata')
-    || document.body.querySelector('main .metadata')
-    || document.body.querySelector('.page-metadata');
+const BLOCK_CLASS_SECTION_TITLES = {
+  metadata: 'Page Metadata',
+};
+
+function getBlockClassForElement(el) {
+  if (!(el instanceof HTMLElement)) return '';
+  return BLOCK_CLASSES.find((bc) => el.closest(`main div.${bc}`)) || '';
 }
 
-function setupPageMetadataUI(mainEl) {
+function getCachedBlock(blockClass) {
+  return cachedBlocks[blockClass] || null;
+}
+
+function getBlockSnapshotFromHtml(blockClass) {
+  const cached = getCachedBlock(blockClass);
+  return cached ? cached.outerHTML : '';
+}
+
+function buildBlockSnapshotToHtml(blockClass) {
+  const liveBlock = document.querySelector(`main div.${blockClass}`);
+  if (!liveBlock) return '';
+  const clone = liveBlock.cloneNode(true);
+  clone.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((el) => el.remove());
+  clone.querySelectorAll('picture').forEach((picture) => {
+    const img = picture.querySelector('img');
+    if (img) picture.replaceWith(img);
+    else picture.remove();
+  });
+  clone.querySelectorAll('img').forEach((img) => {
+    const originalSrc = img.getAttribute('data-stream-original-srcset')
+      || img.getAttribute('data-stream-original-src');
+    if (originalSrc) img.setAttribute('src', originalSrc);
+  });
+  clone.querySelectorAll('source').forEach((source) => {
+    const originalSrcset = source.getAttribute('data-stream-original-srcset');
+    if (originalSrcset) source.setAttribute('srcset', originalSrcset);
+  });
+  clone.innerHTML = sanitizeMetadataInnerHtml(clone.innerHTML, { forPersist: true });
+  clone.querySelectorAll('*').forEach((el) => {
+    [...el.attributes]
+      .filter((attr) => attr.name.startsWith('data-'))
+      .forEach((attr) => el.removeAttribute(attr.name));
+  });
+  return getDACompatibleHtml(clone.outerHTML);
+}
+
+function buildMetadataToHtml() {
+  return buildBlockSnapshotToHtml('metadata');
+}
+
+function parseAndCacheCleanHtml(htmlDom) {
+  BLOCK_CLASSES.forEach((blockClass) => {
+    const metadataBlocks = [...htmlDom.querySelectorAll(`div.${blockClass}`)];
+    if (!metadataBlocks.length) return;
+    let combinedInnerHtml = '';
+    metadataBlocks.forEach((block) => {
+      combinedInnerHtml += block.innerHTML;
+      const parent = block.parentElement;
+      block.remove();
+      if (parent && parent.children.length === 0) parent.remove();
+    });
+    const cachedBlock = document.createElement('div');
+    cachedBlock.className = blockClass;
+    cachedBlock.innerHTML = combinedInnerHtml;
+    cachedBlocks[blockClass] = cachedBlock;
+  });
+  cachedCleanHtml = htmlDom.innerHTML;
+}
+
+function getBlockClassContainer(blockClass) {
+  return document.body.querySelector(`main div.${blockClass}`);
+}
+
+function getMetadataContainer() {
+  return getBlockClassContainer('metadata');
+}
+
+function getBlockClassSectionClass(blockClass) {
+  return blockClass === 'metadata' ? 'stream-metadata-section' : `stream-${blockClass}-section`;
+}
+
+function syncBlockClassEditFromDom(blockClass) {
+  if (!BLOCK_CLASSES.includes(blockClass)) return;
+  const existing = getBlockClassEdit(blockClass);
+  const fromHtml = existing?.fromHtml || getBlockSnapshotFromHtml(blockClass);
+  const toHtml = buildBlockSnapshotToHtml(blockClass);
+  store.upsertEasyEdit({
+    ...(existing || {}),
+    id: existing?.id || store.generateId('easy-edit'),
+    editType: existing?.editType || 'text',
+    elementPath: blockClass,
+    elementProps: { blockClass },
+    blockClass,
+    elementRef: '',
+    from: existing?.from || '',
+    to: existing?.to || '',
+    fromHtml,
+    toHtml,
+    updatedAt: new Date().toISOString(),
+  });
+  store.saveAnnotationStore();
+}
+
+function setupMetadataSectionUI(mainEl) {
   if (!(mainEl instanceof HTMLElement)) return;
-  if (mainEl.querySelector('.stream-annotation-page-metadata')) return;
-
-  let metadataDom = getPageMetadataContainer();
-  if (!metadataDom) {
-    metadataDom = document.createElement('div');
-    metadataDom.classList.add('metadata', 'page-metadata');
-  } else {
-    metadataDom.classList.add('metadata', 'page-metadata');
-  }
-
-  const hostSection = (
-    metadataDom.parentElement instanceof HTMLElement
-    && metadataDom.parentElement.classList.contains('section')
-    && metadataDom.parentElement.parentElement === mainEl
-    && !metadataDom.parentElement.classList.contains('stream-annotation-page-metadata')
-  ) ? metadataDom.parentElement : null;
-
-  const metadataSeparator = document.createElement('div');
-  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
-  metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
-  metadataSeparator.append(metadataDom);
+  const section = mainEl.querySelector('.stream-metadata-section');
+  if (!section || section.querySelector('.stream-annotation-metadata-actions')) return;
+  const metadataDom = section.querySelector('div.metadata');
+  if (!metadataDom) return;
 
   const addAndRegisterRow = (row) => {
     row.setAttribute(METADATA_USER_ROW_ATTR, 'true');
     metadataDom.append(row);
     row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
     ensureUserMetadataRowDeleteButton(row);
+    syncBlockClassEditFromDom('metadata');
   };
 
   const addTextBtn = document.createElement('button');
@@ -177,26 +258,67 @@ function setupPageMetadataUI(mainEl) {
   const metadataActions = document.createElement('div');
   metadataActions.className = 'stream-annotation-metadata-actions';
   metadataActions.append(addTextBtn, addImageBtn);
-  metadataSeparator.append(metadataActions);
-
-  if (hostSection) {
-    hostSection.replaceWith(metadataSeparator);
-  } else {
-    mainEl.append(metadataSeparator);
-  }
+  section.append(metadataActions);
 }
 
-function stripMetadataFromMainHtml(html) {
-  const container = document.createElement('div');
-  container.innerHTML = `<main>${html}</main>`;
-  const main = container.querySelector('main');
-  if (!main) return html;
-  main.querySelectorAll('.metadata').forEach((el) => {
-    const parentSection = el.parentElement;
-    el.remove();
-    if (parentSection && parentSection.children.length === 0) parentSection.remove();
-  });
-  return main.innerHTML;
+async function appendCachedBlockClassesToMain(mainEl) {
+  if (!(mainEl instanceof HTMLElement)) return;
+
+  await Promise.all(BLOCK_CLASSES.map(async (blockClass) => {
+    const sectionClass = getBlockClassSectionClass(blockClass);
+    if (mainEl.querySelector(`.${sectionClass}`)) return;
+
+    const cachedBlock = getCachedBlock(blockClass);
+    if (!cachedBlock) return;
+
+    mainEl.querySelectorAll(`div.${blockClass}`).forEach((el) => {
+      const parentSection = el.parentElement;
+      el.remove();
+      if (parentSection && parentSection.children.length === 0) parentSection.remove();
+    });
+
+    await appendBlockClassToMain(mainEl, blockClass);
+  }));
+}
+
+async function appendBlockClassToMain(mainEl, blockClass) {
+  const cachedBlock = getCachedBlock(blockClass);
+  if (!cachedBlock) return;
+  const sectionClass = getBlockClassSectionClass(blockClass);
+  if (mainEl.querySelector(`.${sectionClass}`)) return;
+
+  const divWrapper = document.createElement('div');
+  divWrapper.classList.add('section', sectionClass);
+  const blocktitle = document.createElement('h3');
+  blocktitle.textContent = BLOCK_CLASS_SECTION_TITLES[blockClass] || blockClass;
+  divWrapper.appendChild(blocktitle);
+  divWrapper.appendChild(cachedBlock.cloneNode(true));
+  mainEl.appendChild(divWrapper);
+
+  const blockSection = mainEl.querySelector(`.${sectionClass}`);
+  if (blockSection) {
+    const imgResolves = [...blockSection.querySelectorAll('img')].map(async (img) => {
+      const originalSrc = img.getAttribute('src') || '';
+      const resolved = await resolvePreviewUrl(originalSrc);
+      if (resolved && resolved !== originalSrc) {
+        img.setAttribute('data-stream-original-src', originalSrc);
+        img.setAttribute('src', resolved);
+      }
+    });
+    const sourceResolves = [...blockSection.querySelectorAll('source')].map(async (source) => {
+      const originalSrcset = source.getAttribute('srcset') || '';
+      const resolved = await resolvePreviewUrl(originalSrcset);
+      if (resolved && resolved !== originalSrcset) {
+        source.setAttribute('data-stream-original-srcset', originalSrcset);
+        source.setAttribute('srcset', resolved);
+      }
+    });
+    await Promise.all([...imgResolves, ...sourceResolves]);
+  }
+
+  if (blockClass === 'metadata') {
+    setupMetadataSectionUI(mainEl);
+  }
 }
 
 function resolveMetadataPersistedUrl(el) {
@@ -315,19 +437,19 @@ function resolveMetadataUrlsForPush(metadataInnerHtml) {
   return wrapper.innerHTML;
 }
 
-function appendMetadataToMainHtml(mainInnerHtml, metadataInnerHtml) {
-  const cleanMetadataInner = sanitizeMetadataInnerHtml(metadataInnerHtml, { forDaPush: true });
+function appendBlockClassToMainHtml(mainInnerHtml, blockClass, blockInnerHtml) {
+  const cleanInner = sanitizeMetadataInnerHtml(blockInnerHtml, { forDaPush: true });
   const metaContainer = document.createElement('div');
   metaContainer.innerHTML = `<main>${mainInnerHtml}</main>`;
   const metaMain = metaContainer.querySelector('main');
-  metaMain.querySelectorAll('.metadata').forEach((el) => {
+  metaMain.querySelectorAll(`div.${blockClass}`).forEach((el) => {
     const parentSection = el.parentElement;
     el.remove();
     if (parentSection && parentSection.children.length === 0) parentSection.remove();
   });
   const metadataDiv = document.createElement('div');
-  metadataDiv.className = 'metadata';
-  metadataDiv.innerHTML = cleanMetadataInner;
+  metadataDiv.className = blockClass;
+  metadataDiv.innerHTML = cleanInner;
   metadataDiv.querySelectorAll('p').forEach((p) => {
     [...p.attributes].forEach((attr) => p.removeAttribute(attr.name));
   });
@@ -342,56 +464,10 @@ function appendMetadataToMainHtml(mainInnerHtml, metadataInnerHtml) {
   return getDACompatibleHtml(metaMain.innerHTML);
 }
 
-function syncCachedPageMetadataFromDom() {
-  const pageMetadataDom = getPageMetadataContainer();
-  if (pageMetadataDom) {
-    cachedPageMetadataHtml = pageMetadataDom.innerHTML;
-  }
-}
-
-function getPageMetadataEdit() {
+function getBlockClassEdit(blockClass) {
   return (annotationState.store.easyEdits || []).find(
-    (edit) => edit?.editType === 'page-metadata'
-      || edit?.elementPath === PAGE_METADATA_EDIT_PATH,
+    (edit) => edit?.elementPath === blockClass,
   ) || null;
-}
-
-function ensurePageMetadataBaseline() {
-  if (pageMetadataBaselineHtml !== null) return;
-  const container = getPageMetadataContainer();
-  if (!container) return;
-  pageMetadataBaselineHtml = sanitizeMetadataInnerHtml(container.innerHTML, { forDaPush: true });
-}
-
-function syncPageMetadataEdit() {
-  const container = getPageMetadataContainer();
-  if (!container) return;
-  const toHtml = sanitizeMetadataInnerHtml(container.innerHTML, { forPersist: true });
-  store.upsertEasyEdit({
-    id: PAGE_METADATA_EDIT_ID,
-    editType: 'page-metadata',
-    elementPath: PAGE_METADATA_EDIT_PATH,
-    elementProps: {},
-    elementRef: '',
-    from: '',
-    to: '',
-    fromHtml: pageMetadataBaselineHtml || toHtml,
-    toHtml,
-    updatedAt: new Date().toISOString(),
-  });
-  store.saveAnnotationStore();
-}
-
-function applyPageMetadataFromEasyEdits() {
-  const edit = getPageMetadataEdit();
-  if (!edit?.toHtml) return;
-  const container = getPageMetadataContainer();
-  if (!container) return;
-  container.innerHTML = edit.toHtml;
-  cachedPageMetadataHtml = edit.toHtml;
-  if (edit.fromHtml && pageMetadataBaselineHtml === null) {
-    pageMetadataBaselineHtml = edit.fromHtml;
-  }
 }
 
 function ensureUserMetadataRowDeleteButton(row) {
@@ -412,7 +488,7 @@ function ensureUserMetadataRowDeleteButton(row) {
 }
 
 function refreshPageMetadataDeleteButtons() {
-  const container = getPageMetadataContainer();
+  const container = getMetadataContainer();
   if (!container) return;
   container.querySelectorAll(':scope > div').forEach((row) => {
     row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((btn) => btn.remove());
@@ -425,25 +501,26 @@ function refreshPageMetadataDeleteButtons() {
 function removeUserMetadataRow(row) {
   if (!(row instanceof HTMLElement) || !row.hasAttribute(METADATA_USER_ROW_ATTR)) return;
   row.remove();
+  syncBlockClassEditFromDom('metadata');
 }
 
 function commitMetadataRowsAfterSave() {
-  const container = getPageMetadataContainer();
+  const container = getMetadataContainer();
   if (!container) return;
   container.querySelectorAll(`[${METADATA_USER_ROW_ATTR}]`).forEach((row) => {
     row.removeAttribute(METADATA_USER_ROW_ATTR);
     row.querySelectorAll('.stream-annotation-delete-metadata-row').forEach((btn) => btn.remove());
   });
-  syncCachedPageMetadataFromDom();
 }
 
 commentsPanel.setOnEditsAppliedBefore(() => {
-  applyPageMetadataFromEasyEdits();
   refreshPageMetadataDeleteButtons();
 });
 
-commentsPanel.setOnEditsApplied(() => {
-  syncCachedPageMetadataFromDom();
+assetsPanel.setBlockSnapshotHandlers({
+  getBlockSnapshotFromHtml,
+  buildBlockSnapshotToHtml,
+  getBlockClassForElement,
 });
 
 // ── Preview DOM helpers (annotationOperation only) ───────────────────────────
@@ -478,20 +555,15 @@ async function initializePreview() {
   const htmlDom = await getDADom();
   const headerEle = document.createElement('header');
   const mainEle = document.createElement('main');
-  const metadataEle = document.createElement('div');
-  metadataEle.classList.add('metadata', 'page-metadata');
-  if (cachedPageMetadataHtml !== null) {
-    metadataEle.innerHTML = cachedPageMetadataHtml;
+  const rawHtml = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
+    ? htmlDom
+    : null;
+  if (rawHtml) {
+    parseAndCacheCleanHtml(rawHtml);
+    mainEle.innerHTML = rawHtml.innerHTML;
   } else {
-    htmlDom.querySelectorAll('div.metadata').forEach((mb) => {
-      metadataEle.innerHTML += mb.innerHTML;
-    });
+    mainEle.innerHTML = htmlDom;
   }
-  const rawMainHtml = (htmlDom instanceof HTMLElement && htmlDom.tagName === 'MAIN')
-    ? htmlDom.innerHTML
-    : htmlDom;
-  mainEle.innerHTML = stripMetadataFromMainHtml(rawMainHtml);
-  document.body.append(metadataEle);
   document.body.prepend(mainEle);
   document.body.prepend(headerEle);
 }
@@ -662,7 +734,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements, { excludeBlockClasses = 
   const isExcluded = (bc) => excludeBlockClasses.includes(bc);
   const allEasyEdits = annotationState.store.easyEdits || [];
   const easyEdits = excludeBlockClasses.length
-    ? allEasyEdits.filter((e) => !isExcluded(e?.blockClass || e?.elementProps?.blockClass))
+    ? allEasyEdits.filter((e) => {
+      const bc = e?.blockClass || e?.elementProps?.blockClass;
+      return !isExcluded(bc) && !BLOCK_CLASSES.includes(e?.elementPath);
+    })
     : allEasyEdits;
   const html = store.applyEasyEditsToHtmlString(cachedCleanHtml, easyEdits);
   const container = document.createElement('div');
@@ -672,7 +747,9 @@ function buildHtmlWithEditsAndAssets(assetReplacements, { excludeBlockClasses = 
     // Assets with block+globalIndex were already applied viewport-aware in the string phase
     const assetBc = asset.elementProps?.blockClass;
     const assetBgi = asset.elementProps?.blockGlobalIndex;
-    if (isExcluded(assetBc)) continue; // eslint-disable-line no-continue
+    if (isExcluded(assetBc) || BLOCK_CLASSES.includes(asset.elementPath)) {
+      continue; // eslint-disable-line no-continue
+    }
     if (assetBc && assetBgi != null) continue; // eslint-disable-line no-continue
     const element = findAssetElement(
       container, asset.elementPath, asset.elementProps, asset.originalSrc,
@@ -717,7 +794,10 @@ function buildHtmlWithEditsAndAssets(assetReplacements, { excludeBlockClasses = 
   // reliable original src, so they overwrite the assetReplacements pass above.
   const imageSrcEdits = (annotationState.store.easyEdits || [])
     .filter((e) => e?.editType === 'image-src' && e.to)
-    .filter((e) => !isExcluded(e?.blockClass || e?.elementProps?.blockClass));
+    .filter((e) => {
+      const bc = e?.blockClass || e?.elementProps?.blockClass;
+      return !isExcluded(bc) && !BLOCK_CLASSES.includes(e?.elementPath);
+    });
   // Edits with blockClass+blockGlobalIndex were already applied viewport-aware in the string phase
   imageSrcEdits
     .filter((edit) => {
@@ -787,7 +867,6 @@ async function finishAnnotationSession(mainEl, {
   }
   store.setPreviewUrlResolver(resolvePreviewUrl);
   store.rebindEasyEditsToCurrentDom();
-  applyPageMetadataFromEasyEdits();
   refreshPageMetadataDeleteButtons();
   await store.applyEasyEditsToDom();
   store.saveAnnotationStore();
@@ -802,7 +881,6 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderCommentsPanel();
   }
   await store.applyEasyEditsToDom();
-  syncCachedPageMetadataFromDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────
@@ -827,48 +905,107 @@ async function uploadAndDecideAssets() {
 }
 
 function buildAssetReplacementsAndEdits(resolveTargetUrl) {
-  const latestByPath = new Map();
+  const latestByKey = new Map();
   for (const asset of (annotationState.store.assets || [])) {
     // eslint-disable-next-line no-continue
     if (!asset.originalSrc || !asset.daUrl) continue;
-    const existing = latestByPath.get(asset.elementPath);
-    const isNewer = existing && asset.createdAt
-      && new Date(asset.createdAt) > new Date(existing.createdAt || 0);
+    const liveEl = asset.elementRef
+      ? document.querySelector(`[data-annotation-ref="${asset.elementRef}"]`)
+      : null;
+    const blockClass = getBlockClassForElement(liveEl);
+    const isBlockSnapshot = BLOCK_CLASSES.includes(blockClass);
+    const dedupeKey = isBlockSnapshot
+      ? `${blockClass}|${asset.elementRef || ''}`
+      : (blockClass || asset.elementPath);
+    const existing = latestByKey.get(dedupeKey);
+    const isNewer = existing?.asset?.createdAt && asset.createdAt
+      && new Date(asset.createdAt) > new Date(existing.asset.createdAt || 0);
     if (!existing || isNewer) {
-      latestByPath.set(asset.elementPath, asset);
+      latestByKey.set(dedupeKey, {
+        asset,
+        blockClass,
+        trackingPath: blockClass || asset.elementPath,
+        isBlockSnapshot,
+      });
     }
   }
 
-  const assetReplacements = Array.from(latestByPath.values()).map((asset) => ({
-    elementPath: asset.elementPath,
-    elementProps: asset.elementProps,
-    originalSrc: asset.originalSrc,
-    daUrl: asset.daUrl,
-    targetUrl: resolveTargetUrl(asset),
-  }));
+  const resolvedAssets = Array.from(latestByKey.values());
+  const touchedBlockClasses = new Set();
 
-  for (const asset of latestByPath.values()) {
+  const assetReplacements = resolvedAssets
+    .filter(({ isBlockSnapshot }) => !isBlockSnapshot)
+    .map(({ asset }) => ({
+      elementPath: asset.elementPath,
+      elementProps: asset.elementProps,
+      originalSrc: asset.originalSrc,
+      daUrl: asset.daUrl,
+      targetUrl: resolveTargetUrl(asset),
+    }));
+
+  for (const { asset, blockClass, trackingPath, isBlockSnapshot } of resolvedAssets) {
     const finalUrl = resolveTargetUrl(asset);
-    if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
+    if (!trackingPath || !finalUrl) continue; // eslint-disable-line no-continue
+
+    const liveEl = asset.elementRef
+      ? document.querySelector(`[data-annotation-ref="${asset.elementRef}"]`)
+      : null;
+    const imgEl = liveEl?.tagName === 'IMG' ? liveEl : liveEl?.querySelector('img');
+
+    if (isBlockSnapshot) {
+      touchedBlockClasses.add(blockClass);
+      if (imgEl) {
+        imgEl.setAttribute('src', finalUrl);
+        if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', finalUrl);
+        const picture = imgEl.closest('picture');
+        if (picture) {
+          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', finalUrl));
+        }
+      }
+      continue; // eslint-disable-line no-continue
+    }
+
+    const { originalSrc } = asset;
     const existingEdit = store.getEasyEditByElement(
-      asset.elementRef || '', asset.elementPath, asset.elementProps,
+      asset.elementRef || '', trackingPath, asset.elementProps,
     );
     if (!existingEdit || existingEdit.editType === 'image-src') {
       store.upsertEasyEdit({
         ...(existingEdit || {}),
         editType: 'image-src',
-        elementPath: asset.elementPath,
+        elementPath: trackingPath,
         elementProps: asset.elementProps || {},
         elementRef: asset.elementRef || '',
-        from: existingEdit?.from || asset.originalSrc,
+        from: existingEdit?.from || originalSrc,
         to: finalUrl,
         fromHtml: '',
         toHtml: '',
-        // Keep the original replacement time so panel ordering stays chronological.
         updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
     }
+    if (imgEl) {
+      imgEl.setAttribute('src', finalUrl);
+      if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', finalUrl);
+    }
   }
+
+  touchedBlockClasses.forEach((blockClass) => {
+    const existingEdit = getBlockClassEdit(blockClass);
+    store.upsertEasyEdit({
+      ...(existingEdit || {}),
+      id: existingEdit?.id || store.generateId('easy-edit'),
+      editType: existingEdit?.editType || 'image-src',
+      elementPath: blockClass,
+      elementProps: { blockClass },
+      blockClass,
+      elementRef: '',
+      from: existingEdit?.from || '',
+      to: existingEdit?.to || '',
+      fromHtml: existingEdit?.fromHtml || getBlockSnapshotFromHtml(blockClass),
+      toHtml: buildBlockSnapshotToHtml(blockClass),
+      updatedAt: new Date().toISOString(),
+    });
+  });
 
   return assetReplacements;
 }
@@ -906,8 +1043,6 @@ export async function annotationOperation(options = {}) {
     });
   }
 
-  if (!cachedCleanHtml) cachedCleanHtml = stripMetadataFromMainHtml(mainEl.innerHTML || '');
-
   if (window.streamConfig?.source === 'da') {
     const insertedFragments = await hydrateFragmentLinksInDaBlocks(mainEl);
     for (const root of insertedFragments) {
@@ -918,11 +1053,8 @@ export async function annotationOperation(options = {}) {
 
   await miloLoadArea();
 
-  setupPageMetadataUI(mainEl);
-
+  await appendCachedBlockClassesToMain(mainEl);
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
-
-  ensurePageMetadataBaseline();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -951,21 +1083,24 @@ export async function annotationOperationOnHostPage(options = {}) {
       try {
         const cfg = window.streamConfig;
         const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
-        cachedCleanHtml = stripMetadataFromMainHtml(daMain?.innerHTML || '');
+        const daContainer = document.createElement('main');
+        daContainer.innerHTML = daMain?.innerHTML || '';
+        parseAndCacheCleanHtml(daContainer);
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
-        cachedCleanHtml = stripMetadataFromMainHtml(mainEl.innerHTML || '');
+        const fallbackContainer = document.createElement('main');
+        fallbackContainer.innerHTML = mainEl.innerHTML || '';
+        parseAndCacheCleanHtml(fallbackContainer);
       }
     } else {
-      cachedCleanHtml = stripMetadataFromMainHtml(baselineHtml || mainEl.innerHTML || '');
+      const baselineContainer = document.createElement('main');
+      baselineContainer.innerHTML = baselineHtml || mainEl.innerHTML || '';
+      parseAndCacheCleanHtml(baselineContainer);
     }
   }
 
-  setupPageMetadataUI(mainEl);
-
+  await appendCachedBlockClassesToMain(mainEl);
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
-
-  ensurePageMetadataBaseline();
 
   const stripBase64QueryParam = (el) => {
     const attr = el.tagName === 'SOURCE' ? 'srcset' : 'src';
@@ -1010,15 +1145,25 @@ export async function persistAnnotationChangesToDA(versionLabel = null) {
     (asset) => asset.finalDaUrl || asset.daUrl,
   );
   let { daCompatibleHtml } = buildHtmlWithEditsAndAssets(assetReplacements, {
-    excludeBlockClasses: ['metadata'],
+    excludeBlockClasses: BLOCK_CLASSES,
   });
 
-  const metaEdit = getPageMetadataEdit();
-  let metadataInner = metaEdit?.toHtml || pageMetadataBaselineHtml || '';
-  if (metadataInner) {
-    metadataInner = resolveMetadataUrlsForPush(metadataInner);
-    daCompatibleHtml = appendMetadataToMainHtml(daCompatibleHtml, metadataInner);
-  }
+  BLOCK_CLASSES.forEach((blockClass) => {
+    const blockEdit = getBlockClassEdit(blockClass);
+    let blockInner = blockEdit?.toHtml
+      || buildBlockSnapshotToHtml(blockClass)
+      || getCachedBlock(blockClass)?.innerHTML
+      || '';
+    if (!blockInner) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = blockInner;
+    const blockDiv = wrapper.querySelector(`div.${blockClass}`);
+    blockInner = blockDiv ? blockDiv.innerHTML : blockInner;
+    blockInner = resolveMetadataUrlsForPush(
+      sanitizeMetadataInnerHtml(blockInner, { forDaPush: true }),
+    );
+    daCompatibleHtml = appendBlockClassToMainHtml(daCompatibleHtml, blockClass, blockInner);
+  });
 
   const cfg = window.streamConfig || {};
   const rawPushUrl = `${cfg.pageUrl || ''}`.trim();
@@ -1058,7 +1203,6 @@ export async function saveAnnotationChanges(reportProgress = () => {}) {
   await uploadAndDecideAssets();
   // Save assigns each image edit its content.da.live URL (no DA push here).
   buildAssetReplacementsAndEdits((asset) => asset.daUrl);
-  syncPageMetadataEdit();
 
   await persistEditsToDb();
   commitMetadataRowsAfterSave();
@@ -1077,8 +1221,12 @@ export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') 
   const snapshot = annotationUI.inlineElementSnapshot.get(elementRef);
 
   const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
+  const blockClass = getBlockClassForElement(element);
+  const isBlockSnapshot = BLOCK_CLASSES.includes(blockClass);
+  const elementPath = isBlockSnapshot ? blockClass : editAnchor.elementPath;
+  const elementProps = isBlockSnapshot ? { blockClass } : editAnchor.elementProps;
   const existing = store.getEasyEditByElement(
-    elementRef, editAnchor.elementPath, editAnchor.elementProps,
+    elementRef, elementPath, elementProps,
   );
   const stampedOriginal = store.getEasyEditOriginalForElement(element);
   // eslint-disable-next-line max-len
@@ -1086,18 +1234,25 @@ export function recordTextRegenAsEdit(element, fromText, toText, fromHtml = '') 
   // eslint-disable-next-line max-len
   const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot?.originalHtml ?? fromHtml;
   const segments = store.getChangedSegments(baselineText, toText);
+  const resolvedFromHtml = isBlockSnapshot
+    ? getBlockSnapshotFromHtml(blockClass)
+    : baselineHtml;
+  const resolvedToHtml = isBlockSnapshot
+    ? buildBlockSnapshotToHtml(blockClass)
+    : toText;
 
   const persistedEdit = store.upsertEasyEdit({
     id: existing?.id || store.generateId('easy-edit'),
     editType: 'text',
     attrName: '',
-    elementPath: editAnchor.elementPath,
-    elementProps: editAnchor.elementProps,
+    elementPath,
+    elementProps,
+    blockClass: isBlockSnapshot ? blockClass : undefined,
     elementRef,
     from: baselineText,
     to: toText,
-    fromHtml: baselineHtml,
-    toHtml: toText,
+    fromHtml: resolvedFromHtml,
+    toHtml: resolvedToHtml,
     changedFrom: segments.changedFrom,
     changedTo: segments.changedTo,
     updatedAt: new Date().toISOString(),

@@ -3,6 +3,7 @@ import { ANNOTATION_COMMENT_STATUSES, ANNOTATION_DEFAULT_USERNAME } from '../../
 const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
 export const DEFAULT_USERNAME = ANNOTATION_DEFAULT_USERNAME;
 export const COMMENT_STATUSES = ANNOTATION_COMMENT_STATUSES;
+export const BLOCK_CLASSES = ['metadata'];
 
 export function normalizeCommentStatus(status) {
   const value = `${status || ''}`.trim();
@@ -337,7 +338,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         edit
         && typeof edit === 'object'
         && edit.editType !== 'image-src'
-        && edit.editType !== 'page-metadata'
+        && !isBlockSnapshotEdit(edit)
         && (edit.from !== edit.to || (Array.isArray(edit.changeHistory) && edit.changeHistory.length > 0))
       ))
       .map((edit) => buildEditThreadFromEasyEdit(edit));
@@ -455,6 +456,13 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return `${value || ''}`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  function isBlockSnapshotEdit(edit) {
+    if (!edit || typeof edit !== 'object') return false;
+    const blockClass = edit.blockClass || edit.elementProps?.blockClass || '';
+    return BLOCK_CLASSES.includes(edit.elementPath)
+      || BLOCK_CLASSES.includes(blockClass);
+  }
+
   function findBlockInDaHtml(mainEl, blockClass, blockGlobalIndex) {
     if (!blockClass || !(blockGlobalIndex >= 0)) return null;
     const allSimilarBlocks = Array.from(mainEl.children).flatMap((section) => (
@@ -495,7 +503,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origMainEl = origWrapper.querySelector('main');
     effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
-      if (edit.editType === 'page-metadata') return;
+      if (isBlockSnapshotEdit(edit)) return;
 
       if (edit.editType === 'image-src') {
         const fromSrc = `${edit.from || ''}`;
@@ -1230,13 +1238,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       normalizedEditRecord.elementPath,
       normalizedEditRecord.elementProps,
     );
-    const isPageMetadataEdit = normalizedEditRecord.editType === 'page-metadata'
-      || normalizedEditRecord.elementPath === '__PAGE_METADATA__';
+    const isBlockSnapshot = isBlockSnapshotEdit(normalizedEditRecord);
     const index = annotationState.store.easyEdits.findIndex((edit) => {
       if (normalizedEditRecord.id && edit?.id === normalizedEditRecord.id) return true;
-      if (isPageMetadataEdit && (
-        edit?.editType === 'page-metadata' || edit?.elementPath === '__PAGE_METADATA__'
-      )) return true;
+      if (isBlockSnapshot && isBlockSnapshotEdit(edit)) return true;
       if (normalizedEditRecord.elementRef && edit.elementRef === normalizedEditRecord.elementRef) {
         return true;
       }
@@ -1252,9 +1257,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         || normalizedEditRecord.editType === 'image-alt'
         || existing.editType === 'image-src'
         || existing.editType === 'image-alt';
-      const isMetadataSnapshot = isPageMetadataEdit
-        || existing.editType === 'page-metadata'
-        || existing.elementPath === '__PAGE_METADATA__';
+      const isMetadataSnapshot = isBlockSnapshot || isBlockSnapshotEdit(existing);
       // Image edits: record a step when the file or URL changes (to may stay '').
       const valueChanged = isImageEdit
         ? (existing.to !== normalizedEditRecord.to
@@ -1347,7 +1350,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return annotationState.store.easyEdits
       .filter((edit) => {
         if (!edit) return false;
-        if (edit.editType === 'page-metadata' && `${edit.toHtml || ''}`.trim()) {
+        if (isBlockSnapshotEdit(edit) && `${edit.toHtml || ''}`.trim()) {
           return true;
         }
         // Don't persist a pending asset edit that hasn't been assigned a URL yet.
@@ -1510,7 +1513,18 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     }
 
     keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
-      if (edit?.editType === 'page-metadata') return;
+      if (isBlockSnapshotEdit(edit) && edit.toHtml) {
+        const blockClass = edit.elementPath || edit.blockClass || edit.elementProps?.blockClass;
+        const block = annotationUI.mainEl.querySelector(`main div.${blockClass}`);
+        if (block) {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = edit.toHtml;
+          const newBlock = wrapper.querySelector(`div.${blockClass}`) || wrapper.firstElementChild;
+          if (newBlock) block.replaceWith(newBlock);
+        }
+        return;
+      }
+
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;

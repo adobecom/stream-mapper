@@ -12,6 +12,9 @@ export default function createInlineEditingController({
   renderThreadMarkers,
   renderCommentsPanel,
   removePopup,
+  getBlockClassForElement,
+  getBlockSnapshotFromHtml,
+  buildBlockSnapshotToHtml,
 }) {
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
@@ -233,11 +236,14 @@ export default function createInlineEditingController({
     }
 
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const blockClass = getBlockClassForElement ? getBlockClassForElement(element) : '';
+    const isBlockSnapshot = Boolean(blockClass);
+    const easyEditElementPath = isBlockSnapshot ? blockClass : editAnchor.elementPath;
+    const elementProps = isBlockSnapshot ? { blockClass } : editAnchor.elementProps;
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
-      editAnchor.elementProps,
+      elementProps,
     );
     if (existing
       && currentText.trim() === `${existing.to || ''}`.trim()
@@ -248,17 +254,24 @@ export default function createInlineEditingController({
     const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
     const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
     const segments = store.getChangedSegments(baselineText, currentText);
+    const resolvedFromHtml = (isBlockSnapshot && getBlockSnapshotFromHtml)
+      ? getBlockSnapshotFromHtml(blockClass)
+      : baselineHtml;
+    const resolvedToHtml = (isBlockSnapshot && buildBlockSnapshotToHtml)
+      ? buildBlockSnapshotToHtml(blockClass)
+      : currentHtml;
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
       attrName: '',
       elementPath: easyEditElementPath,
-      elementProps: editAnchor.elementProps,
+      elementProps,
+      blockClass: isBlockSnapshot ? blockClass : undefined,
       elementRef,
       from: baselineText,
       to: currentText,
-      fromHtml: baselineHtml,
-      toHtml: currentHtml,
+      fromHtml: resolvedFromHtml,
+      toHtml: resolvedToHtml,
       changedFrom: segments.changedFrom,
       changedTo: segments.changedTo,
       updatedAt: new Date().toISOString(),
@@ -322,7 +335,10 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
-    const easyEditElementPath = editAnchor.elementPath;
+    const blockClass = getBlockClassForElement ? getBlockClassForElement(imageElement) : '';
+    const isBlockSnapshot = Boolean(blockClass);
+    const easyEditElementPath = isBlockSnapshot ? blockClass : editAnchor.elementPath;
+    const elementProps = isBlockSnapshot ? { blockClass } : editAnchor.elementProps;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
@@ -331,19 +347,24 @@ export default function createInlineEditingController({
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
-      editAnchor.elementProps,
+      elementProps,
     );
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'image-alt',
       attrName: 'alt',
       elementPath: easyEditElementPath,
-      elementProps: editAnchor.elementProps,
+      elementProps,
+      blockClass: isBlockSnapshot ? blockClass : undefined,
       elementRef,
       from: originalAlt,
       to: currentAlt,
-      fromHtml: '',
-      toHtml: '',
+      fromHtml: isBlockSnapshot && getBlockSnapshotFromHtml
+        ? getBlockSnapshotFromHtml(blockClass)
+        : '',
+      toHtml: isBlockSnapshot && buildBlockSnapshotToHtml
+        ? buildBlockSnapshotToHtml(blockClass)
+        : '',
       changedFrom: originalAlt,
       changedTo: currentAlt,
       updatedAt: new Date().toISOString(),
