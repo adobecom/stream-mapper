@@ -2483,7 +2483,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     display: none;
   }
 
-  .fragment > .section {
+  main > .section, .fragment > .section {
     min-height: 50px;
   }
 
