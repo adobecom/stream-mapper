@@ -1,5 +1,5 @@
 import createAnnotationServiceClient from './service.js';
-import { ANNOTATION_MESSAGES } from '../../utils/constants.js';
+import { ANNOTATION_MESSAGES, BLOCK_CLASSES } from '../../utils/constants.js';
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
@@ -12,9 +12,11 @@ export default function createInlineEditingController({
   renderThreadMarkers,
   renderCommentsPanel,
   removePopup,
-  getMetadataFromHtml,
+  getBlockFromHtml,
+  buildBlockToHtml,
 }) {
   const annotationService = createAnnotationServiceClient();
+  const blockClassSelector = BLOCK_CLASSES.map((c) => `main div.${c}`).join(', ');
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
   const EXPLICIT_FORMATTING_TOOLBAR_ACTIONS = new Set([
     'bold',
@@ -116,6 +118,14 @@ export default function createInlineEditingController({
         if (isInsideStreamFragment(el)) return false;
         return true;
       });
+      // Metadata-like block cells are editable even when empty so authors can fill values.
+    //works for any BLOCK_CLASSES entry, no class names here.
+    Array.from(annotationUI.mainEl.querySelectorAll('.stream-metadata-section > div > div > div'))
+    .forEach((el) => {
+      if (el instanceof HTMLElement && !isInsideStreamFragment(el) && !candidates.includes(el)) {
+        candidates.push(el);
+      }
+    });
     const candidateSet = new Set(candidates);
     const nonLeafCandidates = new Set();
 
@@ -233,9 +243,11 @@ export default function createInlineEditingController({
       return;
     }
 
-    const isInMetadata = Boolean(element.closest('main div.metadata'));
+    const metaBlock = element.closest(blockClassSelector);
+    const metaBlockClass = metaBlock
+      ? (BLOCK_CLASSES.find((c) => metaBlock.classList.contains(c)) || '') : '';
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
+    const easyEditElementPath = metaBlockClass || editAnchor.elementPath;
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
@@ -250,10 +262,14 @@ export default function createInlineEditingController({
     const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
     const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
     const segments = store.getChangedSegments(baselineText, currentText);
-    const resolvedFromHtml = (isInMetadata && getMetadataFromHtml)
-      ? getMetadataFromHtml()
+    // For metadata-like blocks, fromHtml/toHtml track the whole sanitized block so the
+    // block can be replaced on apply and re-appended on push.
+    const resolvedFromHtml = (metaBlockClass && getBlockFromHtml)
+      ? getBlockFromHtml(metaBlockClass)
       : baselineHtml;
-    const resolvedToHtml = currentHtml;
+    const resolvedToHtml = (metaBlockClass && buildBlockToHtml)
+      ? buildBlockToHtml(metaBlockClass)
+      : currentHtml;
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
@@ -328,8 +344,10 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
-    const isInMetadata = Boolean(imageElement.closest('main div.metadata'));
-    const easyEditElementPath = isInMetadata ? 'metadata' : editAnchor.elementPath;
+    const metaBlock = imageElement.closest(blockClassSelector);
+    const metaBlockClass = metaBlock
+      ? (BLOCK_CLASSES.find((c) => metaBlock.classList.contains(c)) || '') : '';
+    const easyEditElementPath = metaBlockClass || editAnchor.elementPath;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;

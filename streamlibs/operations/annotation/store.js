@@ -1,4 +1,8 @@
-import { ANNOTATION_COMMENT_STATUSES, ANNOTATION_DEFAULT_USERNAME } from '../../utils/constants.js';
+import {
+  ANNOTATION_COMMENT_STATUSES,
+  ANNOTATION_DEFAULT_USERNAME,
+  BLOCK_CLASSES,
+} from '../../utils/constants.js';
 
 const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
 export const DEFAULT_USERNAME = ANNOTATION_DEFAULT_USERNAME;
@@ -494,6 +498,10 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     const origMainEl = origWrapper.querySelector('main');
     effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
+
+      // Metadata-like blocks are stripped from this HTML and re-appended at the end of
+      // the page separately, so skip them here to avoid matching inline.
+      if (BLOCK_CLASSES.includes(edit.elementPath)) return;
 
       if (edit.editType === 'image-src') {
         const fromSrc = `${edit.from || ''}`;
@@ -1490,11 +1498,27 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     }
 
     keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
+      if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
+
+      // Metadata-like edit: replace the whole block on the DOM with the edited toHtml.
+      // Resolved by block class (not the inner element ref) since these blocks render
+      // in their own section.
+      if (BLOCK_CLASSES.includes(edit.elementPath)) {
+        const block = annotationUI.mainEl.querySelector(`div.${edit.elementPath}`);
+        if (block && edit.toHtml) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = edit.toHtml;
+          const newBlock = tmp.querySelector(`div.${edit.elementPath}`) || tmp.firstElementChild;
+          if (newBlock && block.innerHTML !== newBlock.innerHTML) {
+            block.innerHTML = newBlock.innerHTML;
+          }
+        }
+        return;
+      }
+
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
       if (target.closest('[data-class="fragment"]')) return;
-
-      if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
 
       // Pending asset edit (empty `to`): keep the existing base64 preview.
       if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) return;

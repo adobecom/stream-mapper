@@ -20,6 +20,7 @@ import createAssetServiceClient from './annotation/asset-service.js';
 import createAssetsPanelController from './annotation/assets-panel.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
+import { BLOCK_CLASSES, BLOCK_CLASS_TEMPLATES } from '../utils/constants.js';
 
 // ── Module singletons ────────────────────────────────────────────────────────
 
@@ -92,13 +93,14 @@ const commentsPanel = createCommentsPanelController({
 commentsPanel.setImageRegenHandler(recordImageRegenAsLocalAsset);
 
 let cachedCleanHtml = '';
-let cachedMetadata = null;
+// blockClass -> combined <div> holding the original HTML for that block.
+const cachedMetadataBlocks = new Map();
 const regenReplacements = [];
-
-function buildMetadataToHtml() {
-  const liveMetadata = document.querySelector('main div.metadata');
-  if (!liveMetadata) return '';
-  const clone = liveMetadata.cloneNode(true);
+//Looks on the page for the live metadata block and makes copy 
+function buildBlockToHtml(blockClass) {
+  const liveBlock = document.querySelector(`main div.${blockClass}`);
+  if (!liveBlock) return '';
+  const clone = liveBlock.cloneNode(true);
   clone.querySelectorAll('picture').forEach((picture) => {
     const img = picture.querySelector('img');
     if (img) picture.replaceWith(img);
@@ -124,8 +126,8 @@ const inlineEditing = createInlineEditingController({
   renderThreadMarkers: commentsPanel.renderThreadMarkers,
   renderCommentsPanel: commentsPanel.renderCommentsPanel,
   removePopup: commentsPanel.removePopup,
-  getMetadataFromHtml: () => (cachedMetadata ? cachedMetadata.outerHTML : ''),
-  buildMetadataToHtml,
+  getBlockFromHtml: (blockClass) => cachedMetadataBlocks.get(blockClass)?.outerHTML || '',
+  buildBlockToHtml,
 });
 
 commentsPanel.setInlineModeHandlers({
@@ -137,21 +139,32 @@ assetsPanel.setOnAssetsChanged(() => {
   commentsPanel.renderThreadMarkers({ resolveTargets: true });
   commentsPanel.renderCommentsPanel();
 });
-
+//pull mtdt/card-mtdt blocks out saves for later and keeps rest of html as cleaned page
 function parseAndCacheCleanHtml(htmlDom) {
-  const metadataBlocks = [...htmlDom.querySelectorAll('div.metadata')];
-  let combinedInnerHtml = '';
-  metadataBlocks.forEach((block) => {
-    combinedInnerHtml += block.innerHTML;
-    const parent = block.parentElement;
-    block.remove();
-    if (parent && parent.children.length === 0) parent.remove();
+  cachedMetadataBlocks.clear();
+  BLOCK_CLASSES.forEach((blockClass) => {
+    const blocks = [...htmlDom.querySelectorAll(`div.${blockClass}`)];
+    let combinedInnerHtml = '';
+    blocks.forEach((block) => {
+      combinedInnerHtml += block.innerHTML;
+      const parent = block.parentElement;
+      block.remove();
+      if (parent && parent.children.length === 0) parent.remove();
+    });
+    if (blocks.length === 0) {
+      const template = BLOCK_CLASS_TEMPLATES[blockClass];
+      if (template){
+           // template: seed keys table (card-metadata)
+      combinedInnerHtml = template
+        .map((key) => `<div><div>${key}</div><div></div></div>`)
+        .join('');
+      }
+    }
+    const cached = document.createElement('div');
+    cached.className = blockClass;
+    cached.innerHTML = combinedInnerHtml;
+    cachedMetadataBlocks.set(blockClass, cached);
   });
-  if (metadataBlocks.length > 0) {
-    cachedMetadata = document.createElement('div');
-    cachedMetadata.className = 'metadata';
-    cachedMetadata.innerHTML = combinedInnerHtml;
-  }
   cachedCleanHtml = htmlDom.innerHTML;
 }
 
@@ -449,6 +462,18 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
+  // Metadata-like blocks live outside the page body: for each block we pulled out, clean
+  // any separate inline instances then re-append its edited HTML  at
+  // the end before pushing.
+  cachedMetadataBlocks.forEach((cachedBlock, blockClass) => {
+    mainEl.querySelectorAll(`div.${blockClass}`).forEach((block) => block.remove());
+    //picks the most recent saved edit for that metadata block (elementPath matches blockClass and has toHtml), so that version is used when re-appending the block on save instead of the original cached HTML.
+    const blockEdit = easyEdits.filter((e) => e.elementPath === blockClass && e.toHtml).at(-1);
+    const finalHtml = blockEdit?.toHtml
+      || (cachedBlock.innerHTML.trim() ? cachedBlock.outerHTML : '');
+    if (finalHtml) mainEl.insertAdjacentHTML('beforeend', finalHtml);
+  });
+
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
 }
 
@@ -534,19 +559,24 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     const liveEl = asset.elementRef
       ? document.querySelector(`[data-annotation-ref="${asset.elementRef}"]`)
       : null;
-    const isMetadata = Boolean(liveEl?.closest('main div.metadata'));
+      //checks if this image inside a metadata block?
+      //fig out real ori da img url instead or using preview url shown  onscreen
+    const liveBlock = liveEl?.closest(BLOCK_CLASSES.map((c) => `main div.${c}`).join(', '));
+    const blockClass = liveBlock
+      ? (BLOCK_CLASSES.find((c) => liveBlock.classList.contains(c)) || '') : '';
     const imgEl = liveEl?.tagName === 'IMG' ? liveEl : liveEl?.querySelector('img');
     let { originalSrc } = asset;
-    if (isMetadata) {
+    if (blockClass) {
       const fromAttr = imgEl?.getAttribute('data-stream-original-src');
+      const cachedBlock = cachedMetadataBlocks.get(blockClass);
       if (fromAttr) {
         originalSrc = fromAttr;
-      } else if (cachedMetadata) {
-        const cachedImg = cachedMetadata.querySelector('img[src*="content.da.live"]');
+      } else if (cachedBlock) {
+        const cachedImg = cachedBlock.querySelector('img[src*="content.da.live"]');
         if (cachedImg) originalSrc = cachedImg.getAttribute('src') || asset.originalSrc;
       }
     }
-    return { asset, isMetadata, originalSrc };
+    return { asset, blockClass, originalSrc };
   });
 
   const assetReplacements = resolvedAssets.map(({ asset }) => ({
@@ -557,10 +587,10 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
     targetUrl: resolveTargetUrl(asset),
   }));
 
-  for (const { asset, isMetadata, originalSrc } of resolvedAssets) {
+  for (const { asset, blockClass, originalSrc } of resolvedAssets) {
     const finalUrl = resolveTargetUrl(asset);
     if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
-    const trackingPath = isMetadata ? 'metadata' : asset.elementPath;
+    const trackingPath = blockClass || asset.elementPath;
     const existingEdit = store.getEasyEditByElement(
       asset.elementRef || '', trackingPath, asset.elementProps,
     );
@@ -571,10 +601,10 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
         elementPath: trackingPath,
         elementProps: asset.elementProps || {},
         elementRef: asset.elementRef || '',
-        from: isMetadata ? originalSrc : (existingEdit?.from || originalSrc),
+        from: blockClass ? originalSrc : (existingEdit?.from || originalSrc),
         to: finalUrl,
-        fromHtml: isMetadata ? (cachedMetadata?.outerHTML || '') : '',
-        toHtml: isMetadata ? buildMetadataToHtml() : '',
+        fromHtml: blockClass ? (cachedMetadataBlocks.get(blockClass)?.outerHTML || '') : '',
+        toHtml: blockClass ? buildBlockToHtml(blockClass) : '',
         // Keep the original replacement time so panel ordering stays chronological.
         updatedAt: existingEdit?.updatedAt || new Date().toISOString(),
       });
@@ -629,37 +659,39 @@ export async function annotationOperation(options = {}) {
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
 
-  if (cachedMetadata) {
+  for (const blockClass of cachedMetadataBlocks.keys()) {
     const divWrapper = document.createElement('div');
     divWrapper.classList.add('section');
     divWrapper.classList.add('stream-metadata-section');
     const blocktitle = document.createElement('h3');
-    blocktitle.innerHTML += 'Page Metadata';
+    blocktitle.textContent = blockClass.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
     divWrapper.appendChild(blocktitle);
-    divWrapper.innerHTML += cachedMetadata.outerHTML;
+    divWrapper.innerHTML += cachedMetadataBlocks.get(blockClass).outerHTML;
     mainEl.appendChild(divWrapper);
 
-    const metadataSection = mainEl.querySelector('.stream-metadata-section');
-    if (metadataSection) {
-      const imgResolves = [...metadataSection.querySelectorAll('img')].map(async (img) => {
-        const originalSrc = img.getAttribute('src') || '';
-        const resolved = await resolvePreviewUrl(originalSrc);
-        if (resolved && resolved !== originalSrc) {
-          img.setAttribute('data-stream-original-src', originalSrc);
-          img.setAttribute('src', resolved);
-        }
-      });
-      const sourceResolves = [...metadataSection.querySelectorAll('source')].map(async (source) => {
-        const originalSrcset = source.getAttribute('srcset') || '';
-        const resolved = await resolvePreviewUrl(originalSrcset);
-        if (resolved && resolved !== originalSrcset) {
-          source.setAttribute('data-stream-original-srcset', originalSrcset);
-          source.setAttribute('srcset', resolved);
-        }
-      });
-      await Promise.all([...imgResolves, ...sourceResolves]);
-    }
+    const imgResolves = [...divWrapper.querySelectorAll('img')].map(async (img) => {
+      const originalSrc = img.getAttribute('src') || '';
+      const resolved = await resolvePreviewUrl(originalSrc);
+      if (resolved && resolved !== originalSrc) {
+        img.setAttribute('data-stream-original-src', originalSrc);
+        img.setAttribute('src', resolved);
+      }
+    });
+    const sourceResolves = [...divWrapper.querySelectorAll('source')].map(async (source) => {
+      const originalSrcset = source.getAttribute('srcset') || '';
+      const resolved = await resolvePreviewUrl(originalSrcset);
+      if (resolved && resolved !== originalSrcset) {
+        source.setAttribute('data-stream-original-srcset', originalSrcset);
+        source.setAttribute('srcset', resolved);
+      }
+    });
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all([...imgResolves, ...sourceResolves]);
   }
+
+  // Sections now exist in the DOM: re-apply edits so saved metadata-like edits replace
+  // their block with toHtml on initial load (handled by store.applyEasyEditsToDom).
+  if (cachedMetadataBlocks.size > 0) await store.applyEasyEditsToDom();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
