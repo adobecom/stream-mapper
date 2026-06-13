@@ -471,7 +471,9 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
     const blockEdit = easyEdits.filter((e) => e.elementPath === blockClass && e.toHtml).at(-1);
     const finalHtml = blockEdit?.toHtml
       || (cachedBlock.innerHTML.trim() ? cachedBlock.outerHTML : '');
-    if (finalHtml) mainEl.insertAdjacentHTML('beforeend', finalHtml);
+    // Wrap in a section <div> so DA treats it as a block inside a section (not a bare
+    // section), otherwise the block's rows flatten into plain paragraphs on the page.
+    if (finalHtml) mainEl.insertAdjacentHTML('beforeend', `<div>${finalHtml}</div>`);
   });
 
   return { easyEdits, daCompatibleHtml: getDACompatibleHtml(mainEl.innerHTML) };
@@ -519,6 +521,38 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderCommentsPanel();
   }
   await store.applyEasyEditsToDom();
+
+  for (const blockClass of cachedMetadataBlocks.keys()) {
+    const divWrapper = document.createElement('div');
+    divWrapper.classList.add('section');
+    divWrapper.classList.add('stream-metadata-section');
+    const blocktitle = document.createElement('h3');
+    blocktitle.textContent = blockClass.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+    divWrapper.appendChild(blocktitle);
+    divWrapper.innerHTML += cachedMetadataBlocks.get(blockClass).outerHTML;
+    mainEl.appendChild(divWrapper);
+
+    const imgResolves = [...divWrapper.querySelectorAll('img')].map(async (img) => {
+      const originalSrc = img.getAttribute('src') || '';
+      const resolved = await resolvePreviewUrl(originalSrc);
+      if (resolved && resolved !== originalSrc) {
+        img.setAttribute('data-stream-original-src', originalSrc);
+        img.setAttribute('src', resolved);
+      }
+    });
+    const sourceResolves = [...divWrapper.querySelectorAll('source')].map(async (source) => {
+      const originalSrcset = source.getAttribute('srcset') || '';
+      const resolved = await resolvePreviewUrl(originalSrcset);
+      if (resolved && resolved !== originalSrcset) {
+        source.setAttribute('data-stream-original-srcset', originalSrcset);
+        source.setAttribute('srcset', resolved);
+      }
+    });
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all([...imgResolves, ...sourceResolves]);
+  }
+
+  if (cachedMetadataBlocks.size > 0) await store.applyEasyEditsToDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────
@@ -658,40 +692,6 @@ export async function annotationOperation(options = {}) {
   await miloLoadArea();
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
-
-  for (const blockClass of cachedMetadataBlocks.keys()) {
-    const divWrapper = document.createElement('div');
-    divWrapper.classList.add('section');
-    divWrapper.classList.add('stream-metadata-section');
-    const blocktitle = document.createElement('h3');
-    blocktitle.textContent = blockClass.replace(/-/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-    divWrapper.appendChild(blocktitle);
-    divWrapper.innerHTML += cachedMetadataBlocks.get(blockClass).outerHTML;
-    mainEl.appendChild(divWrapper);
-
-    const imgResolves = [...divWrapper.querySelectorAll('img')].map(async (img) => {
-      const originalSrc = img.getAttribute('src') || '';
-      const resolved = await resolvePreviewUrl(originalSrc);
-      if (resolved && resolved !== originalSrc) {
-        img.setAttribute('data-stream-original-src', originalSrc);
-        img.setAttribute('src', resolved);
-      }
-    });
-    const sourceResolves = [...divWrapper.querySelectorAll('source')].map(async (source) => {
-      const originalSrcset = source.getAttribute('srcset') || '';
-      const resolved = await resolvePreviewUrl(originalSrcset);
-      if (resolved && resolved !== originalSrcset) {
-        source.setAttribute('data-stream-original-srcset', originalSrcset);
-        source.setAttribute('srcset', resolved);
-      }
-    });
-    // eslint-disable-next-line no-await-in-loop
-    await Promise.all([...imgResolves, ...sourceResolves]);
-  }
-
-  // Sections now exist in the DOM: re-apply edits so saved metadata-like edits replace
-  // their block with toHtml on initial load (handled by store.applyEasyEditsToDom).
-  if (cachedMetadataBlocks.size > 0) await store.applyEasyEditsToDom();
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -720,7 +720,8 @@ export async function annotationOperationOnHostPage(options = {}) {
       try {
         const cfg = window.streamConfig;
         const daMain = await fetchDAContent(cfg.draftLocation || cfg.contentUrl);
-        cachedCleanHtml = daMain?.innerHTML || '';
+        if (daMain) parseAndCacheCleanHtml(daMain);
+        else cachedCleanHtml = '';
       } catch (err) {
         console.warn('[annotation] Failed to fetch DA baseline HTML, falling back to live DOM:', err);
         cachedCleanHtml = '';
