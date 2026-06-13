@@ -20,7 +20,7 @@ import createAssetServiceClient from './annotation/asset-service.js';
 import createAssetsPanelController from './annotation/assets-panel.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
-import { BLOCK_CLASSES, BLOCK_CLASS_TEMPLATES } from '../utils/constants.js';
+import { BLOCK_CLASSES } from '../utils/constants.js';
 
 // ── Module singletons ────────────────────────────────────────────────────────
 
@@ -151,15 +151,6 @@ function parseAndCacheCleanHtml(htmlDom) {
       block.remove();
       if (parent && parent.children.length === 0) parent.remove();
     });
-    if (blocks.length === 0) {
-      const template = BLOCK_CLASS_TEMPLATES[blockClass];
-      if (template){
-           // template: seed keys table (card-metadata)
-      combinedInnerHtml = template
-        .map((key) => `<div><div>${key}</div><div></div></div>`)
-        .join('');
-      }
-    }
     const cached = document.createElement('div');
     cached.className = blockClass;
     cached.innerHTML = combinedInnerHtml;

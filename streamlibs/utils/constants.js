@@ -5,16 +5,6 @@ export const DEFAULT_TMP_URL = 'https://main--stream-mapper--adobecom.aem.live/s
 // Add any class here to give it the same treatment 
 export const BLOCK_CLASSES = ['metadata', 'card-metadata'];
 
-// Default block templates, keyed by class. When a page has no such block, this seed
-// renders so authors can fill values. Classes with no entry render only if present.
-export const BLOCK_CLASS_TEMPLATES = {
-  'card-metadata': [
-    'CardTitle', 'CardImage', 'CardImageAltText', 'CardDescription',
-    'ContentType', 'Tags', 'Details', 'cta1Text', 'cta1URL',
-    'BadgeText', 'BadgeImage',
-  ],
-};
-
 export const ACCENT_BARS = {
   'Accent Bar / CC Gradient': 'linear-gradient(90deg, #FA0F00 0%, #E9740A 15.42%, #FFCE2E 39.44%, #009C3B 67.99%, #2799F6 85.76%, #6349E0 95.42%, #9999FC 100%)',
   'Accent Bar / CC Photo': '#31A8FF',
