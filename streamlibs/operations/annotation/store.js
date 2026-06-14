@@ -1512,6 +1512,16 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           if (newBlock && block.innerHTML !== newBlock.innerHTML) {
             block.innerHTML = newBlock.innerHTML;
           }
+          // toHtml carries raw DA URLs; a bare <img> can't send the token (401), so resolve
+          // them to base64 here — runs on every re-render so the preview never reverts.
+          if (previewUrlResolverFn) {
+            block.querySelectorAll('img').forEach((img) => {
+              const src = img.getAttribute('src') || '';
+              previewUrlResolverFn(src).then((b64) => {
+                if (b64 && b64 !== src) img.setAttribute('src', b64);
+              });
+            });
+          }
         }
         return;
       }
