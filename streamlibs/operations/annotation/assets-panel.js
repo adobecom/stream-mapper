@@ -101,6 +101,9 @@ export default function createAssetsPanelController({
   // Sets href on an anchor to realUrl when it's a proper URL, or attaches a
   // blob-URL click handler when only a data URL (previewSrc) is available.
   function setAssetLinkHref(anchorEl, previewSrc, realUrl) {
+    if (realUrl && realUrl.includes('fpo.svg#')) {
+      realUrl = realUrl.split('#')[1].replace('admin.da.live/source/', 'content.da.live/');
+    }
     if (realUrl && !realUrl.startsWith('data:')) {
       anchorEl.href = realUrl;
       return;
@@ -449,7 +452,7 @@ export default function createAssetsPanelController({
       return;
     }
 
-    const originalSrc = targetImg.dataset.streamOriginalSrc || targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
+    const originalSrc = targetImg.dataset.originalSrc || elementProps?.src || targetImg.src || '';
 
     // Cache the absolute loaded URL so a page-relative originalSrc still renders.
     const fromDisplaySrc = targetImg.currentSrc || targetImg.src || '';

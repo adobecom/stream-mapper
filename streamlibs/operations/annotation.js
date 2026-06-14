@@ -38,7 +38,13 @@ const assetsPanel = createAssetsPanelController({
 const previewUrlCache = new Map();
 
 async function resolvePreviewUrl(url) {
-  if (!url || !url.includes('content.da.live')) return url;
+  if (!url) return url;
+  // DA editor-format images store the real URL in the # fragment of an fpo.svg
+  // placeholder; decode it and map the source host to the delivery host.
+  if (url.includes('fpo.svg#')) {
+    url = (url.split('#')[1] || url).replace('admin.da.live/source/', 'content.da.live/');
+  }
+  if (!url.includes('content.da.live')) return url;
   if (previewUrlCache.has(url)) return previewUrlCache.get(url);
   const b64 = await fetchImageAsBase64(url);
   if (b64) previewUrlCache.set(url, b64);
