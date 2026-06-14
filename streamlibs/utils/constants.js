@@ -5,6 +5,18 @@ export const DEFAULT_TMP_URL = 'https://main--stream-mapper--adobecom.aem.live/s
 // Add any class here to give it the same treatment 
 export const BLOCK_CLASSES = ['metadata', 'card-metadata'];
 
+// Returns the metadata-like block class the closest matching ancestor has
+// (e.g. 'card-metadata'), or '' if the element is not inside one.
+// Accepts an HTMLElement or a selector string.
+export function isMetadata(elementOrSelector) {
+  const el = typeof elementOrSelector === 'string'
+    ? document.querySelector(elementOrSelector)
+    : elementOrSelector;
+  if (!el || typeof el.closest !== 'function') return '';
+  const block = el.closest(BLOCK_CLASSES.map((c) => `main div.${c}`).join(', '));
+  return block ? (BLOCK_CLASSES.find((c) => block.classList.contains(c)) || '') : '';
+}
+
 export const ACCENT_BARS = {
   'Accent Bar / CC Gradient': 'linear-gradient(90deg, #FA0F00 0%, #E9740A 15.42%, #FFCE2E 39.44%, #009C3B 67.99%, #2799F6 85.76%, #6349E0 95.42%, #9999FC 100%)',
   'Accent Bar / CC Photo': '#31A8FF',

@@ -20,7 +20,7 @@ import createAssetServiceClient from './annotation/asset-service.js';
 import createAssetsPanelController from './annotation/assets-panel.js';
 import requestParentCollabRefresh from './annotation/collab-sync.js';
 import { handleError } from '../utils/error-handler.js';
-import { BLOCK_CLASSES } from '../utils/constants.js';
+import { BLOCK_CLASSES, isMetadata } from '../utils/constants.js';
 
 // ── Module singletons ────────────────────────────────────────────────────────
 
@@ -465,7 +465,7 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   cachedMetadataBlocks.forEach((cachedBlock, blockClass) => {
     mainEl.querySelectorAll(`div.${blockClass}`).forEach((block) => block.remove());
     //picks the most recent saved edit for that metadata block (elementPath matches blockClass and has toHtml), so that version is used when re-appending the block on save instead of the original cached HTML.
-    const blockEdit = easyEdits.filter((e) => e.elementPath === blockClass && e.toHtml).at(-1);
+    const blockEdit = easyEdits.filter((e) => e.blockClass === blockClass && e.toHtml).at(-1);
     const finalHtml = blockEdit?.toHtml
       || (cachedBlock.innerHTML.trim() ? cachedBlock.outerHTML : '');
     // Wrap in a section <div> so DA treats it as a block inside a section (not a bare
@@ -592,9 +592,7 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
       : null;
       //checks if this image inside a metadata block?
       //fig out real ori da img url instead or using preview url shown  onscreen
-    const liveBlock = liveEl?.closest(BLOCK_CLASSES.map((c) => `main div.${c}`).join(', '));
-    const blockClass = liveBlock
-      ? (BLOCK_CLASSES.find((c) => liveBlock.classList.contains(c)) || '') : '';
+    const blockClass = isMetadata(liveEl);
     const imgEl = liveEl?.tagName === 'IMG' ? liveEl : liveEl?.querySelector('img');
     let { originalSrc } = asset;
     if (blockClass) {
@@ -621,15 +619,15 @@ function buildAssetReplacementsAndEdits(resolveTargetUrl) {
   for (const { asset, blockClass, originalSrc } of resolvedAssets) {
     const finalUrl = resolveTargetUrl(asset);
     if (!asset.elementPath || !finalUrl) continue; // eslint-disable-line no-continue
-    const trackingPath = blockClass || asset.elementPath;
     const existingEdit = store.getEasyEditByElement(
-      asset.elementRef || '', trackingPath, asset.elementProps,
+      asset.elementRef || '', asset.elementPath, asset.elementProps,
     );
     if (!existingEdit || existingEdit.editType === 'image-src') {
       store.upsertEasyEdit({
         ...(existingEdit || {}),
         editType: 'image-src',
-        elementPath: trackingPath,
+        elementPath: asset.elementPath,
+        blockClass,
         elementProps: asset.elementProps || {},
         elementRef: asset.elementRef || '',
         from: blockClass ? originalSrc : (existingEdit?.from || originalSrc),

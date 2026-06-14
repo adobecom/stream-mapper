@@ -1,5 +1,5 @@
 import createAnnotationServiceClient from './service.js';
-import { ANNOTATION_MESSAGES, BLOCK_CLASSES } from '../../utils/constants.js';
+import { ANNOTATION_MESSAGES, isMetadata } from '../../utils/constants.js';
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
@@ -16,7 +16,6 @@ export default function createInlineEditingController({
   buildBlockToHtml,
 }) {
   const annotationService = createAnnotationServiceClient();
-  const blockClassSelector = BLOCK_CLASSES.map((c) => `main div.${c}`).join(', ');
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
   const EXPLICIT_FORMATTING_TOOLBAR_ACTIONS = new Set([
     'bold',
@@ -243,11 +242,9 @@ export default function createInlineEditingController({
       return;
     }
 
-    const metaBlock = element.closest(blockClassSelector);
-    const metaBlockClass = metaBlock
-      ? (BLOCK_CLASSES.find((c) => metaBlock.classList.contains(c)) || '') : '';
+    const metaBlockClass = isMetadata(element);
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
-    const easyEditElementPath = metaBlockClass || editAnchor.elementPath;
+    const easyEditElementPath = editAnchor.elementPath;
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
@@ -275,6 +272,7 @@ export default function createInlineEditingController({
       editType: 'text',
       attrName: '',
       elementPath: easyEditElementPath,
+      blockClass: metaBlockClass,
       elementProps: editAnchor.elementProps,
       elementRef,
       from: baselineText,
@@ -344,10 +342,8 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
-    const metaBlock = imageElement.closest(blockClassSelector);
-    const metaBlockClass = metaBlock
-      ? (BLOCK_CLASSES.find((c) => metaBlock.classList.contains(c)) || '') : '';
-    const easyEditElementPath = metaBlockClass || editAnchor.elementPath;
+    const metaBlockClass = isMetadata(imageElement);
+    const easyEditElementPath = editAnchor.elementPath;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
     const currentAlt = `${imageElement.getAttribute('alt') || ''}`;
@@ -363,6 +359,7 @@ export default function createInlineEditingController({
       editType: 'image-alt',
       attrName: 'alt',
       elementPath: easyEditElementPath,
+      blockClass: metaBlockClass,
       elementProps: editAnchor.elementProps,
       elementRef,
       from: originalAlt,

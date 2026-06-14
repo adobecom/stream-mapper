@@ -501,7 +501,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
       // Metadata-like blocks are stripped from this HTML and re-appended at the end of
       // the page separately, so skip them here to avoid matching inline.
-      if (BLOCK_CLASSES.includes(edit.elementPath)) return;
+      if (BLOCK_CLASSES.includes(edit.blockClass)) return;
 
       if (edit.editType === 'image-src') {
         const fromSrc = `${edit.from || ''}`;
@@ -1503,12 +1503,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       // Metadata-like edit: replace the whole block on the DOM with the edited toHtml.
       // Resolved by block class (not the inner element ref) since these blocks render
       // in their own section.
-      if (BLOCK_CLASSES.includes(edit.elementPath)) {
-        const block = annotationUI.mainEl.querySelector(`div.${edit.elementPath}`);
+      if (BLOCK_CLASSES.includes(edit.blockClass)) {
+        const block = annotationUI.mainEl.querySelector(`div.${edit.blockClass}`);
         if (block && edit.toHtml) {
           const tmp = document.createElement('div');
           tmp.innerHTML = edit.toHtml;
-          const newBlock = tmp.querySelector(`div.${edit.elementPath}`) || tmp.firstElementChild;
+          const newBlock = tmp.querySelector(`div.${edit.blockClass}`) || tmp.firstElementChild;
           if (newBlock && block.innerHTML !== newBlock.innerHTML) {
             block.innerHTML = newBlock.innerHTML;
           }

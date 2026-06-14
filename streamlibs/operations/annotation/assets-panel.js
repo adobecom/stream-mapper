@@ -4,7 +4,7 @@
 /* eslint-disable no-restricted-syntax */
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
-import { BLOCK_CLASSES } from '../../utils/constants.js';
+import { isMetadata } from '../../utils/constants.js';
 
 const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg',
@@ -503,12 +503,11 @@ export default function createAssetsPanelController({
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
-    const metaBlock = targetImg.closest(BLOCK_CLASSES.map((c) => `main div.${c}`).join(', '));
-    const blockClass = metaBlock
-      ? (BLOCK_CLASSES.find((c) => metaBlock.classList.contains(c)) || '') : '';
+    const blockClass = isMetadata(targetImg);
     store.upsertEasyEdit({
       editType: 'image-src',
-      elementPath: blockClass || elementPath,
+      elementPath,
+      blockClass,
       elementProps,
       elementRef,
       from: blockClass ? targetImg.dataset.streamOriginalSrc : originalSrc,
