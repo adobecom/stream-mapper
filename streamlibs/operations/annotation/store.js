@@ -30,6 +30,12 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     previewUrlResolverFn = fn;
   }
 
+  let onMetadataBlockRenderedFn = null;
+
+  function setOnMetadataBlockRendered(fn) {
+    onMetadataBlockRenderedFn = fn;
+  }
+
   function generateId(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -1335,7 +1341,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function buildSavePayload() {
-    return annotationState.store.easyEdits
+    const edits = annotationState.store.easyEdits
       .filter((edit) => {
         if (!edit) return false;
         // Don't persist a pending asset edit that hasn't been assigned a URL yet.
@@ -1348,6 +1354,22 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         const { changeHistory, assetFileKey, ...rest } = edit;
         return rest;
       });
+
+    const lastIdxByBlock = {};
+    edits.forEach((edit, i) => {
+      if (BLOCK_CLASSES.includes(edit.blockClass) && edit.toHtml) {
+        lastIdxByBlock[edit.blockClass] = i;
+      }
+    });
+    return edits.map((edit, i) => {
+      const isRedundantBlockCopy = BLOCK_CLASSES.includes(edit.blockClass)
+        && edit.toHtml && lastIdxByBlock[edit.blockClass] !== i;
+      if (isRedundantBlockCopy) {
+        const { toHtml, fromHtml, ...rest } = edit;
+        return rest;
+      }
+      return edit;
+    });
   }
 
   function replaceEasyEdits(nextEasyEdits = []) {
@@ -1518,10 +1540,18 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             block.querySelectorAll('img').forEach((img) => {
               const src = img.getAttribute('src') || '';
               previewUrlResolverFn(src).then((b64) => {
-                if (b64 && b64 !== src) img.setAttribute('src', b64);
+                if (b64 && b64 !== src) {
+                  // Preserve the original (resolvable) URL so buildBlockToHtml restores it on
+                  // save. Without this the base64 lands in toHtml and bloats the payload (413).
+                  if (!img.getAttribute('data-stream-original-src')) {
+                    img.setAttribute('data-stream-original-src', src);
+                  }
+                  img.setAttribute('src', b64);
+                }
               });
             });
           }
+          if (onMetadataBlockRenderedFn) onMetadataBlockRenderedFn(block);
         }
         return;
       }
@@ -1582,6 +1612,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     applyEasyEditsToDom,
     applyEasyEditsToHtmlString,
     setPreviewUrlResolver,
+    setOnMetadataBlockRendered,
     buildElementPath,
     buildCommentElementPath,
     buildEditElementAnchor,
