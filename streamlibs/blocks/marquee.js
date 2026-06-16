@@ -3,6 +3,7 @@ import {
   handleActionButtons,
   handleBackground,
   handleProductLockup,
+  resolveImageValue,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -17,8 +18,11 @@ const VARIANT_SMALL = 'small';
 
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  areaEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 function handlePhotoCredits(value, areaEl) {

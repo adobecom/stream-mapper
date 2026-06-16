@@ -5,6 +5,7 @@ import {
   handleComponents,
   handleImageComponent,
   handleProductLockup,
+  resolveImageValue,
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
@@ -64,8 +65,11 @@ function handleSwap(blockContent, properties) {
 
 function handleAvatar(value, areaEl) {
   if (!areaEl || !value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value || LOGOS.placeholder; });
-  areaEl.querySelector('img').src = value || LOGOS.placeholder;
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url || LOGOS.placeholder; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url || LOGOS.placeholder;
+  if (altText) imgEl.alt = altText;
 }
 export function handleActionsArray(el, configData, value, areaEl) {
   if (!value) return;
