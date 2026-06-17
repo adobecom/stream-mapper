@@ -18,7 +18,7 @@ async function startAnnotation() {
     const { host, pathname } = window.location;
     if (!host.includes('.aem.')) return;
     const repo = host.split('--')[1];
-    const pageUrl = `adobecom/${repo}/${pathname}`;
+    const pageUrl = `adobecom/${repo}${pathname}`;
     let filename = pathname.split('/');
     filename = filename[filename.length - 1];
     const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
