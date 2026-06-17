@@ -11,8 +11,18 @@ import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 
 
+function loadCssFiles(filePath) {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = filePath;
+  link.dataset.streamMapperStyles = '';
+  document.head.appendChild(link);
+}
+
 async function startAnnotation() {
     const params = new URLSearchParams(window.location.search);
+    const mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
+    if (mapperOrigin) loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
     const env = getMapperEnv();
     const collabId = params.get('miloCollabId');
     const { host, pathname } = window.location;
