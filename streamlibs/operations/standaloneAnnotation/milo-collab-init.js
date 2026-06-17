@@ -36,8 +36,7 @@ async function startAnnotation() {
       operation: 'aiSeoAnnotation',
       username: params.get('username') || null,
       reviewId: params.get('miloCollabId'),
-      collabRole: 'owner',
-      draftLocation,
+      collabRole: 'owner'
     };
 
     resetTargetHtmlInStore();
