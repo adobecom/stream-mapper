@@ -22,7 +22,7 @@ function loadCssFiles(filePath) {
 async function startAnnotation() {
     const params = new URLSearchParams(window.location.search);
     const mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
-    if (mapperOrigin) loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
+    if (mapperOrigin) loadCssFiles('https://standaloneAnnotation--stream-mapper--adobecom.aem.live/streamlibs/styles/styles.css');
     const env = getMapperEnv();
     const collabId = params.get('miloCollabId');
     const { host, pathname } = window.location;
