@@ -30,7 +30,7 @@ async function startAnnotation() {
       target: 'da',
       targetUrl: pageUrl,
       pageUrl,
-      token: window.adobeIMS.getAccessToken().token,
+      token: params.get('token') || window.adobeIMS.getAccessToken().token,
       profileId: '3',
       collabId: params.get('miloCollabId'),
       operation: 'aiSeoAnnotation',
