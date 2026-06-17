@@ -53,8 +53,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
   }
 
   const API_ENDPOINT = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api';
-  const token =
-    params.get('token') || localStorage.getItem('stream_token');
+  const token = params.get('token') || window.adobeIMS.getAccessToken().token;
 
   if (!token) {
     console.error('[milo-collab-init] No auth token found.');
