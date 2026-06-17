@@ -10,11 +10,8 @@ import { initializeLoader } from '../../utils/loader.js';
 import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 
-(async function initMiloCollab() {
-  const params = new URLSearchParams(window.location.search);
 
-  const collabId = params.get('miloCollabId');
-  if (collabId) {
+async function startAnnotation() {
     const env = getMapperEnv();
     const { host, pathname } = window.location;
     if (host.includes('.aem.')) return;
@@ -49,6 +46,14 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
     await initiatePreviewer();
     setupBlockActionModal();
     await setupMessageListener();
+}
+
+(async function initMiloCollab() {
+  const params = new URLSearchParams(window.location.search);
+
+  const collabId = params.get('miloCollabId');
+  if (collabId) {
+    await startAnnotation();
     return;
   }
 
@@ -82,10 +87,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 
     const { id } = await res.json();
     if (!id) throw new Error('No collab id in response');
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('miloCollabId', id);
-    window.location.href = url.toString();
+    await startAnnotation();
   } catch (err) {
     console.error('[milo-collab-init] Failed to create collab:', err);
   }
