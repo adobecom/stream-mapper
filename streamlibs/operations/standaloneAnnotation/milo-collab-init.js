@@ -85,6 +85,8 @@ async function startAnnotation(createdCollabId = null) {
   let filename = pathname.split('/');
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
+  const profile = await window.adobeIMS.getProfile();
+  const username = profile.displayName;
   window.streamConfig = {
     streamMapper: { ...CONFIG[env].streamMapper },
     figmaServiceRetry: CONFIG.figmaServiceRetry,
@@ -101,6 +103,7 @@ async function startAnnotation(createdCollabId = null) {
     reviewId: params.get('miloCollabId'),
     collabRole: 'owner',
     draftLocation: pageUrl,
+    username,
   };
 
   resetTargetHtmlInStore();
@@ -477,6 +480,7 @@ function showStartCollabModal() {
   if (!newCollabId) return;
 
   const url = new URL(window.location.href);
-  url.searchParams.set('miloCollabId', newCollabId);
+  const existingParams = url.searchParams.toString();
+  url.search = `miloCollabId=${encodeURIComponent(newCollabId)}${existingParams ? `&${existingParams}` : ''}`;
   window.location.href = url.toString();
 }());

@@ -216,10 +216,10 @@ export function getMapperEnv() {
   if (params.get('daRenderingApp') || params.get('darenderingapp')) {
     mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
   }
-  if (mapperOrigin.includes('https://dev--')) return 'dev';
-  if (mapperOrigin.includes('https://dev02--')) return 'dev02';
-  if (mapperOrigin.includes('https://stage--')) return 'stage';
-  if (mapperOrigin.includes('https://main--')) return 'prod';
+  if (mapperOrigin.includes('https://dev--stream-mapper')) return 'dev';
+  if (mapperOrigin.includes('https://dev02--stream-mapper')) return 'dev02';
+  if (mapperOrigin.includes('https://stage--stream-mapper')) return 'stage';
+  if (mapperOrigin.includes('https://main--stream-mapper')) return 'prod';
   return 'dev';
 }
 
