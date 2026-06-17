@@ -173,7 +173,87 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-comments-panel-heading {
   display: inline-flex;
   align-items: center;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
+  width: 100%;
+}
+
+.annotation-reviewer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.annotation-reviewer-controls.is-empty {
+  display: none;
+}
+
+.annotation-reviewer-controls-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  position: relative;
+}
+
+.annotation-reviewer-controls-row::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.annotation-reviewer-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 28px 4px 10px;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.annotation-reviewer-select:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
+.annotation-reviewer-select:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.annotation-reviewer-select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.annotation-reviewer-select option:disabled {
+  color: #1f2937;
+  cursor: not-allowed;
+}
+
+.annotation-reviewer-select option.annotation-reviewer-complete {
+  background: #e5e7eb;
+  color: #1f2937;
 }
 
 .annotation-comments-panel-header h3 {
