@@ -9,6 +9,7 @@ import {
 import { initializeLoader } from '../../utils/loader.js';
 import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
+import { applyRemoteCollabSnapshot } from '../../utils/operations.js';
 
 const API_ENDPOINT = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api';
 const SEARCH_DEBOUNCE_MS = 250;
@@ -73,6 +74,28 @@ async function assignCollabRoles(collabId, assignments) {
   }
 }
 
+async function fetchAndApplyCollabSnapshot(collabId) {
+  const token = getToken();
+  if (!collabId || !token) return;
+  const serviceEP = window.streamConfig?.streamMapper?.serviceEP || '';
+  if (!serviceEP) return;
+  const headers = { Authorization: `Bearer ${token}` };
+  try {
+    const [collab, edits] = await Promise.all([
+      fetch(`${serviceEP}/api/collabs/${encodeURIComponent(collabId)}`, { headers })
+        .then((r) => (r.ok ? r.json() : null)),
+      fetch(`${serviceEP}/api/collabs/${encodeURIComponent(collabId)}/edits`, { headers })
+        .then((r) => {
+          if (r.status === 404) return { createdAt: null, updatedAt: null, authorUsername: '', editRecord: [] };
+          return r.ok ? r.json() : null;
+        }),
+    ]);
+    applyRemoteCollabSnapshot({ collab, edits });
+  } catch (err) {
+    console.warn('[milo-collab-init] Failed to fetch collab snapshot:', err);
+  }
+}
+
 async function startAnnotation(createdCollabId = null) {
   const params = new URLSearchParams(window.location.search);
   loadCssFiles('https://standaloneAnnotation--stream-mapper--adobecom.aem.live/streamlibs/styles/styles.css');
@@ -114,6 +137,29 @@ async function startAnnotation(createdCollabId = null) {
   await initiatePreviewer();
   setupBlockActionModal();
   await setupMessageListener();
+  await fetchAndApplyCollabSnapshot(collabId);
+
+  let pollId = null;
+  const startPolling = () => {
+    if (pollId || document.visibilityState !== 'visible') return;
+    pollId = window.setInterval(() => {
+      fetchAndApplyCollabSnapshot(collabId);
+    }, 20000);
+  };
+  const stopPolling = () => {
+    if (!pollId) return;
+    window.clearInterval(pollId);
+    pollId = null;
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      fetchAndApplyCollabSnapshot(collabId);
+      startPolling();
+    } else {
+      stopPolling();
+    }
+  });
+  startPolling();
 }
 
 function injectModalStyles() {
@@ -186,6 +232,31 @@ function injectModalStyles() {
       font-family: inherit; transition: background 0.15s;
     }
     .sc-suggestion:hover { background: #f3f4f6; }
+    .sc-tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 4px; }
+    .sc-tab {
+      flex: 1; padding: 10px 16px; border: none; background: transparent;
+      font-size: 14px; font-weight: 600; color: #6b7280; cursor: pointer;
+      font-family: inherit; transition: color 0.15s, border-color 0.15s;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .sc-tab:hover { color: #1a1a1a; }
+    .sc-tab--active { color: #1473E6; border-bottom-color: #1473E6; }
+    .sc-tab-content { display: none; flex-direction: column; gap: 16px; }
+    .sc-tab-content--active { display: flex; }
+    .sc-copy-box {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sc-copy-box input {
+      flex: 1; min-height: 42px; border: 1px solid #d1d5db; border-radius: 10px;
+      background: #f9fafb; color: #1a1a1a; font-size: 13px; padding: 10px 12px;
+      box-sizing: border-box; font-family: monospace;
+    }
+    .sc-copy-btn {
+      padding: 10px 16px; background: #1473E6; color: #fff; border: none;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: inherit; white-space: nowrap; transition: background 0.15s;
+    }
+    .sc-copy-btn:hover { background: #0d66d0; }
     .sc-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
     .sc-btn-cancel {
       padding: 10px 24px; background: #fff; color: #374151; border: 1px solid #d1d5db;
@@ -200,6 +271,7 @@ function injectModalStyles() {
     }
     .sc-btn-submit:hover:not(:disabled) { background: #0d66d0; }
     .sc-btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+    .sc-success-msg { font-size: 14px; color: #059669; font-weight: 600; }
   `;
   document.head.appendChild(style);
 }
@@ -311,7 +383,7 @@ function createCollaboratorField(label, placeholder) {
   };
 }
 
-function showStartCollabModal() {
+function showCollabModal() {
   return new Promise((resolve) => {
     injectModalStyles();
 
@@ -323,8 +395,26 @@ function showStartCollabModal() {
     overlay.appendChild(modal);
 
     const heading = document.createElement('h2');
-    heading.textContent = 'Start Collab';
+    heading.textContent = 'Collab';
     modal.appendChild(heading);
+
+    // ── Tabs ──
+    const tabs = document.createElement('div');
+    tabs.className = 'sc-tabs';
+    const startTab = document.createElement('button');
+    startTab.type = 'button';
+    startTab.className = 'sc-tab sc-tab--active';
+    startTab.textContent = 'Start a Collab';
+    const openTab = document.createElement('button');
+    openTab.type = 'button';
+    openTab.className = 'sc-tab';
+    openTab.textContent = 'Open a Collab';
+    tabs.append(startTab, openTab);
+    modal.appendChild(tabs);
+
+    // ── Start Collab tab content ──
+    const startContent = document.createElement('div');
+    startContent.className = 'sc-tab-content sc-tab-content--active';
 
     // Title field
     const titleField = document.createElement('div');
@@ -341,7 +431,7 @@ function showStartCollabModal() {
     titleError.style.display = 'none';
     titleError.textContent = 'Collab title is required.';
     titleField.append(titleLabel, titleInput, titleError);
-    modal.appendChild(titleField);
+    startContent.appendChild(titleField);
 
     // Page URL field (read-only)
     const urlField = document.createElement('div');
@@ -355,15 +445,15 @@ function showStartCollabModal() {
     urlInput.value = window.location.href.split('?')[0];
     urlInput.readOnly = true;
     urlField.append(urlLabel, urlInput);
-    modal.appendChild(urlField);
+    startContent.appendChild(urlField);
 
     // Reviewer field
     const reviewerField = createCollaboratorField('Reviewers', 'Search reviewers...');
-    modal.appendChild(reviewerField.el);
+    startContent.appendChild(reviewerField.el);
 
     // Owner field
     const ownerField = createCollaboratorField('Owners', 'Search owners...');
-    modal.appendChild(ownerField.el);
+    startContent.appendChild(ownerField.el);
 
     // Pre-fill current user as pinned owner
     try {
@@ -373,37 +463,117 @@ function showStartCollabModal() {
       if (userId) ownerField.addPinned(userId, displayName);
     } catch { /* ignore */ }
 
-    // Error message
-    const formError = document.createElement('p');
-    formError.className = 'sc-error';
-    formError.style.display = 'none';
-    modal.appendChild(formError);
+    // Result area (hidden initially, shown after creation)
+    const resultArea = document.createElement('div');
+    resultArea.className = 'sc-field';
+    resultArea.style.display = 'none';
+    const resultLabel = document.createElement('span');
+    resultLabel.className = 'sc-success-msg';
+    resultLabel.textContent = 'Collab created! Share this ID:';
+    const copyBox = document.createElement('div');
+    copyBox.className = 'sc-copy-box';
+    const copyInput = document.createElement('input');
+    copyInput.type = 'text';
+    copyInput.readOnly = true;
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'sc-copy-btn';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(copyInput.value).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+      });
+    });
+    copyBox.append(copyInput, copyBtn);
+    resultArea.append(resultLabel, copyBox);
+    startContent.appendChild(resultArea);
 
-    // Actions
-    const actions = document.createElement('div');
-    actions.className = 'sc-actions';
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'sc-btn-cancel';
-    cancelBtn.textContent = 'Cancel';
-    const submitBtn = document.createElement('button');
-    submitBtn.type = 'button';
-    submitBtn.className = 'sc-btn-submit';
-    submitBtn.textContent = 'Start Collab';
-    actions.append(cancelBtn, submitBtn);
-    modal.appendChild(actions);
+    const startFormError = document.createElement('p');
+    startFormError.className = 'sc-error';
+    startFormError.style.display = 'none';
+    startContent.appendChild(startFormError);
 
+    const startActions = document.createElement('div');
+    startActions.className = 'sc-actions';
+    const startCancelBtn = document.createElement('button');
+    startCancelBtn.type = 'button';
+    startCancelBtn.className = 'sc-btn-cancel';
+    startCancelBtn.textContent = 'Cancel';
+    const startSubmitBtn = document.createElement('button');
+    startSubmitBtn.type = 'button';
+    startSubmitBtn.className = 'sc-btn-submit';
+    startSubmitBtn.textContent = 'Create Collab';
+    startActions.append(startCancelBtn, startSubmitBtn);
+    startContent.appendChild(startActions);
+
+    modal.appendChild(startContent);
+
+    // ── Open Collab tab content ──
+    const openContent = document.createElement('div');
+    openContent.className = 'sc-tab-content';
+
+    const openField = document.createElement('div');
+    openField.className = 'sc-field';
+    const openLabel = document.createElement('label');
+    openLabel.className = 'sc-label';
+    openLabel.innerHTML = 'Collab ID <span class="sc-required">*</span>';
+    const openInput = document.createElement('input');
+    openInput.type = 'text';
+    openInput.className = 'sc-input';
+    openInput.placeholder = 'Paste collab ID here';
+    const openError = document.createElement('span');
+    openError.className = 'sc-error';
+    openError.style.display = 'none';
+    openError.textContent = 'Collab ID is required.';
+    openField.append(openLabel, openInput, openError);
+    openContent.appendChild(openField);
+
+    const openFormError = document.createElement('p');
+    openFormError.className = 'sc-error';
+    openFormError.style.display = 'none';
+    openContent.appendChild(openFormError);
+
+    const openActions = document.createElement('div');
+    openActions.className = 'sc-actions';
+    const openCancelBtn = document.createElement('button');
+    openCancelBtn.type = 'button';
+    openCancelBtn.className = 'sc-btn-cancel';
+    openCancelBtn.textContent = 'Cancel';
+    const openSubmitBtn = document.createElement('button');
+    openSubmitBtn.type = 'button';
+    openSubmitBtn.className = 'sc-btn-submit';
+    openSubmitBtn.textContent = 'Open Collab';
+    openActions.append(openCancelBtn, openSubmitBtn);
+    openContent.appendChild(openActions);
+
+    modal.appendChild(openContent);
+
+    // ── Tab switching ──
+    function switchTab(activeTab) {
+      const isStart = activeTab === 'start';
+      startTab.classList.toggle('sc-tab--active', isStart);
+      openTab.classList.toggle('sc-tab--active', !isStart);
+      startContent.classList.toggle('sc-tab-content--active', isStart);
+      openContent.classList.toggle('sc-tab-content--active', !isStart);
+    }
+    startTab.addEventListener('click', () => switchTab('start'));
+    openTab.addEventListener('click', () => switchTab('open'));
+
+    // ── Close helper ──
     function close(result) {
       overlay.remove();
       resolve(result);
     }
 
-    cancelBtn.addEventListener('click', () => close(null));
+    startCancelBtn.addEventListener('click', () => close(null));
+    openCancelBtn.addEventListener('click', () => close(null));
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
 
-    submitBtn.addEventListener('click', async () => {
+    // ── Start Collab submit ──
+    startSubmitBtn.addEventListener('click', async () => {
       titleError.style.display = 'none';
-      formError.style.display = 'none';
+      startFormError.style.display = 'none';
       const title = titleInput.value.trim();
       if (!title) {
         titleInput.classList.add('sc-input--error');
@@ -412,8 +582,8 @@ function showStartCollabModal() {
       }
       titleInput.classList.remove('sc-input--error');
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Starting...';
+      startSubmitBtn.disabled = true;
+      startSubmitBtn.textContent = 'Creating...';
 
       try {
         const { host, pathname } = window.location;
@@ -446,14 +616,30 @@ function showStartCollabModal() {
         ];
         await assignCollabRoles(collabId, assignments);
 
-        close(collabId);
+        copyInput.value = collabId;
+        resultArea.style.display = 'flex';
+        startSubmitBtn.textContent = 'Created';
       } catch (err) {
         console.error('[milo-collab-init] Failed to start collab:', err);
-        formError.textContent = err?.message || 'Failed to start collab. Please try again.';
-        formError.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Start Collab';
+        startFormError.textContent = err?.message || 'Failed to start collab. Please try again.';
+        startFormError.style.display = 'block';
+        startSubmitBtn.disabled = false;
+        startSubmitBtn.textContent = 'Create Collab';
       }
+    });
+
+    // ── Open Collab submit ──
+    openSubmitBtn.addEventListener('click', () => {
+      openError.style.display = 'none';
+      openFormError.style.display = 'none';
+      const id = openInput.value.trim();
+      if (!id) {
+        openInput.classList.add('sc-input--error');
+        openError.style.display = 'block';
+        return;
+      }
+      openInput.classList.remove('sc-input--error');
+      close({ action: 'open', collabId: id });
     });
 
     document.body.appendChild(overlay);
@@ -476,11 +662,10 @@ function showStartCollabModal() {
     return;
   }
 
-  const newCollabId = await showStartCollabModal();
-  if (!newCollabId) return;
+  const result = await showCollabModal();
+  if (!result) return;
 
-  const url = new URL(window.location.href);
-  const existingParams = url.searchParams.toString();
-  url.search = `miloCollabId=${encodeURIComponent(newCollabId)}${existingParams ? `&${existingParams}` : ''}`;
-  window.location.href = url.toString();
+  if (result.action === 'open') {
+    await startAnnotation(result.collabId);
+  }
 }());
