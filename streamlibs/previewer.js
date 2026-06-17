@@ -41,6 +41,8 @@ import {
 } from './utils/operations.js';
 import {
   ANNOTATION_REFRESH_EVENT,
+  ANNOTATION_SAVE_EVENT,
+  ANNOTATION_PUBLISH_EVENT,
   ANNOTATION_READY_EVENT,
   ANNOTATION_MESSAGES,
   LOADER_PROGRESS_STEPS,
@@ -183,6 +185,17 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
+    case 'standaloneAnnotation':
+      updateLoader({ percentage: 10, message: 'Loading Page' });
+      await mergeImageUrls();
+      updateLoader({ percentage: 50, message: 'Loading Page' });
+      await setupCollabSpace();
+      updateLoader({ percentage: 80, message: 'Loading Page' });
+      annotationOperationOnHostPage();
+      updateLoader({ percentage: 100, message: 'Loading Page' });
+      attachRegenHandlers();
+      hideLoader();
+      break;
     case 'aiSeoAnnotation':
       updateLoader({ percentage: 10, message: 'Loading Page' });
       await mergeImageUrls();
@@ -287,7 +300,7 @@ async function requestStreamConfigFromParent() {
   });
 }
 
-async function setupMessageListener() {
+export async function setupMessageListener() {
   window.addEventListener('message', async (event) => {
     const allowedOrigins = window.streamConfig.streamMapper.allowMessagesFromDomains;
     const isOriginAllowed = allowedOrigins.some((pattern) => {
@@ -344,6 +357,18 @@ async function setupMessageListener() {
 
   window.addEventListener(ANNOTATION_REFRESH_EVENT, async () => {
     await refreshAnnotationCanvas();
+  });
+
+  window.addEventListener(ANNOTATION_SAVE_EVENT, async () => {
+    await saveChanges();
+  });
+
+  window.addEventListener(ANNOTATION_PUBLISH_EVENT, async () => {
+    try {
+      await persist();
+    } catch {
+      // persist() notifies the parent on failure
+    }
   });
 }
 

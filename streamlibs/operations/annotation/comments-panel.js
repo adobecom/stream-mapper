@@ -4,6 +4,8 @@ import {
   ANNOTATION_MESSAGES,
   ANNOTATION_DEFAULT_USERNAME,
   ANNOTATION_REFRESH_EVENT,
+  ANNOTATION_SAVE_EVENT,
+  ANNOTATION_PUBLISH_EVENT,
 } from '../../utils/constants.js';
 import { COMMENT_STATUSES } from './store.js';
 import createAnnotationServiceClient from './service.js';
@@ -157,6 +159,26 @@ export default function createCommentsPanelController({
               </defs>
             </svg>
           </button>
+          <button
+            type="button"
+            class="annotation-mode-btn annotation-mode-btn-save"
+            aria-label="Save annotation changes"
+            title="Save annotation changes"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M17 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"></path>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="annotation-mode-btn annotation-mode-btn-publish"
+            aria-label="Publish to DA"
+            title="Publish to DA"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 4v2h14V4H5zm0 10h4v6h6v-6h4l-7-7-7 7z"></path>
+            </svg>
+          </button>
         </div>
       </div>
       <div class="annotation-panel-filter-tabs" role="tablist" aria-label="Filter annotations">
@@ -196,6 +218,14 @@ export default function createCommentsPanelController({
         if (showIcon) showIcon.style.display = 'none';
         if (hideIcon) hideIcon.style.display = '';
       }
+    });
+
+    panel.querySelector('.annotation-mode-btn-save').addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent(ANNOTATION_SAVE_EVENT));
+    });
+
+    panel.querySelector('.annotation-mode-btn-publish').addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent(ANNOTATION_PUBLISH_EVENT));
     });
 
     panel.querySelector('.annotation-panel-filter-tabs').addEventListener('click', (event) => {
