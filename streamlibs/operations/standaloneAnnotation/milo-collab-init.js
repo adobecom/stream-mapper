@@ -12,6 +12,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 
 
 async function startAnnotation() {
+    const params = new URLSearchParams(window.location.search);
     const env = getMapperEnv();
     const collabId = params.get('miloCollabId');
     const { host, pathname } = window.location;
