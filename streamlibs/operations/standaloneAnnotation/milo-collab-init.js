@@ -14,7 +14,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 async function startAnnotation() {
     const env = getMapperEnv();
     const { host, pathname } = window.location;
-    if (host.includes('.aem.')) return;
+    if (!host.includes('.aem.')) return;
     const repo = host.split('--')[1];
     const pageUrl = `adobecom/${repo}/${pathname}`;
     let filename = pathname.split('/');
