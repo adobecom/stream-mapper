@@ -61,7 +61,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
   }
 
   const collabData = {
-    title: document.title || 'Untitled Collab',
+    title: document.title || 'Standalone Collab',
     pageUrl: window.location.href,
   };
 
@@ -83,8 +83,9 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
     const { id } = await res.json();
     if (!id) throw new Error('No collab id in response');
 
-    params.set('miloCollabId', id);
-    window.location.search = params.toString();
+    const url = new URL(window.location.href);
+    url.searchParams.set('miloCollabId', id);
+    window.location.href = url.toString();
   } catch (err) {
     console.error('[milo-collab-init] Failed to create collab:', err);
   }
