@@ -185,17 +185,6 @@ export async function initiatePreviewer(forceOperation = null) {
       hideLoader();
       notifyAnnotationReady();
       break;
-    case 'standaloneAnnotation':
-      updateLoader({ percentage: 10, message: 'Loading Page' });
-      await mergeImageUrls();
-      updateLoader({ percentage: 50, message: 'Loading Page' });
-      await setupCollabSpace();
-      updateLoader({ percentage: 80, message: 'Loading Page' });
-      annotationOperationOnHostPage();
-      updateLoader({ percentage: 100, message: 'Loading Page' });
-      attachRegenHandlers();
-      hideLoader();
-      break;
     case 'aiSeoAnnotation':
       updateLoader({ percentage: 10, message: 'Loading Page' });
       await mergeImageUrls();

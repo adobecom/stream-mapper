@@ -34,7 +34,7 @@ import { setupBlockActionModal } from '../../utils/block-action-modal.js';
       token: window.adobeIMS.getAccessToken().token,
       profileId: '3',
       collabId: params.get('miloCollabId'),
-      operation: 'standaloneAnnotation',
+      operation: 'aiSeoAnnotation',
       username: params.get('username') || null,
       reviewId: params.get('miloCollabId'),
       collabRole: 'owner',
