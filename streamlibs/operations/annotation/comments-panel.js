@@ -242,6 +242,7 @@ export default function createCommentsPanelController({
 
     updateModeButtonStates();
     applyOwnerOnlyToggleState();
+    applyDisableEditsState();
   }
 
   function applyOwnerOnlyToggleState() {
@@ -275,6 +276,19 @@ export default function createCommentsPanelController({
         annotationUI.inlineAssetsToggleEl.setAttribute('aria-disabled', 'true');
       }
     }
+  }
+
+  function applyDisableEditsState() {
+    const noToken = !new URLSearchParams(window.location.search).get('token');
+    if (!window.streamConfig?.disableEdits && !noToken) return;
+    const toolbar = annotationUI.panelEl?.querySelector('.annotation-mode-toolbar');
+    if (!toolbar) return;
+    toolbar.querySelectorAll('.annotation-mode-btn').forEach((btn) => {
+      if (btn instanceof HTMLButtonElement) {
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      }
+    });
   }
 
   function ensureCanvasRefreshBar() {
@@ -1302,6 +1316,7 @@ export default function createCommentsPanelController({
     captureTransientDraftsFromDom();
     renderRefreshAction();
     updateModeButtonStates();
+    applyDisableEditsState();
 
     const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
       annotationUI.mainEl,

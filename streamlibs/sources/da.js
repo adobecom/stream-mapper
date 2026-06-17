@@ -32,7 +32,12 @@ export function getMiloCompatibleHtml(html) {
   return restoreImgToPicture(htmlWithRestoredColonText);
 }
 
+function hasTokenParam() {
+  return Boolean(new URLSearchParams(window.location.search).get('token'));
+}
+
 export async function daPageExists(path) {
+  if (!hasTokenParam()) return false;
   let url = path;
   if (!url.startsWith('/')) url = `/${url}`;
   if (!url.endsWith('.html')) url += '.html';
@@ -56,6 +61,7 @@ export async function daPageExists(path) {
 }
 
 export async function copyDaPage(fromPath, toPath) {
+  if (!hasTokenParam()) return false;
   let from = fromPath;
   if (!from.startsWith('/')) from = `/${from}`;
   if (!from.endsWith('.html')) from += '.html';
@@ -77,6 +83,7 @@ export async function copyDaPage(fromPath, toPath) {
 }
 
 async function getDAContent(path = false) {
+  if (!hasTokenParam()) return '';
   let url = window.streamConfig.targetUrl;
   if (path) url = path;
   if (!url.startsWith('/')) url = `/${url}`;
@@ -125,6 +132,7 @@ export async function fetchDAContent(path = false) {
 }
 
 export async function previewDAPage(url) {
+  if (!hasTokenParam()) return null;
   let previewUrl = url;
   if (previewUrl.startsWith('/')) previewUrl = previewUrl.slice(1);
   previewUrl = previewUrl.split('/');
