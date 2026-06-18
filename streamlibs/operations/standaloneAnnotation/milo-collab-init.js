@@ -647,28 +647,28 @@ function showCollabModal() {
   });
 }
 
-// (async function initMiloCollab() {
-//   const params = new URLSearchParams(window.location.search);
+(async function initMiloCollab() {
+  const params = new URLSearchParams(window.location.search);
 
-//   const collabId = params.get('miloCollabId');
-//   if (collabId) {
-//     await startAnnotation();
-//     return;
-//   }
+  const collabId = params.get('miloCollabId');
+  if (collabId) {
+    await startAnnotation();
+    return;
+  }
 
-//   const token = getToken();
-//   if (!token) {
-//     console.error('[milo-collab-init] No auth token found.');
-//     return;
-//   }
+  const token = getToken();
+  if (!token) {
+    console.error('[milo-collab-init] No auth token found.');
+    return;
+  }
 
-//   const result = await showCollabModal();
-//   if (!result) return;
+  const result = await showCollabModal();
+  if (!result) return;
 
-//   if (result.action === 'open') {
-//     await startAnnotation(result.collabId);
-//   }
-// }());
+  if (result.action === 'open') {
+    await startAnnotation(result.collabId);
+  }
+}());
 
 export async function initializeStreamAnnotation() {
   const params = new URLSearchParams(window.location.search);
