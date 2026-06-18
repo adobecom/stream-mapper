@@ -191,7 +191,7 @@ export async function initiatePreviewer(forceOperation = null) {
       updateLoader({ percentage: 50, message: 'Loading Page' });
       await mergeImageUrls();
       updateLoader({ percentage: 80, message: 'Loading Page' });
-      annotationOperationOnHostPage();
+      await annotationOperationOnHostPage();
       updateLoader({ percentage: 100, message: 'Loading Page' });
       attachRegenHandlers();
       hideLoader();
