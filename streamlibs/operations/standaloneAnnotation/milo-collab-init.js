@@ -108,8 +108,8 @@ async function startAnnotation(createdCollabId = null) {
   let filename = pathname.split('/');
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
-  const profile = await window.adobeIMS.getProfile();
-  const username = profile.displayName;
+  // const profile = await window.adobeIMS.getProfile();
+  const username = 'Sandeep Kambi Nanjundeshwara'; // profile.displayName;
   window.streamConfig = {
     streamMapper: { ...CONFIG[env].streamMapper },
     figmaServiceRetry: CONFIG.figmaServiceRetry,
