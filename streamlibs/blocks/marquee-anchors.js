@@ -2,6 +2,7 @@ import {
   handleComponents,
   handleActionButtons,
   handleBackground,
+  resolveImageValue,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { DEFAULT_TMP_URL } from '../utils/constants.js';
@@ -9,8 +10,11 @@ import { DEFAULT_TMP_URL } from '../utils/constants.js';
 function handleForegroundPhoto(value, areaEl) {
   if (!areaEl) return;
   const pic = areaEl.querySelector('picture');
-  pic.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  pic.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  pic.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = pic.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 function handleAnchorTitle(blockContent, value) {

@@ -505,6 +505,9 @@ export async function mergeImageUrls() {
   daImg.forEach((img, idx) => {
     if (!pageImg[idx]) return;
     pageImg[idx].src = img.src;
+    if (img.hasAttribute('alt')) {
+      pageImg[idx].alt = img.getAttribute('alt') || '';
+    }
     const pic = pageImg[idx].closest('picture');
     if (pic) {
       // eslint-disable-next-line no-return-assign

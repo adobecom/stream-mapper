@@ -3,6 +3,7 @@ import {
   handleSpacer,
   handleGridLayout,
   handleBackgroundWithSectionMetadata,
+  resolveImageValue,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -30,8 +31,11 @@ function handleVariants(blockContent, properties) {
 
 function handleAvatar(value, areaEl) {
   if (!value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  areaEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
