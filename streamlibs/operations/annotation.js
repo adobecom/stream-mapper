@@ -571,7 +571,6 @@ async function finishAnnotationSession(mainEl, {
     commentsPanel.renderThreadMarkers({ resolveTargets: true });
     commentsPanel.renderCommentsPanel();
   }
-  await store.applyEasyEditsToDom();
 
   for (const blockClass of cachedMetadataBlocks.keys()) {
     const divWrapper = document.createElement('div');
@@ -611,6 +610,11 @@ async function finishAnnotationSession(mainEl, {
         blockEl.append(row);
         row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
         ensureUserMetadataRowDeleteButton(row);
+        const toHtml = buildBlockToHtml(blockClass);
+        (annotationState.store.easyEdits || []).forEach((e) => {
+          if (e.blockClass === blockClass && e.toHtml) e.toHtml = toHtml;
+        });
+        store.saveAnnotationStore();
       };
       const addTextBtn = document.createElement('button');
       addTextBtn.className = 'stream-annotation-add-metadata-row';
@@ -634,8 +638,8 @@ async function finishAnnotationSession(mainEl, {
       divWrapper.append(metadataActions);
     }
   }
+  await store.applyEasyEditsToDom();
 
-  if (cachedMetadataBlocks.size > 0) await store.applyEasyEditsToDom();
 }
 
 // ── Asset / edit processing (shared by persist and save) ──────────────────────

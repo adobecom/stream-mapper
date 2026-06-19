@@ -1531,21 +1531,26 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
           const tmp = document.createElement('div');
           tmp.innerHTML = edit.toHtml;
           const newBlock = tmp.querySelector(`div.${edit.blockClass}`) || tmp.firstElementChild;
-          if (newBlock && block.innerHTML !== newBlock.innerHTML) {
-            block.innerHTML = newBlock.innerHTML;
+          if (newBlock) {
+            const liveClone = block.cloneNode(true);
+            liveClone.querySelectorAll('img').forEach((img) => {
+              const orig = img.getAttribute('data-stream-original-src');
+              if (orig) img.setAttribute('src', orig);
+              [...img.attributes].filter((a) => a.name.startsWith('data-')).forEach((a) => img.removeAttribute(a.name));
+            });
+            if (liveClone.innerHTML !== newBlock.innerHTML) {
+              block.innerHTML = newBlock.innerHTML;
+            }
           }
-          // toHtml carries raw DA URLs; a bare <img> can't send the token (401), so resolve
-          // them to base64 here — runs on every re-render so the preview never reverts.
+          
           if (previewUrlResolverFn) {
             block.querySelectorAll('img').forEach((img) => {
               const src = img.getAttribute('src') || '';
+              if (src && !src.startsWith('data:') && !img.getAttribute('data-stream-original-src')) {
+                img.setAttribute('data-stream-original-src', src);
+              }
               previewUrlResolverFn(src).then((b64) => {
-                if (b64 && b64 !== src) {
-                  // Preserve the original (resolvable) URL so buildBlockToHtml restores it on
-                  // save. Without this the base64 lands in toHtml and bloats the payload (413).
-                  if (!img.getAttribute('data-stream-original-src')) {
-                    img.setAttribute('data-stream-original-src', src);
-                  }
+                if (b64 && b64 !== src && img.getAttribute('src') === src) {
                   img.setAttribute('src', b64);
                 }
               });
