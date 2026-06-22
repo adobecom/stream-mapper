@@ -2480,44 +2480,31 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata {
-    width: 100%;
-    border-top: 2px dashed #ababab;
-    margin-top: 10px;
-    background: #eff5ff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    background: #fff;
-    padding-bottom: 50px;
+  .annotation-mode .stream-metadata-section {
+    justify-self: center;
+    width: 80%;
   }
 
-  .annotation-mode .stream-annotation-page-metadata h3 {
-    display: flex;
-    align-items: start;
-    width: 80%;
-    padding: 20px;
+  .annotation-mode .stream-metadata-section h3 {
     color: #1d4ed8;
   }
-
-  .annotation-mode .page-metadata {
-    width: 80%;
+  
+  .annotation-mode .stream-metadata-section > div {
+    width: 100%;
     display: flex;
     flex-wrap: wrap;
+    margin-top: 16px;
+    font-size: 14px;
   }
 
-  .annotation-mode .page-metadata > div {
+  .annotation-mode .stream-metadata-section > div > div {
     display: flex;
     width: 100%;
     box-sizing: border-box;
+    position: relative;
   }
 
-  .annotation-mode .page-metadata > div > div:first-child {
-    font-weight: bold;
-  }
-
-  .annotation-mode .page-metadata > div > div {
+  .annotation-mode .stream-metadata-section > div > div > div {
     flex: 1 1 0;
     min-width: 0;
     border: 0.5px solid #cacaca;
@@ -2525,13 +2512,17 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     padding-left: 20px;
   }
 
-  .annotation-mode .page-metadata > div > div img {
+  .annotation-mode .stream-metadata-section > div > div > div:first-child {
+    font-weight: bold;
+  }
+
+  .annotation-mode .stream-metadata-section > div > div > div img {
     width: 100px;
     height: auto;
     max-width: 100px;
   }
 
-  .annotation-mode .stream-annotation-metadata-actions {
+  .annotation-mode .stream-metadata-section .stream-annotation-metadata-actions {
     display: none;
     width: 80%;
     flex-direction: row;
@@ -2539,7 +2530,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     margin-top: 10px;
   }
 
-  .annotation-inline-edit-mode .stream-annotation-metadata-actions {
+  .annotation-inline-edit-mode .stream-metadata-section .stream-annotation-metadata-actions {
     display: flex;
   }
 
@@ -2559,12 +2550,27 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     color: #fff;
   }
 
-  .page-metadata .annotation-asset-pending-badge {
-    display: none;
+  .annotation-inline-edit-mode .stream-metadata-section .stream-annotation-delete-metadata-row {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    min-width: 22px;
+    height: 22px;
+    border: 1px solid #b3b3b3;
+    border-radius: 4px;
+    background: #fff;
+    color: #505050;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
   }
 
-  .fragment > .section {
-    min-height: 50px;
+  .annotation-mode:not(.annotation-inline-edit-mode) .stream-metadata-section .stream-annotation-delete-metadata-row {
+    display: none;
   }
 
 
