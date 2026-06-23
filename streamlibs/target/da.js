@@ -53,7 +53,10 @@ export function getDACompatibleHtml(html) {
 }
 
 function hasTokenParam() {
-  return Boolean(new URLSearchParams(window.location.search).get('token'));
+  return Boolean(
+    new URLSearchParams(window.location.search).get('token')
+    || window.streamConfig?.token,
+  );
 }
 
 function wrapHTMLForDA(html) {

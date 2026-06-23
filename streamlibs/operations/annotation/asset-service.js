@@ -11,6 +11,10 @@ export default function createAssetServiceClient() {
     };
     const token = normalizeToken(window.streamConfig?.token);
     if (token) headers.Authorization = token;
+    // Service tokens have no user email in IMS; send the resolved identity so the
+    // backend's resolveUserProfile() can fall back to it (matches annotationServiceFetch).
+    if (window.streamConfig?.userEmail) headers['X-User-Email'] = window.streamConfig.userEmail;
+    if (window.streamConfig?.userName) headers['X-User-Name'] = window.streamConfig.userName;
 
     if (options.body && !(options.body instanceof FormData) && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';

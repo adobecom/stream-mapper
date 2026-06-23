@@ -279,7 +279,7 @@ export default function createCommentsPanelController({
   }
 
   function applyDisableEditsState() {
-    const noToken = !new URLSearchParams(window.location.search).get('token');
+    const noToken = !new URLSearchParams(window.location.search).get('token') && !window.streamConfig?.token;
     if (!window.streamConfig?.disableEdits && !noToken) return;
     const toolbar = annotationUI.panelEl?.querySelector('.annotation-mode-toolbar');
     if (!toolbar) return;
