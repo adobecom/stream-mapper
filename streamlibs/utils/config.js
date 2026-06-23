@@ -40,7 +40,7 @@ export const CONFIG = {
   },
   dev: {
     streamMapper: {
-      serviceEP: 'http://localhost:8080',
+      serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io',
       figmaMappingUrl: '/api/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
       pushToDaUrl: '/api/push-html',
