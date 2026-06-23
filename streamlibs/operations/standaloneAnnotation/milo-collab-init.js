@@ -11,7 +11,7 @@ import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 import { applyRemoteCollabSnapshot } from '../../utils/operations.js';
 
-const API_ENDPOINT = 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api';
+const API_ENDPOINT = 'http://localhost:8080/api';
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
 
