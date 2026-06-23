@@ -628,12 +628,13 @@ export async function annotationOperationOnHostPage(options = {}) {
   } = options;
 
   await new Promise((resolve) => {
+    if (document.getElementById('page-load-ok-milo')) { resolve(); return; }
     const observer = new MutationObserver(() => {
       if (!document.getElementById('page-load-ok-milo')) return;
       observer.disconnect();
       resolve();
     });
-    observer.observe(document.body, { childList: true });
+    observer.observe(document.body, { childList: true, subtree: true });
   });
 
   const { shouldRestoreInlineMode } = prepareAnnotationSession({ preserveRemoteEditState });

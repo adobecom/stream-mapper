@@ -11,9 +11,13 @@ import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 import { applyRemoteCollabSnapshot } from '../../utils/operations.js';
 
-const API_ENDPOINT = 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io/api';
+const API_ENDPOINT = 'http://localhost:8080/api';
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
+
+let resolvedToken = '';
+let resolvedEmail = '';
+let resolvedName = '';
 
 function loadCssFiles(filePath) {
   const link = document.createElement('link');
@@ -24,8 +28,7 @@ function loadCssFiles(filePath) {
 }
 
 function getToken() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('token') || window.adobeIMS?.getAccessToken()?.token || '';
+  return resolvedToken || window.adobeIMS?.getAccessToken()?.token || '';
 }
 
 async function searchUsers(query) {
@@ -52,7 +55,7 @@ async function createCollab(collabData) {
   const token = getToken();
   const res = await fetch(`${API_ENDPOINT}/collabs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName },
     body: JSON.stringify(collabData),
   });
   const result = await res.json().catch(() => ({}));
@@ -65,7 +68,7 @@ async function assignCollabRoles(collabId, assignments) {
   const token = getToken();
   const res = await fetch(`${API_ENDPOINT}/collabs/${encodeURIComponent(collabId)}/roles/assign`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName },
     body: JSON.stringify({ assignments }),
   });
   if (!res.ok) {
@@ -79,7 +82,7 @@ async function fetchAndApplyCollabSnapshot(collabId) {
   if (!collabId || !token) return;
   const serviceEP = window.streamConfig?.streamMapper?.serviceEP || '';
   if (!serviceEP) return;
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = { Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName };
   try {
     const [collab, edits] = await Promise.all([
       fetch(`${serviceEP}/api/collabs/${encodeURIComponent(collabId)}`, { headers })
@@ -108,8 +111,7 @@ async function startAnnotation(createdCollabId = null) {
   let filename = pathname.split('/');
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
-  // const profile = await window.adobeIMS.getProfile();
-  const username = 'Sandeep Kambi Nanjundeshwara'; // profile.displayName;
+  const username = resolvedName || resolvedEmail.split('@')[0] || 'Unknown';
   window.streamConfig = {
     streamMapper: { ...CONFIG[env].streamMapper },
     figmaServiceRetry: CONFIG.figmaServiceRetry,
@@ -118,7 +120,9 @@ async function startAnnotation(createdCollabId = null) {
     target: 'da',
     targetUrl: pageUrl,
     pageUrl,
-    token: params.get('token') || window.adobeIMS.getAccessToken().token,
+    token: getToken(),
+    userEmail: resolvedEmail,
+    userName: resolvedName,
     profileId: '3',
     collabId,
     operation: 'aiSeoAnnotation',
@@ -134,6 +138,14 @@ async function startAnnotation(createdCollabId = null) {
   resetEditChangesInStore();
   initializeLoader();
   await initializeTokens(window.streamConfig.token);
+  // Standalone mode: page is already loaded by Milo; inject the readiness signal that
+  // annotationOperationOnHostPage waits for (normally provided by miloLoadArea in iframe flow).
+  if (!document.getElementById('page-load-ok-milo')) {
+    const sig = document.createElement('div');
+    sig.id = 'page-load-ok-milo';
+    sig.style.display = 'none';
+    document.body.appendChild(sig);
+  }
   await initiatePreviewer();
   setupBlockActionModal();
   await setupMessageListener();
@@ -647,40 +659,65 @@ function showCollabModal() {
   });
 }
 
-(async function initMiloCollab() {
+// (async function initMiloCollab() {
+//   const params = new URLSearchParams(window.location.search);
+
+//   const collabId = params.get('miloCollabId');
+//   if (collabId) {
+//     await startAnnotation();
+//     return;
+//   }
+
+//   const token = getToken();
+//   if (!token) {
+//     console.error('[milo-collab-init] No auth token found.');
+//     return;
+//   }
+
+//   const result = await showCollabModal();
+//   if (!result) return;
+
+//   if (result.action === 'open') {
+//     await startAnnotation(result.collabId);
+//   }
+// }());
+
+export async function initializeStreamAnnotation(sidekickDetail = null) {
+  const profile = sidekickDetail?.status?.profile;
+
+  if (profile) {
+    try {
+      const response = await fetch(`${API_ENDPOINT}/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        resolvedToken = data.token || '';
+        resolvedEmail = data.email || '';
+        resolvedName = profile.name || profile.email?.split('@')[0] || '';
+      } else {
+        console.warn('[milo-collab-init] Token exchange failed:', response.status);
+      }
+    } catch (error) {
+      console.warn('[milo-collab-init] Token exchange error:', error);
+    }
+  }
+
+
+  if (!resolvedToken) {
+    resolvedToken = window.adobeIMS?.getAccessToken()?.token || '';
+  }
   const params = new URLSearchParams(window.location.search);
 
   const collabId = params.get('miloCollabId');
   if (collabId) {
-    await startAnnotation();
+    await startAnnotation(collabId);
     return;
   }
 
-  const token = getToken();
-  if (!token) {
-    console.error('[milo-collab-init] No auth token found.');
-    return;
-  }
-
-  const result = await showCollabModal();
-  if (!result) return;
-
-  if (result.action === 'open') {
-    await startAnnotation(result.collabId);
-  }
-}());
-
-export async function initializeStreamAnnotation() {
-  const params = new URLSearchParams(window.location.search);
-
-  const collabId = params.get('miloCollabId');
-  if (collabId) {
-    await startAnnotation();
-    return;
-  }
-
-  const token = getToken();
-  if (!token) {
+  if (!resolvedToken) {
     console.error('[milo-collab-init] No auth token found.');
     return;
   }
