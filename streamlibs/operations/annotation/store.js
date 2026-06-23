@@ -1519,7 +1519,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       );
     }
 
-    keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
+    keepLatestImageEdits(annotationState.store.easyEdits)
+      .sort((a, b) => new Date(a.updatedAt || 0) - new Date(b.updatedAt || 0))
+      .forEach((edit) => {
       if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
 
       // Metadata-like edit: replace the whole block on the DOM with the edited toHtml.
