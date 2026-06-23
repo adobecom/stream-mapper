@@ -396,6 +396,7 @@ function createCollaboratorField(label, placeholder) {
 }
 
 function showCollabModal() {
+  if (document.querySelector('.sc-overlay')) return Promise.resolve(null);
   return new Promise((resolve) => {
     injectModalStyles();
 
@@ -583,7 +584,13 @@ function showCollabModal() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
 
     // ── Start Collab submit ──
+    let createdCollabId = null;
     startSubmitBtn.addEventListener('click', async () => {
+      if (createdCollabId) {
+        close({ action: 'open', collabId: createdCollabId });
+        return;
+      }
+
       titleError.style.display = 'none';
       startFormError.style.display = 'none';
       const title = titleInput.value.trim();
@@ -628,9 +635,11 @@ function showCollabModal() {
         ];
         await assignCollabRoles(collabId, assignments);
 
+        createdCollabId = collabId;
         copyInput.value = collabId;
         resultArea.style.display = 'flex';
-        startSubmitBtn.textContent = 'Created';
+        startSubmitBtn.textContent = 'Open Collab';
+        startSubmitBtn.disabled = false;
       } catch (err) {
         console.error('[milo-collab-init] Failed to start collab:', err);
         startFormError.textContent = err?.message || 'Failed to start collab. Please try again.';
@@ -682,7 +691,10 @@ function showCollabModal() {
 //   }
 // }());
 
+let initInProgress = false;
 export async function initializeStreamAnnotation(sidekickDetail = null) {
+  if (initInProgress) return;
+  initInProgress = true;
   const profile = sidekickDetail?.status?.profile;
 
   if (profile) {
