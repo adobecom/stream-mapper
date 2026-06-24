@@ -111,6 +111,7 @@ function normalizeEditRecord(edit) {
     attrName: edit?.attrName || '',
     elementPath: `${edit?.elementPath || normalizedAnchor?.selector || ''}`,
     elementProps: normalizedElementProps,
+    blockClass: `${edit?.blockClass || normalizedElementProps.blockClass || ''}`,
     elementRef: edit?.elementRef || '',
     from: `${edit?.from || ''}`,
     to: `${edit?.to || ''}`,

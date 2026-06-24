@@ -516,7 +516,13 @@ function buildHtmlWithEditsAndAssets(assetReplacements) {
   cachedMetadataBlocks.forEach((cachedBlock, blockClass) => {
     mainEl.querySelectorAll(`div.${blockClass}`).forEach((block) => block.remove());
     //picks the most recent saved edit for that metadata block (elementPath matches blockClass and has toHtml), so that version is used when re-appending the block on save instead of the original cached HTML.
-    const blockEdit = easyEdits.filter((e) => e.blockClass === blockClass && e.toHtml).at(-1);
+    let blockEdit = null;
+    easyEdits.forEach((e) => {
+      if (e.blockClass !== blockClass || !e.toHtml) return;
+      if (!blockEdit || new Date(e.updatedAt || 0) >= new Date(blockEdit.updatedAt || 0)) {
+        blockEdit = e;
+      }
+    });
     const finalHtml = blockEdit?.toHtml
       || (cachedBlock.innerHTML.trim() ? cachedBlock.outerHTML : '');
     // Wrap in a section <div> so DA treats it as a block inside a section (not a bare
@@ -611,9 +617,22 @@ async function finishAnnotationSession(mainEl, {
         row.querySelectorAll('p').forEach((p) => inlineEditing.registerNewEditableElement(p));
         ensureUserMetadataRowDeleteButton(row);
         const toHtml = buildBlockToHtml(blockClass);
+        let updatedAny = false;
         (annotationState.store.easyEdits || []).forEach((e) => {
-          if (e.blockClass === blockClass && e.toHtml) e.toHtml = toHtml;
+          if (e.blockClass === blockClass && e.toHtml) { e.toHtml = toHtml; updatedAny = true; }
         });
+        if (!updatedAny) {
+          store.upsertEasyEdit({
+            editType: 'text',
+            elementPath: blockClass,
+            blockClass,
+            elementProps: {},
+            from: '',
+            to: '',
+            fromHtml: cachedMetadataBlocks.get(blockClass)?.outerHTML || '',
+            toHtml,
+          });
+        }
         store.saveAnnotationStore();
       };
       const addTextBtn = document.createElement('button');
