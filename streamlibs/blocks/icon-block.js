@@ -1,6 +1,6 @@
 import {
   handleAccentBar, handleActionButtons, handleBackgroundWithSectionMetadata, handleComponents,
-  handleSpacer,
+  handleSpacer, resolveImageValue,
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
@@ -66,8 +66,11 @@ function handleProductLockup(value, areaEl) {
 
 function handleAvatar(value, areaEl) {
   if (!value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  areaEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 export default async function mapBlockContent(

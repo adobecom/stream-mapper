@@ -49,6 +49,7 @@ export default function createCommentsPanelController({
   let popupDraft = '';
   let popupDraftKey = '';
   let pendingCommentsPanelRefresh = false;
+  let reviewerStatusUpdatePending = false;
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
@@ -343,6 +344,205 @@ export default function createCommentsPanelController({
     if (!thread) return false;
     if (annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
     return isCurrentUserCollabOwner();
+  }
+
+  function normalizeRole(role) {
+    return `${role || ''}`.trim().toLowerCase().replace(/[_-]+/g, ' ');
+  }
+
+  function getParticipantProfileId(participant) {
+    if (!participant || typeof participant !== 'object') return '';
+    const candidate = participant.profileId
+      ?? participant.profile_id
+      ?? participant.userProfileId
+      ?? participant.user_profile_id
+      ?? participant.id;
+    return `${candidate || ''}`.trim();
+  }
+
+  function getParticipantUserId(participant) {
+    if (!participant || typeof participant !== 'object') return '';
+    return `${participant.userId || participant.user_id || ''}`.trim();
+  }
+
+  function getParticipantDisplayName(participant, index) {
+    const value = participant?.username
+      || participant?.displayName
+      || participant?.fullName
+      || participant?.name
+      || participant?.email
+      || participant?.userName
+      || participant?.user_name
+      || '';
+    return `${value || ''}`.trim() || `Reviewer ${index + 1}`;
+  }
+
+  function isReviewerParticipant(participant) {
+    const role = normalizeRole(
+      participant?.role
+      || participant?.collabRole
+      || participant?.type
+      || participant?.participantRole,
+    );
+    return role === 'reviewer' || role.endsWith(' reviewer') || role.includes(' reviewer ');
+  }
+
+  function isReviewerMarkedComplete(participant) {
+    if (!participant || typeof participant !== 'object') return false;
+    return participant.reviewCompleted === true;
+  }
+
+  function getReviewerParticipants() {
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (!Array.isArray(participants)) return [];
+    return participants
+      .filter((participant) => participant && typeof participant === 'object')
+      .filter((participant) => isReviewerParticipant(participant))
+      .map((participant, index) => {
+        const userId = getParticipantUserId(participant);
+        const profileId = getParticipantProfileId(participant) || userId;
+        return {
+          raw: participant,
+          profileId,
+          userId,
+          displayName: getParticipantDisplayName(participant, index),
+          isComplete: isReviewerMarkedComplete(participant),
+        };
+      })
+      .filter((participant) => participant.userId);
+  }
+
+  function getCurrentReviewerProfileId() {
+    const currentUser = getCurrentUserIdentity();
+    return `${currentUser?.profileId || ''}`.trim();
+  }
+
+  function isReviewerCurrentUser(reviewer) {
+    const currentProfileId = getCurrentReviewerProfileId();
+    if (currentProfileId && reviewer.profileId === currentProfileId) return true;
+    const currentUsername = `${window.streamConfig?.username || ''}`.trim().toLowerCase();
+    return !!currentUsername && reviewer.userId.toLowerCase() === currentUsername;
+  }
+
+  function canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers) {
+    if (!selectedReviewerProfileId || !Array.isArray(reviewers) || !reviewers.length) return false;
+    const selectedReviewer = reviewers.find(
+      (reviewer) => reviewer.profileId === selectedReviewerProfileId,
+    );
+    if (!selectedReviewer) return false;
+    return isReviewerCurrentUser(selectedReviewer);
+  }
+
+  function markReviewerAsCompleteInSnapshot(reviewerProfileId, reviewCompleted = true) {
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (!Array.isArray(participants)) return false;
+    const participant = participants.find(
+      (item) => getParticipantProfileId(item) === reviewerProfileId
+        || getParticipantUserId(item) === reviewerProfileId,
+    );
+    if (!participant) return false;
+    participant.reviewCompleted = reviewCompleted === true;
+    return true;
+  }
+
+  async function completeReviewerIfAllowed(selectedReviewerProfileId, reviewers) {
+    if (!canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers)) {
+      showGlobalSnackbar('Only the logged-in reviewer can mark their review as complete.');
+      renderReviewerControls();
+      return false;
+    }
+    const selectedReviewer = reviewers.find(
+      (reviewer) => reviewer.profileId === selectedReviewerProfileId,
+    );
+    if (selectedReviewer?.isComplete) {
+      renderReviewerControls();
+      return false;
+    }
+    if (!selectedReviewer?.userId) {
+      showGlobalSnackbar('Could not update reviewer completion status.');
+      return false;
+    }
+
+    reviewerStatusUpdatePending = true;
+    renderReviewerControls();
+    try {
+      const updated = await annotationService.markReviewComplete(selectedReviewer.userId, true);
+      if (!updated) {
+        showGlobalSnackbar('Could not update reviewer completion status.');
+        return false;
+      }
+      markReviewerAsCompleteInSnapshot(
+        selectedReviewerProfileId,
+        updated.reviewCompleted === true,
+      );
+      requestParentCollabRefresh('reviewer-completed');
+      hideGlobalSnackbar();
+      renderCommentsPanel();
+      showGlobalSnackbar('Review marked as complete.');
+      return true;
+    } catch (error) {
+      showGlobalSnackbar('Could not update reviewer completion status.');
+      // eslint-disable-next-line no-console
+      console.warn('Could not mark review complete in service', error);
+      return false;
+    } finally {
+      reviewerStatusUpdatePending = false;
+      renderReviewerControls();
+    }
+  }
+
+  function renderReviewerControls() {
+    const heading = annotationUI.panelEl?.querySelector('.annotation-comments-panel-heading');
+    if (!(heading instanceof HTMLElement)) return;
+    let controls = heading.querySelector('.annotation-reviewer-controls');
+    if (!(controls instanceof HTMLElement)) {
+      controls = document.createElement('div');
+      controls.className = 'annotation-reviewer-controls';
+      heading.appendChild(controls);
+    }
+
+    const reviewers = getReviewerParticipants();
+    if (!reviewers.length) {
+      controls.innerHTML = '';
+      controls.classList.add('is-empty');
+      return;
+    }
+    controls.classList.remove('is-empty');
+
+    controls.innerHTML = `
+      <div class="annotation-reviewer-controls-row">
+        <select
+          id="annotation-reviewer-select"
+          class="annotation-reviewer-select"
+          ${reviewerStatusUpdatePending ? 'disabled' : ''}
+          aria-label="Reviewers"
+        ></select>
+      </div>
+    `;
+
+    const reviewerSelect = controls.querySelector('.annotation-reviewer-select');
+    if (!(reviewerSelect instanceof HTMLSelectElement)) return;
+
+    reviewerSelect.disabled = reviewerStatusUpdatePending;
+    reviewerSelect.title = 'Reviewer details are visible to everyone.';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'Reviewers';
+    placeholderOption.selected = true;
+    reviewerSelect.appendChild(placeholderOption);
+
+    reviewers.forEach((reviewer) => {
+      const option = document.createElement('option');
+      option.value = reviewer.profileId;
+      option.textContent = reviewer.isComplete
+        ? `✓ ${reviewer.displayName}`
+        : reviewer.displayName;
+      option.disabled = !isReviewerCurrentUser(reviewer);
+      if (reviewer.isComplete) {
+        option.className = 'annotation-reviewer-complete';
+      }
+      reviewerSelect.appendChild(option);
+    });
   }
 
   function getCommentEditorKey(threadId, commentId) {
@@ -963,6 +1163,10 @@ export default function createCommentsPanelController({
       }
     }
 
+    if (snapshot?.collab) {
+      renderReviewerControls();
+    }
+
     // Update assets from snapshot (edits API returns { edits, assets })
     const remoteAssets = snapshot?.edits?.assets || snapshot?.assets;
     if (remoteAssets && assetsPanel) {
@@ -1129,6 +1333,7 @@ export default function createCommentsPanelController({
     if (panelTitle instanceof HTMLElement) {
       panelTitle.textContent = 'Annotations';
     }
+    renderReviewerControls();
 
     if (assetsPanel
       && annotationUI.annotationMode === 'assets'
@@ -2712,6 +2917,20 @@ export default function createCommentsPanelController({
       if (annotationUI.inlineMode) return;
       if (!isCommentsServiceAvailable()) return;
       if (!(target instanceof HTMLSelectElement)) return;
+      if (target.classList.contains('annotation-reviewer-select')) {
+        const reviewers = getReviewerParticipants();
+        const selectedReviewerProfileId = `${target.value || ''}`.trim();
+        if (!selectedReviewerProfileId) return;
+        if (!canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers)) {
+          target.value = '';
+          showGlobalSnackbar('Only the logged-in reviewer can mark their review as complete.');
+          renderReviewerControls();
+          return;
+        }
+        hideGlobalSnackbar();
+        await completeReviewerIfAllowed(selectedReviewerProfileId, reviewers);
+        return;
+      }
       if (!target.classList.contains('annotation-panel-status-select')) return;
       const { threadId } = target.dataset;
       if (!threadId) return;

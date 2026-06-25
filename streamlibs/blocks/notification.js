@@ -5,6 +5,7 @@ import {
   handleBackground,
   handleAccentBar,
   handleGridLayout,
+  resolveImageValue,
 } from '../components/components.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
@@ -18,8 +19,11 @@ export function handleForegroundImage(el, value, selector) {
   const picParentEl = el.querySelector(selector);
   if (!value) return picParentEl.classList.add('to-remove');
   const picEl = picParentEl.querySelector('picture');
-  picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  picEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  picEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = picEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
   return picEl;
 }
 
