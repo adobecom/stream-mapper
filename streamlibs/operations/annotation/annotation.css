@@ -131,6 +131,15 @@ body.annotation-mode main::-webkit-scrollbar {
   fill: #059669;
 }
 
+@keyframes annotation-marker-pulse {
+  0%, 100% { transform: translate(-100%, 0) scale(1); }
+  50%       { transform: translate(-100%, 0) scale(1.5); }
+}
+
+.annotation-marker-pulse {
+  animation: annotation-marker-pulse 0.6s ease-in-out 2;
+}
+
 .annotation-comments-panel {
   position: fixed;
   top: 0;
@@ -164,7 +173,87 @@ body.annotation-mode main::-webkit-scrollbar {
 .annotation-comments-panel-heading {
   display: inline-flex;
   align-items: center;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
+  width: 100%;
+}
+
+.annotation-reviewer-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.annotation-reviewer-controls.is-empty {
+  display: none;
+}
+
+.annotation-reviewer-controls-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  position: relative;
+}
+
+.annotation-reviewer-controls-row::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.annotation-reviewer-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 28px;
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 28px 4px 10px;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.annotation-reviewer-select:hover:not(:disabled) {
+  border-color: #94a3b8;
+}
+
+.annotation-reviewer-select:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.annotation-reviewer-select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.annotation-reviewer-select option:disabled {
+  color: #1f2937;
+  cursor: not-allowed;
+}
+
+.annotation-reviewer-select option.annotation-reviewer-complete {
+  background: #e5e7eb;
+  color: #1f2937;
 }
 
 .annotation-comments-panel-header h3 {
@@ -182,6 +271,13 @@ body.annotation-mode main::-webkit-scrollbar {
   border-radius: 8px;
   padding: 3px;
   margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.annotation-panel-filter-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .annotation-panel-filter-tab {
@@ -294,6 +390,48 @@ body.annotation-mode main::-webkit-scrollbar {
   .annotation-mode-toolbar {
     margin-left: 0;
   }
+
+  .annotation-panel-comment {
+    padding: 7px 8px;
+  }
+
+  .annotation-panel-comment-header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .annotation-panel-comment-user {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    min-width: 40%;
+  }
+
+  .annotation-panel-status-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .annotation-panel-status-select {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+
+  .annotation-card-auto-apply-btn,
+  .annotation-panel-edit-btn {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+  }
+
+  .annotation-card-auto-apply-btn svg,
+  .annotation-panel-edit-btn svg {
+    width: 9px;
+    height: 9px;
+  }
+
 }
 
 .annotation-comments-disabled-overlay {
@@ -570,7 +708,7 @@ body.annotation-mode main::-webkit-scrollbar {
   border-left: 4px solid #3b82f6;
   border-radius: 10px;
   background: #fff;
-  padding: 9px 10px;
+  padding: 10px 11px;
   cursor: pointer;
   position: relative;
 }
@@ -657,7 +795,7 @@ body.annotation-mode main::-webkit-scrollbar {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .annotation-panel-comment-user {
@@ -854,15 +992,115 @@ body.annotation-mode main::-webkit-scrollbar {
   fill: currentcolor;
 }
 
+.annotation-panel-edit-discard-btn {
+  border: 1px solid #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.annotation-panel-edit-discard-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+}
+
+.annotation-panel-cancel-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #6b7280;
+  opacity: 0.75;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 1;
+  line-height: 0;
+}
+
+.annotation-panel-cancel-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.annotation-panel-edit-item .annotation-panel-cancel-btn {
+  color: #b45309;
+}
+
+.annotation-panel-asset-item .annotation-panel-cancel-btn {
+  color: #047857;
+}
+
+.annotation-panel-asset-item .annotation-panel-comment-user {
+  margin-bottom: 4px;
+}
+
+.annotation-panel-block-label {
+  display: block;
+  margin: 0 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+
+.annotation-arrow-icon {
+  width: 15px;
+  height: 15px;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+.annotation-asset-arrow {
+  display: inline;
+}
+
+.annotation-asset-thumb-link {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.annotation-asset-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.annotation-asset-card-history {
+  opacity: 0.7;
+}
+
+.annotation-panel-block-label-asset {
+  color: #047857;
+}
+
+.annotation-panel-block-label-edit {
+  color: #b45309;
+}
+
 .annotation-panel-edit-form {
   display: flex;
   flex-direction: column;
   gap: 10px;
   margin-top: 8px;
-  padding: 10px 12px 12px;
   background: #f0f6ff;
   border: 1px solid #dbeafe;
-  border-left: 3px solid #3b82f6;
   border-radius: 10px;
 }
 
@@ -878,7 +1116,6 @@ body.annotation-mode main::-webkit-scrollbar {
   border-radius: 7px;
   background: #fff;
   color: #111827;
-  padding: 9px 11px;
   font-family: inherit;
   font-size: 12.5px;
   line-height: 1.6;
@@ -903,8 +1140,8 @@ body.annotation-mode main::-webkit-scrollbar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 28px;
-  padding: 0 12px;
+  height: 24px;
+  padding: 0 8px;
   border-radius: 6px;
   font-family: inherit;
   font-size: 11.5px;
@@ -1379,6 +1616,7 @@ body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonl
   }
 }
 
+
 /* ── Assets panel ──────────────────────────────────────────────────── */
 
 .annotation-assets-upload-bar {
@@ -1468,7 +1706,7 @@ body.annotation-asset-select-mode main img:hover {
   border-color: #93c5fd;
 }
 
-.annotation-asset-thumb {
+.annotation-asset-card .annotation-asset-thumb {
   flex-shrink: 0;
   width: 48px;
   height: 48px;
@@ -1506,11 +1744,22 @@ body.annotation-asset-select-mode main img:hover {
 .annotation-asset-card-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 6px;
   margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px solid #d1fae5;
+}
+
+.annotation-card-timestamp {
+  margin: 8px 0 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: #9ca3af;
+  text-align: right;
+}
+
+.annotation-asset-card-footer .annotation-card-timestamp {
+  margin: 0;
+  margin-left: auto;
 }
 
 .annotation-asset-status {
@@ -1555,15 +1804,7 @@ body.annotation-asset-select-mode main img:hover {
 }
 
 .annotation-asset-card-local::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f97316;
-  box-shadow: 0 0 0 2px rgb(249 115 22 / 25%);
+  content: none;
 }
 
 .annotation-asset-from-to {
@@ -1632,28 +1873,6 @@ body.annotation-asset-select-mode main img:hover {
 
 .annotation-asset-action-delete:hover {
   background: #fef2f2;
-}
-
-/* Visual indicator on replaced images */
-.annotation-asset-pending-indicator {
-  outline: 3px dashed #2563eb !important;
-  outline-offset: 2px;
-}
-
-.annotation-asset-pending-badge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: #2563eb;
-  padding: 2px 8px;
-  border-radius: 4px;
-  z-index: 10;
-  pointer-events: none;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 /* Attach asset button in reply composer */
@@ -1806,7 +2025,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn {
   border-width: 2px;
   bottom: 10px;
   right: 10px;
-  transform: scale(2);
   transform-origin: bottom right;
   box-shadow:
     0 0 0 2px rgba(59, 130, 246, 0.45),
@@ -1838,11 +2056,6 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
 body.editor-mode .da-panel .has-block-action .block-action-btn.block-action-btn--selected:hover,
 body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-btn--selected:hover {
   transform: scale(2);
-}
-
-body.editor-mode .da-panel .has-block-action .block-action-btn:hover:not(.block-action-btn--disabled),
-body.editor-mode .figma-panel .has-block-action .block-action-btn:hover:not(.block-action-btn--disabled) {
-  transform: scale(2) translateY(-3px);
 }
 
 body.editor-mode .da-panel .has-block-action .block-action-btn.block-action-btn--disabled,
@@ -2267,44 +2480,31 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata {
-    width: 100%;
-    border-top: 2px dashed #ababab;
-    margin-top: 10px;
-    background: #eff5ff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    background: #fff;
-    padding-bottom: 50px;
+  .annotation-mode .stream-metadata-section {
+    justify-self: center;
+    width: 80%;
   }
 
-  .annotation-mode .stream-annotation-page-metadata h3 {
-    display: flex;
-    align-items: start;
-    width: 80%;
-    padding: 20px;
+  .annotation-mode .stream-metadata-section h3 {
     color: #1d4ed8;
   }
-
-  .annotation-mode .page-metadata {
-    width: 80%;
+  
+  .annotation-mode .stream-metadata-section > div {
+    width: 100%;
     display: flex;
     flex-wrap: wrap;
+    margin-top: 16px;
+    font-size: 14px;
   }
 
-  .annotation-mode .page-metadata > div {
+  .annotation-mode .stream-metadata-section > div > div {
     display: flex;
     width: 100%;
     box-sizing: border-box;
+    position: relative;
   }
 
-  .annotation-mode .page-metadata > div > div:first-child {
-    font-weight: bold;
-  }
-
-  .annotation-mode .page-metadata > div > div {
+  .annotation-mode .stream-metadata-section > div > div > div {
     flex: 1 1 0;
     min-width: 0;
     border: 0.5px solid #cacaca;
@@ -2312,13 +2512,17 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     padding-left: 20px;
   }
 
-  .annotation-mode .page-metadata > div > div img {
+  .annotation-mode .stream-metadata-section > div > div > div:first-child {
+    font-weight: bold;
+  }
+
+  .annotation-mode .stream-metadata-section > div > div > div img {
     width: 100px;
     height: auto;
     max-width: 100px;
   }
 
-  .annotation-mode .stream-annotation-metadata-actions {
+  .annotation-mode .stream-metadata-section .stream-annotation-metadata-actions {
     display: none;
     width: 80%;
     flex-direction: row;
@@ -2326,7 +2530,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     margin-top: 10px;
   }
 
-  .annotation-inline-edit-mode .stream-annotation-metadata-actions {
+  .annotation-inline-edit-mode .stream-metadata-section .stream-annotation-metadata-actions {
     display: flex;
   }
 
@@ -2346,10 +2550,43 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     color: #fff;
   }
 
-  .page-metadata .annotation-asset-pending-badge {
+  .annotation-inline-edit-mode .stream-metadata-section .stream-annotation-delete-metadata-row {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    min-width: 22px;
+    height: 22px;
+    border: 1px solid #b3b3b3;
+    border-radius: 4px;
+    background: #fff;
+    color: #505050;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .annotation-mode:not(.annotation-inline-edit-mode) .stream-metadata-section .stream-annotation-delete-metadata-row {
     display: none;
   }
 
-  main > .section, .fragment > .section {
-    min-height: 50px;
+
+@media (max-width: 500px) {
+  body.annotation-mode main {
+    transform: scale(0.60);
   }
+
+  .annotation-comments-panel {
+    height: 80vh;
+    min-width: 40%;
+    max-width: 40%;
+  }
+
+  .annotation-panel-edit-save-btn::after,
+  .annotation-panel-edit-cancel-btn::after {
+    display: none;
+  }
+}

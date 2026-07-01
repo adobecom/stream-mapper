@@ -882,3 +882,8 @@
   text-decoration: underline;
 }
 
+main > .section,
+.fragment > .section {
+  min-height: 100px;
+}
+  

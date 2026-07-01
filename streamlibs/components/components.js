@@ -7,6 +7,12 @@ import {
   ICON_CLASS,
 } from '../utils/constants.js';
 
+export function resolveImageValue(value) {
+  if (!value) return { url: '', altText: '' };
+  if (typeof value === 'object' && value.url) return { url: value.url, altText: value.altText || '' };
+  return { url: `${value}`, altText: '' };
+}
+
 export function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
   if (!value) return textEl.classList.add('to-remove');
@@ -25,8 +31,11 @@ export function handleTextComponent({ el, value, selector }) {
 export function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
   if (!value) return picEl.classList.add('to-remove');
-  picEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  picEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  picEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = picEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
   return picEl;
 }
 
@@ -170,17 +179,19 @@ export function handleActionButtons(el, configData, value, areaEl) {
 
 export function handleBackground(value, areaEl) {
   if (!value) return;
-  if (value.startsWith('http')) {
+  const { url, altText } = resolveImageValue(value);
+  if (url.startsWith('http')) {
     const img = document.createElement('img');
-    img.src = value;
+    img.src = url;
+    if (altText) img.alt = altText;
     const pic = document.createElement('picture');
     const source = document.createElement('source');
-    source.srcset = value;
+    source.srcset = url;
     source.type = 'image/webp';
     pic.append(...[source, img]);
     areaEl.append(pic);
   } else {
-    areaEl.innerHTML = value;
+    areaEl.innerHTML = url;
   }
 }
 
@@ -263,19 +274,22 @@ export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
-  if (!value || value.startsWith('#fff')) return;
+  if (!value) return;
+  const { url, altText } = resolveImageValue(value);
+  if (url.startsWith('#fff')) return;
   const backgroundValue = addOrUpdateSectionMetadata(secEl, blockEl, 'background');
-  if (value.startsWith('http')) {
+  if (url.startsWith('http')) {
     const img = document.createElement('img');
-    img.src = value;
+    img.src = url;
+    if (altText) img.alt = altText;
     const pic = document.createElement('picture');
     const source = document.createElement('source');
-    source.srcset = value;
+    source.srcset = url;
     source.type = 'image/png';
     pic.append(...[source, img]);
     backgroundValue.append(pic);
   } else {
-    backgroundValue.innerHTML = value;
+    backgroundValue.innerHTML = url;
   }
 }
 
@@ -298,8 +312,11 @@ export function handleVariantWithSectionMetadata(secEl, blockEl, variant) {
 
 export function replaceImage(pic, src) {
   if (!pic || !src) return;
-  pic.querySelectorAll('source').forEach((source) => { source.srcset = src; });
-  pic.querySelector('img').src = src;
+  const { url, altText } = resolveImageValue(src);
+  pic.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = pic.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 export function handleProductLockup(value, areaEl) {

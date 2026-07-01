@@ -10,6 +10,9 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../../utils/snackbar.js';
+import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
+
+const THREAD_STATUS_OPTIONS = Object.freeze(['Open', 'Accepted', 'Rejected', 'Closed']);
 
 const MAX_LINK_DISPLAY_LENGTH = 60;
 
@@ -46,6 +49,7 @@ export default function createCommentsPanelController({
   let popupDraft = '';
   let popupDraftKey = '';
   let pendingCommentsPanelRefresh = false;
+  let reviewerStatusUpdatePending = false;
   const panelReplyDrafts = new Map();
   const pendingReplyComposerKeys = new Set();
   const pendingCommentEditIds = new Set();
@@ -340,6 +344,205 @@ export default function createCommentsPanelController({
     if (!thread) return false;
     if (annotationUI.inlineMode || annotationUI.annotationMode !== 'comments') return false;
     return isCurrentUserCollabOwner();
+  }
+
+  function normalizeRole(role) {
+    return `${role || ''}`.trim().toLowerCase().replace(/[_-]+/g, ' ');
+  }
+
+  function getParticipantProfileId(participant) {
+    if (!participant || typeof participant !== 'object') return '';
+    const candidate = participant.profileId
+      ?? participant.profile_id
+      ?? participant.userProfileId
+      ?? participant.user_profile_id
+      ?? participant.id;
+    return `${candidate || ''}`.trim();
+  }
+
+  function getParticipantUserId(participant) {
+    if (!participant || typeof participant !== 'object') return '';
+    return `${participant.userId || participant.user_id || ''}`.trim();
+  }
+
+  function getParticipantDisplayName(participant, index) {
+    const value = participant?.username
+      || participant?.displayName
+      || participant?.fullName
+      || participant?.name
+      || participant?.email
+      || participant?.userName
+      || participant?.user_name
+      || '';
+    return `${value || ''}`.trim() || `Reviewer ${index + 1}`;
+  }
+
+  function isReviewerParticipant(participant) {
+    const role = normalizeRole(
+      participant?.role
+      || participant?.collabRole
+      || participant?.type
+      || participant?.participantRole,
+    );
+    return role === 'reviewer' || role.endsWith(' reviewer') || role.includes(' reviewer ');
+  }
+
+  function isReviewerMarkedComplete(participant) {
+    if (!participant || typeof participant !== 'object') return false;
+    return participant.reviewCompleted === true;
+  }
+
+  function getReviewerParticipants() {
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (!Array.isArray(participants)) return [];
+    return participants
+      .filter((participant) => participant && typeof participant === 'object')
+      .filter((participant) => isReviewerParticipant(participant))
+      .map((participant, index) => {
+        const userId = getParticipantUserId(participant);
+        const profileId = getParticipantProfileId(participant) || userId;
+        return {
+          raw: participant,
+          profileId,
+          userId,
+          displayName: getParticipantDisplayName(participant, index),
+          isComplete: isReviewerMarkedComplete(participant),
+        };
+      })
+      .filter((participant) => participant.userId);
+  }
+
+  function getCurrentReviewerProfileId() {
+    const currentUser = getCurrentUserIdentity();
+    return `${currentUser?.profileId || ''}`.trim();
+  }
+
+  function isReviewerCurrentUser(reviewer) {
+    const currentProfileId = getCurrentReviewerProfileId();
+    if (currentProfileId && reviewer.profileId === currentProfileId) return true;
+    const currentUsername = `${window.streamConfig?.username || ''}`.trim().toLowerCase();
+    return !!currentUsername && reviewer.userId.toLowerCase() === currentUsername;
+  }
+
+  function canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers) {
+    if (!selectedReviewerProfileId || !Array.isArray(reviewers) || !reviewers.length) return false;
+    const selectedReviewer = reviewers.find(
+      (reviewer) => reviewer.profileId === selectedReviewerProfileId,
+    );
+    if (!selectedReviewer) return false;
+    return isReviewerCurrentUser(selectedReviewer);
+  }
+
+  function markReviewerAsCompleteInSnapshot(reviewerProfileId, reviewCompleted = true) {
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (!Array.isArray(participants)) return false;
+    const participant = participants.find(
+      (item) => getParticipantProfileId(item) === reviewerProfileId
+        || getParticipantUserId(item) === reviewerProfileId,
+    );
+    if (!participant) return false;
+    participant.reviewCompleted = reviewCompleted === true;
+    return true;
+  }
+
+  async function completeReviewerIfAllowed(selectedReviewerProfileId, reviewers) {
+    if (!canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers)) {
+      showGlobalSnackbar('Only the logged-in reviewer can mark their review as complete.');
+      renderReviewerControls();
+      return false;
+    }
+    const selectedReviewer = reviewers.find(
+      (reviewer) => reviewer.profileId === selectedReviewerProfileId,
+    );
+    if (selectedReviewer?.isComplete) {
+      renderReviewerControls();
+      return false;
+    }
+    if (!selectedReviewer?.userId) {
+      showGlobalSnackbar('Could not update reviewer completion status.');
+      return false;
+    }
+
+    reviewerStatusUpdatePending = true;
+    renderReviewerControls();
+    try {
+      const updated = await annotationService.markReviewComplete(selectedReviewer.userId, true);
+      if (!updated) {
+        showGlobalSnackbar('Could not update reviewer completion status.');
+        return false;
+      }
+      markReviewerAsCompleteInSnapshot(
+        selectedReviewerProfileId,
+        updated.reviewCompleted === true,
+      );
+      requestParentCollabRefresh('reviewer-completed');
+      hideGlobalSnackbar();
+      renderCommentsPanel();
+      showGlobalSnackbar('Review marked as complete.');
+      return true;
+    } catch (error) {
+      showGlobalSnackbar('Could not update reviewer completion status.');
+      // eslint-disable-next-line no-console
+      console.warn('Could not mark review complete in service', error);
+      return false;
+    } finally {
+      reviewerStatusUpdatePending = false;
+      renderReviewerControls();
+    }
+  }
+
+  function renderReviewerControls() {
+    const heading = annotationUI.panelEl?.querySelector('.annotation-comments-panel-heading');
+    if (!(heading instanceof HTMLElement)) return;
+    let controls = heading.querySelector('.annotation-reviewer-controls');
+    if (!(controls instanceof HTMLElement)) {
+      controls = document.createElement('div');
+      controls.className = 'annotation-reviewer-controls';
+      heading.appendChild(controls);
+    }
+
+    const reviewers = getReviewerParticipants();
+    if (!reviewers.length) {
+      controls.innerHTML = '';
+      controls.classList.add('is-empty');
+      return;
+    }
+    controls.classList.remove('is-empty');
+
+    controls.innerHTML = `
+      <div class="annotation-reviewer-controls-row">
+        <select
+          id="annotation-reviewer-select"
+          class="annotation-reviewer-select"
+          ${reviewerStatusUpdatePending ? 'disabled' : ''}
+          aria-label="Reviewers"
+        ></select>
+      </div>
+    `;
+
+    const reviewerSelect = controls.querySelector('.annotation-reviewer-select');
+    if (!(reviewerSelect instanceof HTMLSelectElement)) return;
+
+    reviewerSelect.disabled = reviewerStatusUpdatePending;
+    reviewerSelect.title = 'Reviewer details are visible to everyone.';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = 'Reviewers';
+    placeholderOption.selected = true;
+    reviewerSelect.appendChild(placeholderOption);
+
+    reviewers.forEach((reviewer) => {
+      const option = document.createElement('option');
+      option.value = reviewer.profileId;
+      option.textContent = reviewer.isComplete
+        ? `✓ ${reviewer.displayName}`
+        : reviewer.displayName;
+      option.disabled = !isReviewerCurrentUser(reviewer);
+      if (reviewer.isComplete) {
+        option.className = 'annotation-reviewer-complete';
+      }
+      reviewerSelect.appendChild(option);
+    });
   }
 
   function getCommentEditorKey(threadId, commentId) {
@@ -960,6 +1163,10 @@ export default function createCommentsPanelController({
       }
     }
 
+    if (snapshot?.collab) {
+      renderReviewerControls();
+    }
+
     // Update assets from snapshot (edits API returns { edits, assets })
     const remoteAssets = snapshot?.edits?.assets || snapshot?.assets;
     if (remoteAssets && assetsPanel) {
@@ -1018,24 +1225,45 @@ export default function createCommentsPanelController({
     });
 
     if (assetsPanel) {
-      (annotationState.store.localAssets || []).forEach((localAsset) => {
-        items.push({
-          kind: 'asset-local',
-          asset: localAsset,
-          timestamp: assetsPanel.getAssetTimestamp(localAsset),
+      // One item per image edit; renders as a stack of From→To history cards.
+      (annotationState.store.easyEdits || [])
+        .filter((edit) => edit && edit.editType === 'image-src')
+        .forEach((edit) => {
+          items.push({
+            kind: 'asset-edit',
+            edit,
+            timestamp: getTimestampValue(edit.updatedAt) || 0,
+          });
         });
-      });
-      (annotationState.store.assets || []).forEach((asset) => {
-        items.push({
-          kind: 'asset-remote',
-          asset,
-          timestamp: assetsPanel.getAssetTimestamp(asset),
-        });
-      });
     }
 
     items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return items;
+  }
+
+  function enforceThreadStatusSelectOptions(root) {
+    const scope = root || annotationUI.panelEl || annotationUI.panelListEl;
+    if (!scope || typeof scope.querySelectorAll !== 'function') return;
+    const statusSelects = scope.querySelectorAll(
+      '.annotation-panel-status-select:not(.annotation-reviewer-select)',
+    );
+    statusSelects.forEach((statusSelect) => {
+      if (!(statusSelect instanceof HTMLSelectElement)) return;
+      const { threadId } = statusSelect.dataset;
+      const thread = threadId ? store.getThreadById?.(threadId) : null;
+      const normalizedThreadStatus = store.normalizeCommentStatus(thread?.status || statusSelect.value || '');
+      const selectedStatus = THREAD_STATUS_OPTIONS.includes(normalizedThreadStatus)
+        ? normalizedThreadStatus
+        : THREAD_STATUS_OPTIONS[0];
+      statusSelect.innerHTML = '';
+      THREAD_STATUS_OPTIONS.forEach((status) => {
+        const option = document.createElement('option');
+        option.value = status;
+        option.textContent = status;
+        option.selected = selectedStatus === status;
+        statusSelect.appendChild(option);
+      });
+    });
   }
 
   renderCommentsPanel = function renderCommentsPanelImpl() {
@@ -1105,6 +1333,7 @@ export default function createCommentsPanelController({
     if (panelTitle instanceof HTMLElement) {
       panelTitle.textContent = 'Annotations';
     }
+    renderReviewerControls();
 
     if (assetsPanel
       && annotationUI.annotationMode === 'assets'
@@ -1151,7 +1380,7 @@ export default function createCommentsPanelController({
     const unifiedItems = activePanelFilter === 'all' ? allItems : allItems.filter((item) => {
       if (activePanelFilter === 'comment') return item.kind === 'comment';
       if (activePanelFilter === 'edit') return item.kind === 'edit';
-      if (activePanelFilter === 'asset') return item.kind === 'asset-local' || item.kind === 'asset-remote';
+      if (activePanelFilter === 'asset') return item.kind === 'asset-edit';
       return true;
     });
 
@@ -1213,11 +1442,15 @@ export default function createCommentsPanelController({
             statusSelect.title = restrictionMessage;
             statusSelect.setAttribute('aria-label', restrictionMessage);
           }
-          COMMENT_STATUSES.forEach((status) => {
+          const normalizedThreadStatus = store.normalizeCommentStatus(thread.status);
+          const selectedThreadStatus = THREAD_STATUS_OPTIONS.includes(normalizedThreadStatus)
+            ? normalizedThreadStatus
+            : THREAD_STATUS_OPTIONS[0];
+          THREAD_STATUS_OPTIONS.forEach((status) => {
             const option = document.createElement('option');
             option.value = status;
             option.textContent = status;
-            option.selected = thread.status === status;
+            option.selected = selectedThreadStatus === status;
             statusSelect.appendChild(option);
           });
           statusSelect.dataset.status = store.normalizeCommentStatus(thread.status);
@@ -1431,6 +1664,26 @@ export default function createCommentsPanelController({
           }
         }
 
+        const hasPending = !!group.comment?.hasPendingHistory || !group.comment?.isCommitted;
+        if (!isCommentThread && group.comment?.isCurrent && hasPending) {
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'annotation-panel-cancel-btn';
+          cancelBtn.title = 'Discard last local change';
+          cancelBtn.setAttribute('aria-label', 'Discard last local change');
+          cancelBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11.0605 10L13.2803 7.78028C13.5733 7.48731 13.5733 7.0127 13.2803 6.71973C12.9873 6.42676 12.5127 6.42676 12.2197 6.71973L10 8.93946L7.78027 6.71973C7.4873 6.42676 7.01269 6.42676 6.71972 6.71973C6.42675 7.0127 6.42675 7.48731 6.71972 7.78028L8.93945 10L6.71972 12.2197C6.42675 12.5127 6.42675 12.9873 6.71972 13.2803C6.8662 13.4268 7.05761 13.5 7.24999 13.5C7.44237 13.5 7.63378 13.4268 7.78026 13.2803L9.99999 11.0606L12.2197 13.2803C12.3662 13.4268 12.5576 13.5 12.75 13.5C12.9424 13.5 13.1338 13.4268 13.2803 13.2803C13.5732 12.9873 13.5732 12.5127 13.2803 12.2197L11.0605 10Z" fill="currentColor"/><path d="M10 18.75C5.1748 18.75 1.25 14.8252 1.25 10C1.25 5.1748 5.1748 1.25 10 1.25C14.8252 1.25 18.75 5.1748 18.75 10C18.75 14.8252 14.8252 18.75 10 18.75ZM10 2.75C6.00195 2.75 2.75 6.00195 2.75 10C2.75 13.998 6.00195 17.25 10 17.25C13.998 17.25 17.25 13.998 17.25 10C17.25 6.00195 13.998 2.75 10 2.75Z" fill="currentColor"/></svg>';
+          cancelBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const result = store.undoLastChange(thread.id);
+            if (!result) return;
+            store.applyEasyEditsToDom();
+            store.saveAnnotationStore();
+            renderThreadMarkers({ resolveTargets: true });
+            renderCommentsPanel();
+          });
+          card.append(cancelBtn);
+        }
+
         card.append(cardHeader);
 
         const rootCommentKey = `${thread.id}::${group.comment.id || ''}`;
@@ -1452,7 +1705,19 @@ export default function createCommentsPanelController({
         } else {
           const text = document.createElement('p');
           text.className = 'annotation-panel-comment-text';
-          text.innerHTML = linkifyText(group.comment.text);
+          const blockClass = !isCommentThread ? (thread.elementProps?.blockClass || '') : '';
+          if (blockClass) {
+            const blockLabel = document.createElement('span');
+            blockLabel.className = 'annotation-panel-block-label annotation-panel-block-label-edit';
+            blockLabel.textContent = blockClass;
+            text.append(blockLabel);
+          }
+          const textBody = document.createElement('span');
+          const linkified = linkifyText(group.comment.text);
+          textBody.innerHTML = isCommentThread
+            ? linkified
+            : linkified.replace(/→/g, ARROW_ICON_SVG);
+          text.append(textBody);
           card.append(text);
         }
 
@@ -1538,6 +1803,16 @@ export default function createCommentsPanelController({
           }
         }
 
+        if (!isCommentThread) {
+          const timestamp = formatCardTimestamp(group.comment.createdAt || thread.updatedAt);
+          if (timestamp) {
+            const time = document.createElement('p');
+            time.className = 'annotation-card-timestamp';
+            time.textContent = timestamp;
+            card.append(time);
+          }
+        }
+
         annotationUI.panelListEl.appendChild(card);
       });
     };
@@ -1547,10 +1822,9 @@ export default function createCommentsPanelController({
         renderThreadItem(item.thread, true);
       } else if (item.kind === 'edit') {
         renderThreadItem(item.thread, false);
-      } else if (assetsPanel && item.kind === 'asset-local') {
-        annotationUI.panelListEl.appendChild(assetsPanel.buildLocalAssetCard(item.asset));
-      } else if (assetsPanel && item.kind === 'asset-remote') {
-        annotationUI.panelListEl.appendChild(assetsPanel.buildRemoteAssetCard(item.asset));
+      } else if (assetsPanel && item.kind === 'asset-edit') {
+        assetsPanel.buildAssetEditStepCards(item.edit)
+          .forEach((card) => annotationUI.panelListEl.appendChild(card));
       }
     });
 
@@ -1583,6 +1857,7 @@ export default function createCommentsPanelController({
       }
     }
     finalizeFragmentHints();
+    enforceThreadStatusSelectOptions(annotationUI.panelEl);
   };
 
   function getCommentsScrollContainer() {
@@ -1648,6 +1923,62 @@ export default function createCommentsPanelController({
 
     window.requestAnimationFrame(runScroll);
     window.setTimeout(runScroll, 60);
+  }
+
+  function findAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
+    if (!annotationUI.layerEl) return null;
+    if (threadId) {
+      if (messageId) {
+        const specificMarker = annotationUI.layerEl.querySelector(
+          `.annotation-thread-marker[data-thread-id="${threadId}"][data-message-id="${messageId}"], .annotation-edit-marker[data-thread-id="${threadId}"][data-message-id="${messageId}"]`,
+        );
+        if (specificMarker instanceof HTMLElement) return specificMarker;
+      }
+      const marker = annotationUI.layerEl.querySelector(
+        `.annotation-thread-marker[data-thread-id="${threadId}"], .annotation-edit-marker[data-thread-id="${threadId}"]`,
+      );
+      return marker instanceof HTMLElement ? marker : null;
+    }
+    if (elementPath) {
+      try {
+        const marker = annotationUI.layerEl.querySelector(
+          `.annotation-asset-marker[data-element-path="${CSS.escape(elementPath)}"]`,
+        );
+        return marker instanceof HTMLElement ? marker : null;
+      } catch { /* invalid selector */ }
+    }
+    return null;
+  }
+
+  function applyPendingMarkerPulse() {
+    const pending = annotationState.pendingMarkerPulse;
+    if (!pending) return;
+    const marker = findAnnotationMarker(pending.threadId, pending.elementPath, pending.messageId);
+    if (!marker) return;
+    marker.classList.remove('annotation-marker-pulse');
+    void marker.offsetWidth; // eslint-disable-line no-void
+    marker.classList.add('annotation-marker-pulse');
+    marker.addEventListener('animationend', () => {
+      marker.classList.remove('annotation-marker-pulse');
+      if (annotationState.pendingMarkerPulse === pending) {
+        annotationState.pendingMarkerPulse = null;
+      }
+    }, { once: true });
+  }
+
+  function queueMarkerPulseAfterScroll() {
+    if (annotationState.markerPulseScrollTimer) {
+      window.clearTimeout(annotationState.markerPulseScrollTimer);
+    }
+    annotationState.markerPulseScrollTimer = window.setTimeout(() => {
+      annotationState.markerPulseScrollTimer = null;
+      applyPendingMarkerPulse();
+    }, 150);
+  }
+
+  function pulseAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
+    annotationState.pendingMarkerPulse = { threadId, elementPath, messageId };
+    queueMarkerPulseAfterScroll();
   }
 
   function scrollThreadInPanel(threadId, messageId = '', commentIndex = 0) {
@@ -2240,6 +2571,9 @@ export default function createCommentsPanelController({
   }
 
   function scheduleFloatingUISync() {
+    if (annotationState.pendingMarkerPulse) {
+      queueMarkerPulseAfterScroll();
+    }
     if (annotationState.floatingUiFrameId) return;
     annotationState.floatingUiFrameId = window.requestAnimationFrame(() => {
       annotationState.floatingUiFrameId = null;
@@ -2398,12 +2732,23 @@ export default function createCommentsPanelController({
 
       if (card instanceof HTMLElement && card.classList.contains('annotation-panel-asset-item')) {
         if (target.closest('.annotation-asset-actions')) return;
+        if (target.closest('.annotation-panel-cancel-btn')) return;
+        const { editId, localAssetId, assetId } = card.dataset;
+        if (editId) {
+          const edit = (annotationState.store.easyEdits || []).find((item) => item.id === editId);
+          const targetEl = edit ? store.getElementForEdit(edit) : null;
+          if (targetEl instanceof HTMLElement) {
+            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', edit?.elementPath || '');
+          }
+          return;
+        }
         let elementPath = null;
-        const { localAssetId, assetId } = card.dataset;
         if (localAssetId) {
           const local = (annotationState.store.localAssets || []).find((a) => a.localId === localAssetId);
           if (local?.targetImg instanceof HTMLElement) {
             local.targetImg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', local.elementPath || '');
             return;
           }
           elementPath = local?.elementPath || null;
@@ -2411,9 +2756,17 @@ export default function createCommentsPanelController({
           const asset = (annotationState.store.assets || []).find((a) => String(a.id) === String(assetId));
           elementPath = asset?.elementPath || null;
         }
-        if (elementPath && annotationUI.mainEl) {
-          const el = annotationUI.mainEl.querySelector(elementPath);
-          if (el instanceof HTMLElement) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        if (elementPath) {
+          const edit = (annotationState.store.easyEdits || []).find((item) => (
+            item?.editType === 'image-src' && item.elementPath === elementPath
+          ));
+          const targetEl = edit
+            ? store.getElementForEdit(edit)
+            : annotationUI.mainEl?.querySelector(elementPath);
+          if (targetEl instanceof HTMLElement) {
+            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            pulseAnnotationMarker('', elementPath);
+          }
         }
         return;
       }
@@ -2426,6 +2779,7 @@ export default function createCommentsPanelController({
         annotationState.activeThreadId = thread.id;
         annotationState.activeMessageId = card.dataset.messageId || '';
         renderCommentsPanel();
+        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
         return;
       }
 
@@ -2508,9 +2862,11 @@ export default function createCommentsPanelController({
         annotationState.activeThreadId = thread.id;
         renderCommentsPanel();
         targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
         return;
       }
       openPopupForElement(targetEl, true);
+      pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
     };
     annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);
 
@@ -2561,6 +2917,20 @@ export default function createCommentsPanelController({
       if (annotationUI.inlineMode) return;
       if (!isCommentsServiceAvailable()) return;
       if (!(target instanceof HTMLSelectElement)) return;
+      if (target.classList.contains('annotation-reviewer-select')) {
+        const reviewers = getReviewerParticipants();
+        const selectedReviewerProfileId = `${target.value || ''}`.trim();
+        if (!selectedReviewerProfileId) return;
+        if (!canLoggedInReviewerEditSelection(selectedReviewerProfileId, reviewers)) {
+          target.value = '';
+          showGlobalSnackbar('Only the logged-in reviewer can mark their review as complete.');
+          renderReviewerControls();
+          return;
+        }
+        hideGlobalSnackbar();
+        await completeReviewerIfAllowed(selectedReviewerProfileId, reviewers);
+        return;
+      }
       if (!target.classList.contains('annotation-panel-status-select')) return;
       const { threadId } = target.dataset;
       if (!threadId) return;

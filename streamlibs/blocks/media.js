@@ -3,6 +3,7 @@ import {
   handleBackground,
   handleComponents,
   handleSpacerWithSectionMetadata,
+  resolveImageValue,
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
@@ -14,10 +15,23 @@ function handleSwap(blockContent, properties) {
   }
 }
 
+/** Nested text-media alt text lives on properties.media.imageRef; foregroundImage is often URL-only. */
+function resolveForegroundImageValue(properties, foregroundImage) {
+  const nested = properties?.media?.imageRef;
+  if (nested && (typeof nested === 'object' ? nested.url : nested)) return nested;
+  const { url, altText } = resolveImageValue(foregroundImage);
+  const nestedAlt = typeof nested === 'object' ? (nested?.altText || '') : '';
+  if (url && nestedAlt && !altText) return { url, altText: nestedAlt };
+  return foregroundImage;
+}
+
 function handleForegroundImage(value, areaEl) {
   if (!value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  areaEl.querySelector('img').src = value;
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url;
+  if (altText) imgEl.alt = altText;
 }
 
 function handleCompact(blockContent, properties) {
@@ -138,10 +152,13 @@ function handleAppList(items, areaEl) {
 
 function handleQRCode(value, areaEl) {
   if (!value || !areaEl) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value; });
-  areaEl.querySelector('img').src = value;
-  areaEl.querySelector('img').style.width = '140px';
-  areaEl.querySelector('img').style.height = '140px';
+  const { url, altText } = resolveImageValue(value);
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url;
+  imgEl.style.width = '140px';
+  imgEl.style.height = '140px';
+  if (altText) imgEl.alt = altText;
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
@@ -155,7 +172,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     if (properties?.miloTag?.includes('app')) configData = mappingData.appstore;
     if (properties?.miloTag?.includes('sbcpy')) configData = mappingData.subcopy;
     configData.data.forEach((mappingConfig) => {
-      const value = properties[mappingConfig.key];
+      const value = mappingConfig.key === 'foregroundImage'
+        ? resolveForegroundImageValue(properties, properties[mappingConfig.key])
+        : properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'actions':

@@ -392,7 +392,7 @@ export async function persist(versionLabel = null) {
     updateLoader({ message: 'Pushing content to DA' });
     hideDOMElements([document.querySelector('main')]);
     if (isAnnotationOp()) {
-      await persistAnnotationChangesToDA();
+      await persistAnnotationChangesToDA(versionLabel);
     } else {
       await persistOnTarget(versionLabel);
     }
@@ -505,6 +505,9 @@ export async function mergeImageUrls() {
   daImg.forEach((img, idx) => {
     if (!pageImg[idx]) return;
     pageImg[idx].src = img.src;
+    if (img.hasAttribute('alt')) {
+      pageImg[idx].alt = img.getAttribute('alt') || '';
+    }
     const pic = pageImg[idx].closest('picture');
     if (pic) {
       // eslint-disable-next-line no-return-assign

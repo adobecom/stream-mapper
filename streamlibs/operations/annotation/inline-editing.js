@@ -1,5 +1,5 @@
 import createAnnotationServiceClient from './service.js';
-import { ANNOTATION_MESSAGES } from '../../utils/constants.js';
+import { ANNOTATION_MESSAGES, isMetadata } from '../../utils/constants.js';
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 
 const MEDIUM_EDITOR_CSS_URL = 'https://cdn.jsdelivr.net/npm/medium-editor@5.23.3/dist/css/medium-editor.min.css';
@@ -12,6 +12,8 @@ export default function createInlineEditingController({
   renderThreadMarkers,
   renderCommentsPanel,
   removePopup,
+  getBlockFromHtml,
+  buildBlockToHtml,
 }) {
   const annotationService = createAnnotationServiceClient();
   const isInlineEditingAllowed = () => window.streamConfig?.inlineEditingAllowed !== false || window.streamConfig?.collabRole === 'owner';
@@ -115,6 +117,14 @@ export default function createInlineEditingController({
         if (isInsideStreamFragment(el)) return false;
         return true;
       });
+      // Metadata-like block cells are editable even when empty so authors can fill values.
+    //works for any BLOCK_CLASSES entry, no class names here.
+    Array.from(annotationUI.mainEl.querySelectorAll('.stream-metadata-section > div > div > div'))
+    .forEach((el) => {
+      if (el instanceof HTMLElement && !isInsideStreamFragment(el) && !candidates.includes(el)) {
+        candidates.push(el);
+      }
+    });
     const candidateSet = new Set(candidates);
     const nonLeafCandidates = new Set();
 
@@ -232,25 +242,43 @@ export default function createInlineEditingController({
       return;
     }
 
+    const metaBlockClass = isMetadata(element);
     const editAnchor = store.buildEditElementAnchor(element, annotationUI.mainEl);
     const easyEditElementPath = editAnchor.elementPath;
-    const segments = store.getChangedSegments(snapshot.originalText, currentText);
     const existing = store.getEasyEditByElement(
       elementRef,
       easyEditElementPath,
       editAnchor.elementProps,
     );
+    if (existing
+      && currentText.trim() === `${existing.to || ''}`.trim()
+      && currentHtml === `${existing.toHtml || ''}`) {
+      return;
+    }
+    const stampedOriginal = store.getEasyEditOriginalForElement(element);
+    const baselineText = existing?.from ?? stampedOriginal?.from ?? snapshot.originalText;
+    const baselineHtml = existing?.fromHtml ?? stampedOriginal?.fromHtml ?? snapshot.originalHtml;
+    const segments = store.getChangedSegments(baselineText, currentText);
+    // For metadata-like blocks, fromHtml/toHtml track the whole sanitized block so the
+    // block can be replaced on apply and re-appended on push.
+    const resolvedFromHtml = (metaBlockClass && getBlockFromHtml)
+      ? getBlockFromHtml(metaBlockClass)
+      : baselineHtml;
+    const resolvedToHtml = (metaBlockClass && buildBlockToHtml)
+      ? buildBlockToHtml(metaBlockClass)
+      : currentHtml;
     const editRecord = {
       id: existing?.id || store.generateId('easy-edit'),
       editType: 'text',
       attrName: '',
       elementPath: easyEditElementPath,
+      blockClass: metaBlockClass,
       elementProps: editAnchor.elementProps,
       elementRef,
-      from: snapshot.originalText,
+      from: baselineText,
       to: currentText,
-      fromHtml: snapshot.originalHtml,
-      toHtml: currentHtml,
+      fromHtml: resolvedFromHtml,
+      toHtml: resolvedToHtml,
       changedFrom: segments.changedFrom,
       changedTo: segments.changedTo,
       updatedAt: new Date().toISOString(),
@@ -314,6 +342,7 @@ export default function createInlineEditingController({
 
     const elementRef = store.ensureElementRef(imageElement);
     const editAnchor = store.buildEditElementAnchor(imageElement, annotationUI.mainEl);
+    const metaBlockClass = isMetadata(imageElement);
     const easyEditElementPath = editAnchor.elementPath;
     const snapshotAlt = annotationUI.inlineImageAltSnapshot.get(elementRef);
     const originalAlt = snapshotAlt !== undefined ? `${snapshotAlt}` : (imageElement.getAttribute('alt') || '');
@@ -330,6 +359,7 @@ export default function createInlineEditingController({
       editType: 'image-alt',
       attrName: 'alt',
       elementPath: easyEditElementPath,
+      blockClass: metaBlockClass,
       elementProps: editAnchor.elementProps,
       elementRef,
       from: originalAlt,
