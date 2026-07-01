@@ -1,5 +1,5 @@
+
 import { handleError, safeFetch } from '../utils/error-handler.js';
-import { postData } from '../target/da.js';
 
 function restoreImgToPicture(html) {
   const parser = new DOMParser();
@@ -33,22 +33,16 @@ export function getMiloCompatibleHtml(html) {
 }
 
 export async function daPageExists(path) {
-  let url = path;
-  if (!url.startsWith('/')) url = `/${url}`;
-  if (!url.endsWith('.html')) url += '.html';
-  const options = {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'text/html',
-      Authorization: `Bearer ${window.streamConfig.token}`,
-    },
-  };
+  const serviceEP = window.streamConfig?.streamMapper?.serviceEP;
+  const token = window.streamConfig?.token;
   try {
-    const response = await fetch(`https://admin.da.live/source${url}`, options);
-    if (response.status !== 200) {
-      return false;
-    }
-    return true;
+    const response = await fetch(
+      `${serviceEP}/api/da/page-exists?path=${encodeURIComponent(path)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.exists === true;
   } catch (error) {
     // pass
   }
@@ -56,41 +50,34 @@ export async function daPageExists(path) {
 }
 
 export async function copyDaPage(fromPath, toPath) {
-  let from = fromPath;
-  if (!from.startsWith('/')) from = `/${from}`;
-  if (!from.endsWith('.html')) from += '.html';
-  let html;
+  const serviceEP = window.streamConfig?.streamMapper?.serviceEP;
+  const token = window.streamConfig?.token;
   try {
-    const response = await safeFetch(`https://admin.da.live/source${from}`, {
-      method: 'GET',
+    const response = await safeFetch(`${serviceEP}/api/da/copy-page`, {
+      method: 'POST',
       headers: {
-        'Content-Type': 'text/html',
-        Authorization: `Bearer ${window.streamConfig.token}`,
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
       },
+      body: JSON.stringify({ fromPath, toPath }),
     });
-    html = await response.text();
-    await postData(toPath, html, {}, false);
-    return true;
+    const data = await response.json();
+    return data.success === true;
   } catch (error) {
     return false;
   }
 }
 
 async function getDAContent(path = false) {
-  let url = window.streamConfig.targetUrl;
-  if (path) url = path;
-  if (!url.startsWith('/')) url = `/${url}`;
-  if (!url.endsWith('.html')) url += '.html';
-  const options = {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'text/html',
-      Authorization: `Bearer ${window.streamConfig.token}`,
-    },
-  };
+  const url = path || window.streamConfig.targetUrl;
+  const serviceEP = window.streamConfig?.streamMapper?.serviceEP;
+  const token = window.streamConfig?.token;
   let response = null;
   try {
-    response = await safeFetch(`https://admin.da.live/source${url}`, options);
+    response = await safeFetch(
+      `${serviceEP}/api/da/content?path=${encodeURIComponent(url)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
   } catch (error) {
     handleError(error, 'getting html from DA page');
     throw error;

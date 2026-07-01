@@ -52,11 +52,19 @@ export function getDACompatibleHtml(html) {
   return html;
 }
 
+function hasTokenParam() {
+  return Boolean(
+    new URLSearchParams(window.location.search).get('token')
+    || window.streamConfig?.token,
+  );
+}
+
 function wrapHTMLForDA(html) {
   return `<body><header></header><main>${html}</main><footer></footer>`;
 }
 
 export async function postData(url, html, options = {}, wrapHtml=true) {
+  if (!hasTokenParam()) return;
   const { streamMapper } = window.streamConfig;
   let wrappedHtml = html;
   if (wrapHtml) wrappedHtml = wrapHTMLForDA(html);
@@ -131,6 +139,7 @@ export function extractRepoPath(raw) {
  * Returns true if the document exists (HTTP 2xx), false otherwise.
  */
 export async function fragmentExistsOnDa(rawPath) {
+  if (!hasTokenParam()) return false;
   const repoPath = extractRepoPath(rawPath);
   if (!repoPath) return false;
   let url = `/${repoPath}`;

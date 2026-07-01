@@ -533,17 +533,37 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
             const origAllPics = origBlock
               ? Array.from(origBlock.querySelectorAll('picture'))
               : [];
-            const origCandidates = origAllPics.filter(
+            let origCandidates = origAllPics.filter(
               (pic) => pic.innerHTML.includes(fromSrc),
             );
-            // Fall back to all pictures when `from` is no longer in the baseline.
+            // In the iframe flow the live src matches the baseline directly. In
+            // standalone the host renderer re-hashes media URLs (media_<hash>.jpg),
+            // so the src never matches — fall back to the stable alt text, which is
+            // identical on both sides and unique per picture.
+            const fromAlt = `${edit.imgAlt || edit.elementProps?.imgAlt || ''}`.trim();
+            if (!origCandidates.length && fromAlt) {
+              origCandidates = origAllPics.filter(
+                (pic) => (pic.querySelector('img')?.getAttribute('alt') || '').trim() === fromAlt,
+              );
+            }
+            // Fall back to all pictures when neither src nor alt is in the baseline.
             const candidatePool = origCandidates.length ? origCandidates : origAllPics;
 
             const storedIdx = edit.picIndexInBlock ?? edit.elementProps?.picIndexInBlock ?? null;
+            const contentIdx = edit.contentPicIndexInBlock
+              ?? edit.elementProps?.contentPicIndexInBlock ?? null;
             let origTarget = null;
 
-            if (storedIdx !== null && storedIdx >= 0 && storedIdx < candidatePool.length) {
+            if (origCandidates.length === 1) {
+              // src or alt uniquely identified the picture.
+              origTarget = origCandidates[0];
+            } else if (storedIdx !== null && storedIdx >= 0 && storedIdx < candidatePool.length) {
               origTarget = candidatePool[storedIdx];
+            } else if (!origCandidates.length
+              && contentIdx !== null && contentIdx >= 0 && contentIdx < origAllPics.length) {
+              // No src/alt match: baseline pictures are all content pictures, so the
+              // absolute content-picture index from the live block maps directly.
+              origTarget = origAllPics[contentIdx];
             } else {
               const picIdx = getViewportOccurrenceIndex(
                 candidatePool.length || 1,
@@ -850,7 +870,9 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     // Index among pictures in the block that share the same persisted source URL.
     // Using same-src siblings avoids counting extra pictures that the render layer
     // adds (icons, logos) which do not exist in DA HTML.
-    const imgEl = picEl ? picEl.querySelector('img') : null;
+    const imgEl = picEl
+      ? (picEl.tagName === 'IMG' ? picEl : picEl.querySelector('img'))
+      : null;
     const picSrc = imgEl ? getPersistedElementSource(imgEl) : '';
     const sameSrcPics = picEl && picSrc
       ? Array.from(context.block.querySelectorAll('picture')).filter((pic) => {
@@ -859,6 +881,22 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       })
       : [];
     const picIndexInBlock = sameSrcPics.length > 0 ? sameSrcPics.indexOf(picEl) : -1;
+
+    // Absolute index among content pictures (raster images, excluding SVG
+    // icons/logos). The DA baseline only stores content images as <picture>, so
+    // this index maps directly when the live src/alt can't be matched (standalone:
+    // the renderer re-hashes media URLs so neither src nor filename lines up).
+    const contentBlockPics = picEl
+      ? Array.from(context.block.querySelectorAll('picture')).filter((pic) => {
+        const cImg = pic.querySelector('img');
+        const cSrc = `${cImg?.getAttribute('src') || ''}`.split('?')[0].toLowerCase();
+        return cSrc && !cSrc.endsWith('.svg');
+      })
+      : [];
+    const contentPicIndexInBlock = picEl ? contentBlockPics.indexOf(picEl) : -1;
+    // Alt text is identical on the live page and in the DA baseline and is unique
+    // per picture, so it's the most reliable cross-render image identifier.
+    const imgAlt = imgEl ? imgEl.getAttribute('alt') || '' : '';
 
     return JSON.stringify({
       selector,
@@ -870,6 +908,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       blockGlobalIndex: context.blockGlobalIndex,
       pathWithinBlock: buildRelativeElementPath(element, context.block),
       picIndexInBlock: picIndexInBlock > -1 ? picIndexInBlock : null,
+      contentPicIndexInBlock: contentPicIndexInBlock > -1 ? contentPicIndexInBlock : null,
+      imgAlt,
       ...getCommentElementDescriptor(element),
     });
   }

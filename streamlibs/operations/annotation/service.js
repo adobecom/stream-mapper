@@ -172,6 +172,8 @@ export default function createAnnotationServiceClient() {
     };
     const token = normalizeToken(window.streamConfig?.token);
     if (token) headers.Authorization = token;
+    if (window.streamConfig?.userEmail) headers['X-User-Email'] = window.streamConfig.userEmail;
+    if (window.streamConfig?.userName) headers['X-User-Name'] = window.streamConfig.userName;
     if (options.body && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }

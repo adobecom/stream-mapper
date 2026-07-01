@@ -210,6 +210,8 @@ export const LOADER_MSG_LIST = [
 
 export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
 export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
+export const ANNOTATION_SAVE_EVENT = 'stream-mapper:annotation-save';
+export const ANNOTATION_PUBLISH_EVENT = 'stream-mapper:annotation-publish';
 export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {

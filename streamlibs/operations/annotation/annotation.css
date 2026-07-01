@@ -381,6 +381,28 @@ body.annotation-mode main::-webkit-scrollbar {
   color: #475569;
 }
 
+.annotation-mode-btn-save {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.annotation-mode-btn-save:hover {
+  background: #1d4ed8;
+  border-color: #1e40af;
+}
+
+.annotation-mode-btn-publish {
+  background: #16a34a;
+  border-color: #15803d;
+  color: #fff;
+}
+
+.annotation-mode-btn-publish:hover {
+  background: #15803d;
+  border-color: #166534;
+}
+
 @container comments-panel (max-width: 260px) {
   .annotation-comments-panel-header {
     align-items: flex-start;
