@@ -770,6 +770,20 @@ export default function createAssetsPanelController({
         continue;
       }
       try {
+        if (localAsset.regenUrl) {
+          // Regen image is already on DA — no file upload needed.
+          // The image-src easyEdit was already created at regen time; remove pending indicator.
+          const applied = annotationUI.appliedAssets.get(localAsset.localId);
+          if (applied?.targetImg) {
+            removePendingIndicator(applied.targetImg);
+          }
+          annotationUI.appliedAssets.delete(localAsset.localId);
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+
+        const safeOriginalSrc = /^(data:|blob:)/i.test(localAsset.originalSrc || '')
+          ? '' : localAsset.originalSrc;
         // eslint-disable-next-line no-await-in-loop
         const asset = await assetService.uploadAsset(
           localAsset.file,
@@ -777,7 +791,7 @@ export default function createAssetsPanelController({
           localAsset.elementRef,
           localAsset.elementProps,
           null, // commentId
-          localAsset.originalSrc,
+          safeOriginalSrc,
         );
         if (!asset) {
           console.warn('[assets-panel] Upload returned null for local asset:', localAsset.localId);
@@ -859,25 +873,22 @@ export default function createAssetsPanelController({
 
     if (!elementPath) return null;
 
-    // Use the stored attribute value (set by applyAssetPreviewToImg on a previous regen)
-    // or the current src attribute (before this regen overwrites it).  Both are attribute
-    // values so they match the literal src string in cachedCleanHtml.
+    // Capture original src before we overwrite it. Use the stored attribute so that
+    // a second regen still points back to the real original (not the first regen URL).
     const originalSrc = targetImg.getAttribute('data-original-src')
       || targetImg.getAttribute('src')
       || '';
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const filename = regenUrl.split('/').pop() || `generated-${Date.now()}`;
 
     const localAsset = {
       localId,
-      file,
-      filename: file.name,
-      mimeType: file.type,
-      size: file.size,
+      regenUrl,
+      filename,
       elementPath,
       elementRef,
       elementProps,
       originalSrc,
-      base64Data,
       targetImg,
       createdAt: new Date().toISOString(),
       // Already at its final content.da.live URL; skip upload and promotion.
@@ -915,34 +926,57 @@ export default function createAssetsPanelController({
 
     applyAssetPreviewToImg(targetImg, base64Data, localAsset);
 
-    if (pendingAlt) {
-      const originalAlt = targetImg.getAttribute('alt') || '';
-      const imgRef = store.ensureElementRef(targetImg);
-      const imgAnchor = store.buildEditElementAnchor(targetImg);
+    // Apply the DA URL directly to the image (same visual result as base64 preview)
+    applyAssetPreviewToImg(targetImg, regenUrl, localAsset);
 
-      targetImg.dataset.pendingAlt = pendingAlt;
-      targetImg.alt = pendingAlt;
-
-      const { elementPath: altPath, elementProps: altProps } = imgAnchor;
-      const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
-      if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
-        store.upsertEasyEdit({
-          ...(existingAltEdit || {}),
-          id: existingAltEdit?.id || store.generateId('easy-edit'),
-          editType: 'image-alt',
-          attrName: 'alt',
-          elementPath: imgAnchor.elementPath,
-          elementProps: imgAnchor.elementProps,
-          elementRef: imgRef,
-          from: existingAltEdit?.from ?? originalAlt,
-          to: pendingAlt,
-          fromHtml: '',
-          toHtml: '',
-          updatedAt: new Date().toISOString(),
-        });
-      }
+    // Create an image-src easyEdit immediately so the change is tracked and saved
+    const existingSrcEdit = store.getEasyEditByElement(elementRef, elementPath, elementProps);
+    if (!existingSrcEdit || existingSrcEdit.editType === 'image-src') {
+      store.upsertEasyEdit({
+        ...(existingSrcEdit || {}),
+        id: existingSrcEdit?.id || store.generateId('easy-edit'),
+        editType: 'image-src',
+        attrName: 'src',
+        elementPath,
+        elementProps,
+        elementRef,
+        from: existingSrcEdit?.from || originalSrc,
+        to: regenUrl,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
+      });
     }
 
+    // Alt text — always apply; fall back to 'Image Alt text' when absent
+    const resolvedAlt = pendingAlt || 'Image Alt text';
+    const originalAlt = targetImg.getAttribute('alt') || '';
+    const imgRef = store.ensureElementRef(targetImg);
+    const imgAnchor = store.buildEditElementAnchor(targetImg);
+
+    targetImg.dataset.pendingAlt = resolvedAlt;
+    targetImg.alt = resolvedAlt;
+
+    const { elementPath: altPath, elementProps: altProps } = imgAnchor;
+    const existingAltEdit = store.getEasyEditByElement(imgRef, altPath, altProps);
+    if (!existingAltEdit || existingAltEdit.editType === 'image-alt') {
+      store.upsertEasyEdit({
+        ...(existingAltEdit || {}),
+        id: existingAltEdit?.id || store.generateId('easy-edit'),
+        editType: 'image-alt',
+        attrName: 'alt',
+        elementPath: imgAnchor.elementPath,
+        elementProps: imgAnchor.elementProps,
+        elementRef: imgRef,
+        from: existingAltEdit?.from ?? originalAlt,
+        to: resolvedAlt,
+        fromHtml: '',
+        toHtml: '',
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    store.saveAnnotationStore();
     notifyAssetsChanged();
     return {
       elementPath, elementProps, elementRef, originalSrc,
