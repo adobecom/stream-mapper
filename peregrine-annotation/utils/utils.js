@@ -1,5 +1,3 @@
-import { BROKEN_PLACEHOLDER_HTML } from './constants.js';
-
 export const [setLibs, getLibs] = (() => {
   let libs;
   return [
@@ -152,33 +150,6 @@ export function ackCodeGeneration() {
     ackCode += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return ackCode;
-}
-
-function persistOriginalImageUrl(img, url) {
-  if (!url) return;
-  img.setAttribute('data-stream-original-src', url);
-  const picture = img.closest('picture');
-  if (!picture) return;
-  picture.setAttribute('data-stream-original-src', url);
-  picture.querySelectorAll('source').forEach((source) => {
-    source.setAttribute('data-stream-original-src', url);
-  });
-}
-
-async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.default) {
-  const handler = async () => {
-    const brokenAreas = document.querySelectorAll('main div[data-failed="true"], main .text.broken-placeholder-fragment');
-    brokenAreas.forEach(async (brokenArea) => {
-      if (brokenArea.classList.contains('metadata')) {
-        brokenArea.remove();
-      } else {
-        brokenArea.insertAdjacentHTML('afterend', placeholderHtml);
-        brokenArea.remove();
-      }
-    });
-    if (!document.querySelector('#page-load-ok-milo')) setTimeout(handler, 5000);
-  };
-  handler();
 }
 
 export function getMapperEnv() {

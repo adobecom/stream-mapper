@@ -7,6 +7,7 @@ import {
   resetEditChangesInStore,
 } from '../store/store.js';
 import { annotationOperationOnHostPage, applyRemoteCollabSnapshot } from '../annotation.js';
+import { initIms, getImsToken, getImsProfile } from './ims.js';
 
 const API_ENDPOINT = 'http://localhost:8081/api';
 const SEARCH_DEBOUNCE_MS = 250;
@@ -33,7 +34,7 @@ function loadCssFiles(filePath) {
 }
 
 function getToken() {
-  return resolvedToken || window.adobeIMS?.getAccessToken()?.token || '';
+  return getImsToken() || resolvedToken || window.adobeIMS?.getAccessToken()?.token || '';
 }
 
 async function searchUsers(query) {
@@ -469,7 +470,8 @@ function showCollabModal() {
 
     // Pre-fill current user as pinned owner
     try {
-      const profile = window.adobeIMS?.getProfile?.();
+      const imsProfile = getImsProfile();
+      const profile = imsProfile || window.adobeIMS?.getProfile?.();
       const userId = profile?.userId || profile?.email || '';
       const displayName = profile?.displayName || profile?.name || userId;
       if (userId) ownerField.addPinned(userId, displayName);
@@ -695,31 +697,58 @@ let initInProgress = false;
 export async function initializeStreamAnnotation(sidekickDetail = null) {
   if (initInProgress) return;
   initInProgress = true;
-  const profile = sidekickDetail?.status?.profile;
 
-  if (profile) {
-    try {
-      const response = await fetch(`${API_ENDPOINT}/auth/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        resolvedToken = data.token || '';
-        resolvedEmail = data.email || '';
-        resolvedName = profile.name || profile.email?.split('@')[0] || '';
-      } else {
-        console.warn('[milo-collab-init] Token exchange failed:', response.status);
+  // Primary: bootstrap IMS library for auth
+  try {
+    await initIms(window.location.href, (token, imsProfile) => {
+      if (token && imsProfile) {
+        resolvedToken = token;
+        resolvedEmail = imsProfile.email || resolvedEmail;
+        resolvedName = imsProfile.name || resolvedName;
       }
-    } catch (error) {
-      console.warn('[milo-collab-init] Token exchange error:', error);
+    });
+    const imsToken = getImsToken();
+    if (imsToken) {
+      resolvedToken = imsToken;
+      const imsProfile = getImsProfile();
+      if (imsProfile) {
+        resolvedEmail = imsProfile.email || resolvedEmail;
+        resolvedName = imsProfile.name || resolvedName;
+      }
+    }
+  } catch (e) {
+    console.warn('[milo-collab-init] IMS bootstrap failed, falling back:', e);
+  }
+
+  // Fallback: backend token exchange via sidekick profile
+  if (!resolvedToken) {
+    const profile = sidekickDetail?.status?.profile;
+    if (profile) {
+      try {
+        const response = await fetch(`${API_ENDPOINT}/auth/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          resolvedToken = data.token || '';
+          resolvedEmail = data.email || '';
+          resolvedName = profile.name || profile.email?.split('@')[0] || '';
+        } else {
+          console.warn('[milo-collab-init] Token exchange failed:', response.status);
+        }
+      } catch (error) {
+        console.warn('[milo-collab-init] Token exchange error:', error);
+      }
     }
   }
 
+  // Last resort: existing window.adobeIMS
   if (!resolvedToken) {
     resolvedToken = window.adobeIMS?.getAccessToken()?.token || '';
   }
+
   const params = new URLSearchParams(window.location.search);
 
   const collabId = params.get('miloCollabId');
