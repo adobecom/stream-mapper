@@ -203,6 +203,45 @@ body.annotation-mode main::-webkit-scrollbar {
   color: var(--annotation-ink-soft);
 }
 
+/* Eye toggle + comment count fused into one bordered pill. */
+.peregrine-collab-topbar-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  height: 34px;
+  padding: 0 8px 0 3px;
+  border: 1px solid #d6d2e4;
+  border-radius: 9px;
+  background: #fff;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.peregrine-collab-topbar-toggle-wrap:hover {
+  box-shadow: 0 2px 10px rgba(22, 21, 26, 0.08);
+}
+
+.peregrine-collab-topbar-toggle-wrap .peregrine-collab-topbar-badge {
+  cursor: pointer;
+}
+
+.peregrine-collab-topbar-toggle-wrap .peregrine-collab-topbar-visibility {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.peregrine-collab-topbar-toggle-wrap .peregrine-collab-topbar-visibility:hover,
+.peregrine-collab-topbar-toggle-wrap .peregrine-collab-topbar-visibility[aria-pressed="true"] {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--annotation-accent);
+}
+
 .peregrine-collab-topbar-visibility {
   width: 34px;
   padding: 0;

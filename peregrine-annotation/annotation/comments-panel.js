@@ -286,13 +286,6 @@ export default function createCommentsPanelController({
       </div>
       <div class="peregrine-collab-topbar-spacer"></div>
       <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
-      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-comments">
-        <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-        </span>
-        <span>Comments</span>
-        <span class="peregrine-collab-topbar-badge" hidden>0</span>
-      </button>
       <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-activity">
         <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h4l2 6 4-14 2 8h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -300,27 +293,27 @@ export default function createCommentsPanelController({
         <span>Activity</span>
         <span class="peregrine-collab-topbar-caret" aria-hidden="true">▾</span>
       </button>
-      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
+      <div class="peregrine-collab-topbar-toggle-wrap">
+        <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
+        <span class="peregrine-collab-topbar-badge" title="Comments" hidden>0</span>
+      </div>
     `;
     document.body.appendChild(bar);
 
     annotationUI.topbarEl = bar;
     annotationUI.workspaceTitleEl = bar.querySelector('.peregrine-collab-topbar-title');
     annotationUI.presenceEl = bar.querySelector('.peregrine-collab-topbar-presence');
-    annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
     annotationUI.activityBtnEl = bar.querySelector('.peregrine-collab-topbar-activity');
     annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
 
     setMarkupsHidden(false);
 
-    annotationUI.visibilityToggleEl.addEventListener('click', () => {
+    // Clicking anywhere in the pill (eye icon or the count) toggles markups.
+    const toggleWrap = bar.querySelector('.peregrine-collab-topbar-toggle-wrap');
+    (toggleWrap || annotationUI.visibilityToggleEl)?.addEventListener('click', () => {
       setMarkupsHidden(!annotationState.markupsHidden);
     });
 
-    annotationUI.commentsBtnEl.addEventListener('click', (event) => {
-      event.stopPropagation();
-      toggleCommentsDrawer('mine');
-    });
     annotationUI.activityBtnEl.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleCommentsDrawer('all');
@@ -364,7 +357,7 @@ export default function createCommentsPanelController({
   }
 
   function updateCommentsBadge() {
-    const badge = annotationUI.commentsBtnEl?.querySelector('.peregrine-collab-topbar-badge');
+    const badge = annotationUI.topbarEl?.querySelector('.peregrine-collab-topbar-badge');
     if (!(badge instanceof HTMLElement)) return;
     const mineCount = annotationState.store.threads
       .filter((thread) => store.getThreadType(thread) === 'comment')
@@ -385,8 +378,7 @@ export default function createCommentsPanelController({
       chip.classList.toggle('is-active', chip.dataset.filter === filter);
     });
     const open = isCommentsDrawerOpen();
-    annotationUI.activityBtnEl?.classList.toggle('is-open', open && filter !== 'mine');
-    annotationUI.commentsBtnEl?.classList.toggle('is-open', open && filter === 'mine');
+    annotationUI.activityBtnEl?.classList.toggle('is-open', open);
   }
 
   function openCommentsDrawer(filter) {
@@ -2455,10 +2447,9 @@ export default function createCommentsPanelController({
     setPopupSubmitPending(false);
     closePopupAndSelection();
     store.saveAnnotationStore();
+    // Just drop the pin — don't auto-open the Activity drawer or the reply popup.
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
-    // Show the new comment in place (floating thread) — don't open the Activity drawer.
-    openFloatingThread(thread.id);
     requestParentCollabRefresh('comment-created');
   }
 
@@ -2536,6 +2527,16 @@ export default function createCommentsPanelController({
       showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
       return;
     }
+    // If this element already has an open thread, open its reply dialog in place
+    // instead of starting a new comment.
+    if (thread) {
+      store.clearSelectedElement();
+      removePopup();
+      openFloatingThread(thread.id, element);
+      return;
+    }
+    // Starting a new comment on a different element — close any open thread window.
+    removeFloatingThread();
     annotationState.activeThreadId = thread?.id || '';
     annotationState.activeMessageId = '';
     renderCommentsPanel();

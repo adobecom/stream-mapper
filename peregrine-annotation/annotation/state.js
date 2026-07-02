@@ -54,7 +54,6 @@ export function createAnnotationUI() {
     topbarEl: null,
     presenceEl: null,
     workspaceTitleEl: null,
-    commentsBtnEl: null,
     activityBtnEl: null,
     canvasRefreshBarEl: null,
     inlineCommentsToggleEl: null,
