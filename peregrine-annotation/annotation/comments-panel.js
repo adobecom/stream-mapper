@@ -286,35 +286,30 @@ export default function createCommentsPanelController({
       </div>
       <div class="peregrine-collab-topbar-spacer"></div>
       <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
-      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-activity">
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-comments">
         <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h4l2 6 4-14 2 8h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
         </span>
-        <span>Activity</span>
-        <span class="peregrine-collab-topbar-caret" aria-hidden="true">▾</span>
+        <span>Comments</span>
+        <span class="peregrine-collab-topbar-badge" hidden>0</span>
       </button>
-      <div class="peregrine-collab-topbar-toggle-wrap">
-        <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
-        <span class="peregrine-collab-topbar-badge" title="Comments" hidden>0</span>
-      </div>
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
     `;
     document.body.appendChild(bar);
 
     annotationUI.topbarEl = bar;
     annotationUI.workspaceTitleEl = bar.querySelector('.peregrine-collab-topbar-title');
     annotationUI.presenceEl = bar.querySelector('.peregrine-collab-topbar-presence');
-    annotationUI.activityBtnEl = bar.querySelector('.peregrine-collab-topbar-activity');
+    annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
     annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
 
     setMarkupsHidden(false);
 
-    // Clicking anywhere in the pill (eye icon or the count) toggles markups.
-    const toggleWrap = bar.querySelector('.peregrine-collab-topbar-toggle-wrap');
-    (toggleWrap || annotationUI.visibilityToggleEl)?.addEventListener('click', () => {
+    annotationUI.visibilityToggleEl.addEventListener('click', () => {
       setMarkupsHidden(!annotationState.markupsHidden);
     });
 
-    annotationUI.activityBtnEl.addEventListener('click', (event) => {
+    annotationUI.commentsBtnEl.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleCommentsDrawer('all');
     });
@@ -354,6 +349,13 @@ export default function createCommentsPanelController({
       more.textContent = `+${people.length - MAX_VISIBLE}`;
       annotationUI.presenceEl.appendChild(more);
     }
+
+    // DEMO ONLY: extra placeholder collaborator. Remove before shipping.
+    const demoAvatar = buildAvatarEl('User', 'demo-user', {
+      size: 28,
+      className: 'peregrine-collab-presence-avatar',
+    });
+    annotationUI.presenceEl.appendChild(demoAvatar);
   }
 
   function updateCommentsBadge() {
@@ -378,7 +380,7 @@ export default function createCommentsPanelController({
       chip.classList.toggle('is-active', chip.dataset.filter === filter);
     });
     const open = isCommentsDrawerOpen();
-    annotationUI.activityBtnEl?.classList.toggle('is-open', open);
+    annotationUI.commentsBtnEl?.classList.toggle('is-open', open);
   }
 
   function openCommentsDrawer(filter) {
@@ -1677,6 +1679,17 @@ export default function createCommentsPanelController({
           cardHeader.append(cardAvatar);
         }
         cardHeader.append(username);
+        if (isCommentThread) {
+          const cardTimeText = formatRelativeTime(
+            group.comment.editedAt || group.comment.createdAt,
+          );
+          if (cardTimeText) {
+            const cardTime = document.createElement('span');
+            cardTime.className = 'annotation-panel-comment-time';
+            cardTime.textContent = cardTimeText;
+            cardHeader.append(cardTime);
+          }
+        }
         if (statusControls && isExpanded) cardHeader.append(statusControls);
 
         const hasPending = !!group.comment?.hasPendingHistory || !group.comment?.isCommitted;
@@ -1764,13 +1777,23 @@ export default function createCommentsPanelController({
           } else {
             const replyContent = document.createElement('div');
             replyContent.className = 'annotation-panel-reply-content';
+            const replyHead = document.createElement('div');
+            replyHead.className = 'annotation-panel-reply-head';
             const replyUsername = document.createElement('p');
             replyUsername.className = 'annotation-panel-reply-user';
             replyUsername.textContent = reply.username || ANNOTATION_DEFAULT_USERNAME;
+            replyHead.append(replyUsername);
+            const replyTimeText = formatRelativeTime(reply.editedAt || reply.createdAt);
+            if (replyTimeText) {
+              const replyTime = document.createElement('span');
+              replyTime.className = 'annotation-panel-reply-time';
+              replyTime.textContent = replyTimeText;
+              replyHead.append(replyTime);
+            }
             const replyText = document.createElement('p');
             replyText.className = 'annotation-panel-reply-text';
             replyText.innerHTML = linkifyText(reply.text);
-            replyContent.append(replyUsername, replyText);
+            replyContent.append(replyHead, replyText);
             replyRow.append(replyContent);
           }
 
