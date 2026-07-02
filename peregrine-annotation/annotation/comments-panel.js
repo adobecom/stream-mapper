@@ -80,6 +80,17 @@ export default function createCommentsPanelController({
     const panel = document.createElement('aside');
     panel.className = 'annotation-comments-panel';
     panel.innerHTML = `
+      <button
+        type="button"
+        class="annotation-comments-panel-collapse-btn"
+        aria-expanded="true"
+        aria-label="Collapse annotations panel"
+        title="Collapse panel"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M6.5 1L2.5 5L6.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
       <div class="annotation-comments-panel-header">
         <div class="annotation-comments-panel-heading">
           <h3>Annotations</h3>
@@ -119,6 +130,15 @@ export default function createCommentsPanelController({
     annotationUI.panelEl = panel;
     annotationUI.panelListEl = panel.querySelector('.annotation-comments-list');
     annotationUI.visibilityToggleEl = panel.querySelector('.annotation-mode-btn-visibility');
+    annotationUI.collapseToggleEl = panel.querySelector('.annotation-comments-panel-collapse-btn');
+
+    annotationUI.collapseToggleEl.addEventListener('click', () => {
+      const isCollapsed = panel.classList.toggle('is-collapsed');
+      document.body.classList.toggle('annotation-panel-collapsed', isCollapsed);
+      annotationUI.collapseToggleEl.setAttribute('aria-expanded', String(!isCollapsed));
+      annotationUI.collapseToggleEl.title = isCollapsed ? 'Expand panel' : 'Collapse panel';
+      annotationUI.collapseToggleEl.setAttribute('aria-label', isCollapsed ? 'Expand annotations panel' : 'Collapse annotations panel');
+    });
 
     annotationUI.visibilityToggleEl.addEventListener('click', () => {
       const layer = document.querySelector('.annotation-floating-layer');

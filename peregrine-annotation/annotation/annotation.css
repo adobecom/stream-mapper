@@ -159,6 +159,59 @@ body.annotation-mode main::-webkit-scrollbar {
   flex-direction: column;
   container-name: comments-panel;
   container-type: inline-size;
+  transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease, padding 0.2s ease;
+}
+
+.annotation-comments-panel.is-collapsed {
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  padding: 12px 4px;
+  overflow: visible;
+}
+
+.annotation-comments-panel.is-collapsed .annotation-comments-panel-header,
+.annotation-comments-panel.is-collapsed .annotation-comments-content {
+  display: none;
+}
+
+.annotation-comments-panel-collapse-btn {
+  position: absolute;
+  top: 12px;
+  left: -13px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cfe1ff;
+  border-radius: 50%;
+  background: #fff;
+  color: #1d4ed8;
+  cursor: pointer;
+  z-index: 1;
+  transition: background-color 0.15s ease, transform 0.2s ease;
+}
+
+.annotation-comments-panel-collapse-btn:hover {
+  background: #eff6ff;
+}
+
+.annotation-comments-panel.is-collapsed .annotation-comments-panel-collapse-btn {
+  position: static;
+  transform: rotate(180deg);
+}
+
+body.annotation-mode.annotation-panel-collapsed main {
+  transform: scale(0.97);
+}
+
+body.annotation-panel-collapsed .annotation-floating-layer {
+  inset: 0 32px 0 0;
+}
+
+body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
+  right: 32px;
 }
 
 .annotation-comments-panel-header {
@@ -1571,6 +1624,15 @@ body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonl
   body.annotation-mode main,
   .annotation-floating-layer {
     inset: 0 320px 0 0;
+  }
+
+  body.annotation-panel-collapsed .annotation-comments-panel {
+    width: 32px;
+  }
+
+  body.annotation-mode.annotation-panel-collapsed main,
+  body.annotation-panel-collapsed .annotation-floating-layer {
+    inset: 0 32px 0 0;
   }
 }
 

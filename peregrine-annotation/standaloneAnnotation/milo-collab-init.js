@@ -103,9 +103,10 @@ async function fetchAndApplyCollabSnapshot(collabId) {
 
 async function startAnnotation(createdCollabId = null) {
   const params = new URLSearchParams(window.location.search);
-  loadCssFiles('https://standaloneAnnotation--stream-mapper--adobecom.aem.live/streamlibs/styles/styles.css');
+  loadCssFiles(new URL('../annotation/annotation.css', import.meta.url).href);
   const env = getMapperEnv();
-  const collabId = createdCollabId || params.get('miloCollabId');
+  const collabId = createdCollabId || params.get('miloCollabId') || params.get('peregrine-collab-id');
+  /*
   const { host, pathname } = window.location;
   if (!host.includes('.aem.')) return;
   const repo = host.split('--')[1];
@@ -113,6 +114,9 @@ async function startAnnotation(createdCollabId = null) {
   let filename = pathname.split('/');
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
+  */
+  const pageUrl = window.location.href;
+  const draftLocation = '';
   const username = resolvedName || resolvedEmail.split('@')[0] || 'Unknown';
   window.streamConfig = {
     streamMapper: { ...CONFIG[env].streamMapper },
@@ -128,7 +132,7 @@ async function startAnnotation(createdCollabId = null) {
     collabId,
     operation: 'aiSeoAnnotation',
     username: params.get('username') || null,
-    reviewId: params.get('miloCollabId'),
+    reviewId: params.get('miloCollabId') || params.get('peregrine-collab-id'),
     collabRole: 'owner',
     draftLocation: pageUrl,
     // eslint-disable-next-line no-dupe-keys
@@ -751,7 +755,7 @@ export async function initializeStreamAnnotation(sidekickDetail = null) {
 
   const params = new URLSearchParams(window.location.search);
 
-  const collabId = params.get('miloCollabId');
+  const collabId = params.get('miloCollabId') || params.get('peregrine-collab-id');
   if (collabId) {
     await startAnnotation(collabId);
     return;
