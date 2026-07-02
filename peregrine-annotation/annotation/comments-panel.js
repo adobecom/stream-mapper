@@ -138,6 +138,7 @@ export default function createCommentsPanelController({
       annotationUI.collapseToggleEl.setAttribute('aria-expanded', String(!isCollapsed));
       annotationUI.collapseToggleEl.title = isCollapsed ? 'Expand panel' : 'Collapse panel';
       annotationUI.collapseToggleEl.setAttribute('aria-label', isCollapsed ? 'Expand annotations panel' : 'Collapse annotations panel');
+      scheduleFloatingUISync();
     });
 
     annotationUI.visibilityToggleEl.addEventListener('click', () => {
@@ -2312,6 +2313,7 @@ export default function createCommentsPanelController({
     }
     if (annotationUI.mainEl && annotationState.mainScrollHandler) {
       annotationUI.mainEl.removeEventListener('scroll', annotationState.mainScrollHandler);
+      document.removeEventListener('scroll', annotationState.mainScrollHandler, true);
       annotationState.mainScrollHandler = null;
     }
     if (annotationUI.mainEl && annotationState.mainClickHandler) {
@@ -2679,9 +2681,17 @@ export default function createCommentsPanelController({
     };
     document.addEventListener('click', annotationState.documentClickHandler);
 
-    annotationState.mainScrollHandler = scheduleFloatingUISync;
+    annotationState.mainScrollHandler = (event) => {
+      const { target } = event;
+      if (target instanceof Node) {
+        if (annotationUI.panelEl?.contains(target)) return;
+        if (annotationUI.popupEl?.contains(target)) return;
+      }
+      scheduleFloatingUISync();
+    };
     annotationState.windowResizeHandler = scheduleFloatingUISync;
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
+    document.addEventListener('scroll', annotationState.mainScrollHandler, true);
     window.addEventListener('resize', annotationState.windowResizeHandler);
   }
 
