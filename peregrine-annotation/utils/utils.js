@@ -92,6 +92,43 @@ export const compose = (...fns) => (initialArg) => fns.reduce((acc, fn) => fn(ac
 
 export const ARROW_ICON_SVG = '<svg class="annotation-arrow-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M17.7686 9.48437L14.7632 6.47949C14.4702 6.18652 13.9956 6.18652 13.7026 6.47949C13.4097 6.77246 13.4097 7.24707 13.7026 7.54004L15.413 9.25H2.75C2.33594 9.25 2 9.58594 2 10C2 10.4141 2.33594 10.75 2.75 10.75H15.4425L13.7026 12.4902C13.4097 12.7832 13.4097 13.2578 13.7026 13.5508C13.8491 13.6973 14.041 13.7705 14.2329 13.7705C14.4248 13.7705 14.6167 13.6973 14.7632 13.5508L17.7685 10.5449C17.9092 10.4043 17.9883 10.2139 17.9883 10.0147C17.9883 9.81543 17.9092 9.62499 17.7686 9.48437Z" fill="currentColor"/></svg>';
 
+// Palette used for per-user avatar colors across the annotation UI.
+export const ANNOTATION_AVATAR_PALETTE = [
+  '#C9603F', // terracotta
+  '#2E9E6B', // green
+  '#3A6FB0', // blue
+  '#7B4FD0', // violet
+  '#D98A1F', // amber
+  '#B0417A', // magenta
+  '#0E8A8A', // teal
+  '#5A6BD8', // indigo
+];
+
+// Deterministically map an identity key (name / email / profileId) to a palette color.
+export function getAvatarColor(key) {
+  const source = `${key || ''}`.trim().toLowerCase() || 'anon';
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    // eslint-disable-next-line no-bitwise
+    hash = (hash << 5) - hash + source.charCodeAt(i);
+    // eslint-disable-next-line no-bitwise
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % ANNOTATION_AVATAR_PALETTE.length;
+  return ANNOTATION_AVATAR_PALETTE[index];
+}
+
+// Build up-to-two-letter initials from a display name or email.
+export function getAvatarInitials(name) {
+  const value = `${name || ''}`.trim();
+  if (!value) return '?';
+  const local = value.includes('@') ? value.split('@')[0] : value;
+  const parts = local.split(/[\s._-]+/).filter(Boolean);
+  if (!parts.length) return value.slice(0, 1).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
 export function formatCardTimestamp(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -103,6 +140,22 @@ export function formatCardTimestamp(value) {
   const hh = pad(date.getHours());
   const min = pad(date.getMinutes());
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+// Compact relative time ("now", "4m", "3h", "2d") for activity lists.
+export function formatRelativeTime(value) {
+  if (!value) return '';
+  const then = new Date(value).getTime();
+  if (Number.isNaN(then)) return '';
+  const diff = Math.max(0, Date.now() - then);
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return formatCardTimestamp(value);
 }
 
 export const getFirstType = (text) => {

@@ -7,10 +7,19 @@
 /* ============ Annotations Operation =========== */
 
 body.annotation-mode {
+  --peregrine-collab-topbar-h: 54px;
+  --annotation-accent: #4a3ddb;
+  --annotation-accent-soft: #ecebfb;
+  --annotation-ink: #16151a;
+  --annotation-ink-soft: #56535f;
+  --annotation-line: #e4e2ef;
+
   height: 100vh;
   overflow: hidden;
   background: #f8fbff;
   color: #000;
+  padding-top: var(--peregrine-collab-topbar-h);
+  box-sizing: border-box;
 }
 
 
@@ -26,9 +35,7 @@ body.annotation-mode main {
   overflow: scroll;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  height: 120%;
-  transform: scale(0.75);
-  transform-origin: top left;
+  height: 100%;
   box-sizing: border-box;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -36,6 +43,380 @@ body.annotation-mode main {
 
 body.annotation-mode main::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Modern annotation top bar ─────────────────────────────────────────── */
+
+.peregrine-collab-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--peregrine-collab-topbar-h);
+  z-index: 10048;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
+  background: rgba(248, 247, 251, 0.86);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--annotation-line);
+  font-family: 'Adobe Clean', 'Segoe UI', system-ui, sans-serif;
+  box-sizing: border-box;
+}
+
+.peregrine-collab-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 42%;
+}
+
+.peregrine-collab-topbar-glyph {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--annotation-accent), #7b6ff0);
+}
+
+.peregrine-collab-topbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--annotation-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peregrine-collab-topbar-spacer {
+  flex: 1 1 auto;
+}
+
+.peregrine-collab-topbar-presence {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+
+.peregrine-collab-avatar {
+  position: relative;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 1;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+.peregrine-collab-presence-avatar {
+  border: 2px solid rgba(248, 247, 251, 0.95);
+  margin-left: -8px;
+}
+
+.peregrine-collab-presence-avatar:first-child {
+  margin-left: 0;
+}
+
+.peregrine-collab-presence-more {
+  background: #8e8b97;
+  font-size: 10px;
+}
+
+.peregrine-collab-avatar-dot {
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2e9e6b;
+  border: 2px solid rgba(248, 247, 251, 0.95);
+}
+
+.peregrine-collab-topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d6d2e4;
+  background: #fff;
+  color: var(--annotation-ink);
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  flex: 0 0 auto;
+}
+
+.peregrine-collab-topbar-btn:hover {
+  box-shadow: 0 2px 10px rgba(22, 21, 26, 0.08);
+}
+
+.peregrine-collab-topbar-btn.is-open {
+  background: var(--annotation-accent-soft);
+  border-color: #c8c2f4;
+  color: var(--annotation-accent);
+}
+
+.peregrine-collab-topbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.peregrine-collab-topbar-btn-icon {
+  display: inline-flex;
+}
+
+.peregrine-collab-topbar-btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.peregrine-collab-topbar-badge {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--annotation-accent);
+  border-radius: 99px;
+  padding: 2px 6px;
+  min-width: 17px;
+  text-align: center;
+}
+
+.peregrine-collab-topbar-caret {
+  font-size: 10px;
+  color: var(--annotation-ink-soft);
+}
+
+.peregrine-collab-topbar-visibility {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+  color: var(--annotation-ink-soft);
+}
+
+.peregrine-collab-topbar-visibility svg {
+  width: 18px;
+  height: 18px;
+}
+
+.peregrine-collab-topbar-visibility[aria-pressed="true"] {
+  background: var(--annotation-accent-soft);
+  border-color: #c8c2f4;
+  color: var(--annotation-accent);
+}
+
+/* ── Activity drawer filter chips (All / Mine / Others) ────────────────── */
+
+.peregrine-collab-activity-filters {
+  display: flex;
+  gap: 7px;
+  padding: 12px 2px 4px;
+  flex: 0 0 auto;
+}
+
+.peregrine-collab-activity-chip {
+  border: 1px solid #d6d2e4;
+  background: #fff;
+  color: var(--annotation-ink-soft);
+  border-radius: 99px;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.peregrine-collab-activity-chip.is-active {
+  background: var(--annotation-ink);
+  color: #fff;
+  border-color: var(--annotation-ink);
+}
+
+/* ── Floating thread (opens in place next to the pin) ─────────────────── */
+
+.peregrine-collab-thread {
+  position: fixed;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  background: #fff;
+  border: 1px solid #d6d2e4;
+  border-radius: 14px;
+  box-shadow: 0 16px 50px rgba(22, 21, 26, 0.22);
+  z-index: 10050;
+  overflow: hidden;
+  font-family: 'Adobe Clean', 'Segoe UI', system-ui, sans-serif;
+  animation: peregrine-collab-thread-rise 0.15s ease;
+}
+
+@keyframes peregrine-collab-thread-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.peregrine-collab-thread-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--annotation-line, #e4e2ef);
+}
+
+.peregrine-collab-thread-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--annotation-ink-soft, #56535f);
+}
+
+.peregrine-collab-thread-status {
+  margin-left: auto;
+  appearance: none;
+  border: 1px solid #d6d2e4;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--annotation-ink, #16151a);
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.peregrine-collab-thread-status-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--annotation-ink-soft, #56535f);
+}
+
+.peregrine-collab-thread-close {
+  border: none;
+  background: none;
+  color: var(--annotation-ink-soft, #56535f);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.peregrine-collab-thread-close:hover {
+  background: #f2f1f7;
+  color: var(--annotation-ink, #16151a);
+}
+
+.peregrine-collab-thread-body {
+  max-height: min(320px, 50vh);
+  overflow: auto;
+}
+
+.peregrine-collab-thread-cmt {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--annotation-line, #e4e2ef);
+}
+
+.peregrine-collab-thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.peregrine-collab-thread-nm {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--annotation-ink, #16151a);
+}
+
+.peregrine-collab-thread-tm {
+  font-size: 11px;
+  color: #8e8b97;
+  margin-left: auto;
+}
+
+.peregrine-collab-thread-bd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--annotation-ink-soft, #56535f);
+  overflow-wrap: break-word;
+}
+
+.peregrine-collab-thread-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 12px;
+}
+
+.peregrine-collab-thread-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #d6d2e4;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--annotation-ink, #16151a);
+  min-height: 36px;
+  box-sizing: border-box;
+}
+
+.peregrine-collab-thread-input:focus {
+  outline: 2px solid var(--annotation-accent-soft, #ecebfb);
+  border-color: var(--annotation-accent, #4a3ddb);
+}
+
+.peregrine-collab-thread-send {
+  border: none;
+  border-radius: 8px;
+  background: var(--annotation-accent, #4a3ddb);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 13px;
+  cursor: pointer;
+}
+
+.peregrine-collab-thread-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+body.peregrine-collab-markups-hidden .peregrine-collab-thread {
+  display: none;
+}
+
+/* ── Block hover highlight (identifies the block under the cursor) ─────── */
+
+body.annotation-mode main .peregrine-collab-block-hover {
+  outline: 2px dashed rgba(74, 61, 219, 0.5);
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
 .annotation-selected-element {
@@ -48,9 +429,18 @@ body.annotation-mode main::-webkit-scrollbar {
   box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
+/* Hide-all-markups also clears the box/highlight on commented blocks. */
+body.peregrine-collab-markups-hidden .annotation-has-comments {
+  box-shadow: none;
+}
+
+body.peregrine-collab-markups-hidden .peregrine-collab-block-hover {
+  outline: none;
+}
+
 .annotation-floating-layer {
   position: fixed;
-  inset: 0 20% 0 0;
+  inset: var(--peregrine-collab-topbar-h, 54px) 0 0 0;
   pointer-events: none;
   z-index: 2300;
 }
@@ -61,20 +451,33 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-thread-marker {
   position: fixed;
-  transform: translate(-100%, 0);
+  transform: none;
   pointer-events: auto;
-  border: 1px solid #93c5fd;
+  border: 2px solid #fff;
   border-radius: 999px;
-  background: #eff6ff;
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.15);
+  background: var(--annotation-marker-color, #4a3ddb);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  box-shadow: 0 4px 14px rgba(22, 21, 26, 0.22);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  font-family: 'Adobe Clean', 'Segoe UI', system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.annotation-thread-marker.is-resolved {
+  background: #2e9e6b;
+}
+
+.annotation-thread-marker svg {
+  display: block;
 }
 
 .annotation-thread-marker-icon {
@@ -85,7 +488,7 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-edit-marker {
   position: fixed;
-  transform: translate(-100%, 0);
+  transform: none;
   pointer-events: auto;
   border: 1px solid #facc15;
   border-radius: 999px;
@@ -109,7 +512,7 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-asset-marker {
   position: fixed;
-  transform: translate(-100%, 0);
+  transform: none;
   pointer-events: auto;
   border: 1px solid #6ee7b7;
   border-radius: 999px;
@@ -132,8 +535,8 @@ body.annotation-mode main::-webkit-scrollbar {
 }
 
 @keyframes annotation-marker-pulse {
-  0%, 100% { transform: translate(-100%, 0) scale(1); }
-  50%       { transform: translate(-100%, 0) scale(1.5); }
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.5); }
 }
 
 .annotation-marker-pulse {
@@ -142,76 +545,50 @@ body.annotation-mode main::-webkit-scrollbar {
 
 .annotation-comments-panel {
   position: fixed;
-  top: 0;
+  top: var(--peregrine-collab-topbar-h, 54px);
   right: 0;
-  width: 20%;
-  max-width: 25%;
-  min-width: 25%;
-  height: 100vh;
+  width: 380px;
+  max-width: 92vw;
+  height: calc(100vh - var(--peregrine-collab-topbar-h, 54px));
   overflow: hidden;
-  background: #eef5ff;
-  border-left: 1px solid #cfe1ff;
+  background: #fff;
+  border-left: 1px solid var(--annotation-line, #e4e2ef);
+  box-shadow: -14px 0 44px rgba(22, 21, 26, 0.12);
   box-sizing: border-box;
-  padding: 12px;
+  padding: 16px;
   z-index: 10046;
   font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
   display: flex;
   flex-direction: column;
   container-name: comments-panel;
   container-type: inline-size;
-  transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease, padding 0.2s ease;
+  transform: translateX(100%);
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.annotation-comments-panel.is-collapsed {
-  width: 32px;
-  min-width: 32px;
-  max-width: 32px;
-  padding: 12px 4px;
-  overflow: visible;
+.annotation-comments-panel.is-open {
+  transform: none;
 }
 
-.annotation-comments-panel.is-collapsed .annotation-comments-panel-header,
-.annotation-comments-panel.is-collapsed .annotation-comments-content {
-  display: none;
-}
-
-.annotation-comments-panel-collapse-btn {
-  position: absolute;
-  top: 12px;
-  left: -13px;
-  width: 26px;
-  height: 26px;
+.annotation-comments-panel-close-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #cfe1ff;
-  border-radius: 50%;
-  background: #fff;
-  color: #1d4ed8;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--annotation-ink-soft, #56535f);
   cursor: pointer;
-  z-index: 1;
-  transition: background-color 0.15s ease, transform 0.2s ease;
+  transition: background 0.15s ease;
 }
 
-.annotation-comments-panel-collapse-btn:hover {
-  background: #eff6ff;
-}
-
-.annotation-comments-panel.is-collapsed .annotation-comments-panel-collapse-btn {
-  position: static;
-  transform: rotate(180deg);
-}
-
-body.annotation-mode.annotation-panel-collapsed main {
-  transform: scale(0.97);
-}
-
-body.annotation-panel-collapsed .annotation-floating-layer {
-  inset: 0 32px 0 0;
-}
-
-body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
-  right: 32px;
+.annotation-comments-panel-close-btn:hover {
+  background: #f2f1f7;
+  color: var(--annotation-ink, #16151a);
 }
 
 .annotation-comments-panel-header {
@@ -225,11 +602,11 @@ body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
 
 .annotation-comments-panel-heading {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  width: 100%;
+  flex: 1 1 auto;
 }
 
 .annotation-reviewer-controls {
@@ -311,8 +688,10 @@ body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
 
 .annotation-comments-panel-header h3 {
   margin: 0;
-  color: #1d4ed8;
-  font-size: 16px;
+  color: var(--annotation-ink, #16151a);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   flex: 0 0 auto;
 }
 
@@ -508,9 +887,9 @@ body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
 
 .annotation-canvas-refresh-bar {
   position: fixed;
-  top: 0;
+  top: var(--peregrine-collab-topbar-h, 54px);
   left: 0;
-  right: 25%;
+  right: 0;
   z-index: 10047;
   display: none;
   align-items: center;
@@ -887,6 +1266,18 @@ body.annotation-panel-collapsed .annotation-canvas-refresh-bar {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/* Collapsed comment card: compact "N replies" hint under the top comment. */
+.annotation-panel-reply-hint {
+  margin: 7px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.annotation-panel-comment.is-collapsed {
+  cursor: pointer;
 }
 
 .annotation-panel-replies-list:not(:empty) {
@@ -1618,21 +2009,7 @@ body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonl
 
 @media (max-width: 1200px) {
   .annotation-comments-panel {
-    width: 320px;
-  }
-
-  body.annotation-mode main,
-  .annotation-floating-layer {
-    inset: 0 320px 0 0;
-  }
-
-  body.annotation-panel-collapsed .annotation-comments-panel {
-    width: 32px;
-  }
-
-  body.annotation-mode.annotation-panel-collapsed main,
-  body.annotation-panel-collapsed .annotation-floating-layer {
-    inset: 0 32px 0 0;
+    width: 340px;
   }
 }
 

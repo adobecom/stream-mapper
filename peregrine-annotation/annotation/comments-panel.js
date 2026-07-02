@@ -9,7 +9,13 @@ import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
 import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../utils/snackbar.js';
-import { formatCardTimestamp, ARROW_ICON_SVG } from '../utils/utils.js';
+import {
+  formatCardTimestamp,
+  formatRelativeTime,
+  getAvatarColor,
+  getAvatarInitials,
+  ARROW_ICON_SVG,
+} from '../utils/utils.js';
 
 const THREAD_STATUS_OPTIONS = Object.freeze(['Open', 'Accepted', 'Rejected', 'Closed']);
 
@@ -78,48 +84,22 @@ export default function createCommentsPanelController({
     if (existing) existing.remove();
 
     const panel = document.createElement('aside');
-    panel.className = 'annotation-comments-panel';
+    panel.className = 'annotation-comments-panel peregrine-collab-drawer';
     panel.innerHTML = `
-      <button
-        type="button"
-        class="annotation-comments-panel-collapse-btn"
-        aria-expanded="true"
-        aria-label="Collapse annotations panel"
-        title="Collapse panel"
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M6.5 1L2.5 5L6.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
       <div class="annotation-comments-panel-header">
         <div class="annotation-comments-panel-heading">
-          <h3>Annotations</h3>
+          <h3>Activity</h3>
         </div>
-        <div class="annotation-mode-toolbar" role="toolbar" aria-label="Annotation modes">
-          <button
-            type="button"
-            class="annotation-mode-btn annotation-mode-btn-visibility"
-            aria-pressed="false"
-            aria-label="Toggle annotation visibility"
-            title="Toggle annotation visibility"
-          >
-            <svg class="annotation-visibility-icon-show" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M12.306 4.28999C11.2818 3.76572 10.1505 3.48445 9 3.46799C4.668 3.46799 1.125 7.78099 1.125 9.17999C1.125 10.68 4.854 14.532 8.968 14.532C13.116 14.532 16.875 10.679 16.875 9.17999C16.875 7.99999 14.768 5.50999 12.306 4.28999ZM9 13.612C8.08783 13.612 7.19615 13.3415 6.43771 12.8347C5.67927 12.328 5.08814 11.6077 4.73907 10.7649C4.39 9.92219 4.29866 8.99487 4.47662 8.10023C4.65457 7.20559 5.09382 6.38381 5.73882 5.73881C6.38382 5.09381 7.2056 4.65456 8.10024 4.47661C8.99488 4.29865 9.9222 4.38998 10.7649 4.73905C11.6077 5.08813 12.328 5.67926 12.8347 6.4377C13.3415 7.19614 13.612 8.08782 13.612 8.99999C13.6117 10.2231 13.1257 11.396 12.2609 12.2609C11.396 13.1257 10.2231 13.6117 9 13.612Z" fill="currentColor"/>
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M10.333 9.04199C10.1579 9.04199 9.98444 9.00748 9.82265 8.94043C9.66085 8.87338 9.51386 8.7751 9.39007 8.65121C9.26627 8.52733 9.16811 8.38026 9.10118 8.21842C9.03425 8.05658 8.99986 7.88313 9 7.70799C9.0026 7.47626 9.06641 7.24933 9.18494 7.05019C9.30348 6.85105 9.47254 6.68677 9.675 6.57399C9.45606 6.50737 9.22882 6.47202 9 6.46899C8.49941 6.46899 8.01007 6.61743 7.59385 6.89554C7.17763 7.17365 6.85322 7.56894 6.66166 8.03142C6.47009 8.4939 6.41997 9.0028 6.51763 9.49377C6.61529 9.98473 6.85634 10.4357 7.21031 10.7897C7.56427 11.1436 8.01526 11.3847 8.50622 11.4824C8.99719 11.58 9.50609 11.5299 9.96857 11.3383C10.431 11.1468 10.8263 10.8224 11.1044 10.4061C11.3826 9.98992 11.531 9.50058 11.531 8.99999C11.5278 8.79709 11.4986 8.59544 11.444 8.39999C11.3292 8.59311 11.1668 8.75355 10.9723 8.86595C10.7777 8.97836 10.5576 9.03897 10.333 9.04199Z" fill="currentColor"/>
-            </svg>
-            <svg class="annotation-visibility-icon-hide" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none">
-              <g clip-path="url(#clip0_visibility_hide)">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M7.286 4.71999C8.12397 4.3827 9.04261 4.29921 9.92766 4.47988C10.8127 4.66055 11.6251 5.09741 12.2638 5.73615C12.9026 6.37488 13.3394 7.18728 13.5201 8.07233C13.7008 8.95738 13.6173 9.87602 13.28 10.714L14.752 12.186C16.052 11.092 16.875 9.87999 16.875 9.17999C16.875 7.99799 14.768 5.50999 12.307 4.28999C11.2823 3.76588 10.1508 3.48462 9 3.46799C8.147 3.47595 7.3022 3.63543 6.505 3.93899L7.286 4.71999Z" fill="currentColor"/>
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M16.9 16.029L11.164 10.3C11.4029 9.90839 11.5299 9.45875 11.531 9.00001C11.5278 8.7971 11.4986 8.59545 11.444 8.40001C11.329 8.59275 11.1664 8.75279 10.9719 8.86484C10.7774 8.97688 10.5575 9.03719 10.333 9.04001C9.97965 9.04001 9.64074 8.8997 9.39079 8.64993C9.14083 8.40016 9.00027 8.06137 9.00001 7.70801C9.00261 7.47627 9.06642 7.24934 9.18495 7.0502C9.30349 6.85106 9.47255 6.68678 9.67501 6.57401C9.45608 6.50738 9.22883 6.47203 9.00001 6.46901C8.54126 6.47014 8.09162 6.59708 7.70001 6.83601L1.97101 1.10001C1.93302 1.06194 1.88789 1.03174 1.83822 1.01113C1.78854 0.990526 1.73529 0.979919 1.68151 0.979919C1.62773 0.979919 1.57447 0.990526 1.5248 1.01113C1.47512 1.03174 1.43 1.06194 1.39201 1.10001L1.10001 1.39201C1.06194 1.43 1.03174 1.47512 1.01113 1.5248C0.990526 1.57447 0.979919 1.62773 0.979919 1.68151C0.979919 1.73529 0.990526 1.78854 1.01113 1.83822C1.03174 1.88789 1.06194 1.93302 1.10001 1.97101L4.27601 5.14401C2.36901 6.51401 1.12501 8.35301 1.12501 9.18001C1.12501 10.68 4.85401 14.532 8.96801 14.532C10.2683 14.5059 11.5439 14.1717 12.69 13.557L16.029 16.897C16.067 16.9351 16.1121 16.9653 16.1618 16.9859C16.2115 17.0065 16.2647 17.0171 16.3185 17.0171C16.3723 17.0171 16.4255 17.0065 16.4752 16.9859C16.5249 16.9653 16.57 16.9351 16.608 16.897L16.897 16.608C16.9353 16.5702 16.9657 16.5252 16.9866 16.4757C17.0074 16.4261 17.0183 16.3729 17.0186 16.3191C17.0189 16.2653 17.0085 16.212 16.9882 16.1623C16.9678 16.1125 16.9379 16.0672 16.9 16.029ZM9.00001 13.612C8.1405 13.6141 7.2976 13.3754 6.56685 12.9229C5.83611 12.4704 5.24676 11.8222 4.86563 11.0518C4.4845 10.2814 4.32683 9.41966 4.4105 8.56424C4.49417 7.70881 4.81583 6.89394 5.33901 6.21201L6.83901 7.71201C6.54568 8.19402 6.42276 8.76059 6.48995 9.32082C6.55714 9.88106 6.81055 10.4025 7.20954 10.8015C7.60852 11.2005 8.12995 11.4539 8.69019 11.5211C9.25042 11.5883 9.81699 11.4653 10.299 11.172L11.799 12.672C10.9956 13.2861 10.0113 13.6167 9.00001 13.612Z" fill="currentColor"/>
-              </g>
-              <defs>
-                <clipPath id="clip0_visibility_hide">
-                  <rect width="18" height="18" fill="white"/>
-                </clipPath>
-              </defs>
-            </svg>
-          </button>
-        </div>
+        <button type="button" class="annotation-comments-panel-close-btn" aria-label="Close activity panel" title="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="peregrine-collab-activity-filters" role="tablist">
+        <button type="button" class="peregrine-collab-activity-chip is-active" data-filter="all">All</button>
+        <button type="button" class="peregrine-collab-activity-chip" data-filter="mine">Mine</button>
+        <button type="button" class="peregrine-collab-activity-chip" data-filter="others">Others</button>
       </div>
       <div class="annotation-comments-content">
         <div class="annotation-comments-list"></div>
@@ -129,60 +109,344 @@ export default function createCommentsPanelController({
     document.body.appendChild(panel);
     annotationUI.panelEl = panel;
     annotationUI.panelListEl = panel.querySelector('.annotation-comments-list');
-    annotationUI.visibilityToggleEl = panel.querySelector('.annotation-mode-btn-visibility');
-    annotationUI.collapseToggleEl = panel.querySelector('.annotation-comments-panel-collapse-btn');
 
-    annotationUI.collapseToggleEl.addEventListener('click', () => {
-      const isCollapsed = panel.classList.toggle('is-collapsed');
-      document.body.classList.toggle('annotation-panel-collapsed', isCollapsed);
-      annotationUI.collapseToggleEl.setAttribute('aria-expanded', String(!isCollapsed));
-      annotationUI.collapseToggleEl.title = isCollapsed ? 'Expand panel' : 'Collapse panel';
-      annotationUI.collapseToggleEl.setAttribute('aria-label', isCollapsed ? 'Expand annotations panel' : 'Collapse annotations panel');
-      scheduleFloatingUISync();
-    });
+    panel.querySelector('.annotation-comments-panel-close-btn')
+      ?.addEventListener('click', () => closeCommentsDrawer());
 
-    annotationUI.visibilityToggleEl.addEventListener('click', () => {
-      const layer = document.querySelector('.annotation-floating-layer');
-      const isHidden = annotationUI.visibilityToggleEl.getAttribute('aria-pressed') === 'true';
-      const showIcon = annotationUI.visibilityToggleEl.querySelector('.annotation-visibility-icon-show');
-      const hideIcon = annotationUI.visibilityToggleEl.querySelector('.annotation-visibility-icon-hide');
-      if (isHidden) {
-        if (layer) layer.style.display = '';
-        annotationUI.visibilityToggleEl.setAttribute('aria-pressed', 'false');
-        annotationUI.visibilityToggleEl.title = 'Toggle annotation visibility';
-        if (showIcon) showIcon.style.display = '';
-        if (hideIcon) hideIcon.style.display = 'none';
-      } else {
-        if (layer) layer.style.display = 'none';
-        annotationUI.visibilityToggleEl.setAttribute('aria-pressed', 'true');
-        annotationUI.visibilityToggleEl.title = 'Hide annotations';
-        if (showIcon) showIcon.style.display = 'none';
-        if (hideIcon) hideIcon.style.display = '';
-      }
-    });
+    panel.querySelectorAll('.peregrine-collab-activity-filters .peregrine-collab-activity-chip')
+      .forEach((chip) => {
+        chip.addEventListener('click', () => {
+          annotationState.activityFilter = chip.dataset.filter || 'all';
+          renderCommentsPanel();
+        });
+      });
 
     updateModeButtonStates();
     applyOwnerOnlyToggleState();
     applyDisableEditsState();
   }
 
-  function applyOwnerOnlyToggleState() {
-    const isOwner = isCurrentUserCollabOwner();
-    const restrictedTooltip = ANNOTATION_MESSAGES.inlineEditRestrictedDescription;
+  const MARKER_CHECK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7.5" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+  const EYE_SHOW_ICON = `
+    <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M12.306 4.28999C11.2818 3.76572 10.1505 3.48445 9 3.46799C4.668 3.46799 1.125 7.78099 1.125 9.17999C1.125 10.68 4.854 14.532 8.968 14.532C13.116 14.532 16.875 10.679 16.875 9.17999C16.875 7.99999 14.768 5.50999 12.306 4.28999ZM9 13.612C7.45329 13.612 5.9699 12.9976 4.87626 11.9039C3.78261 10.8103 3.16812 9.32693 3.16812 7.78022C3.16812 6.99999 3.9 6.99999 9 6.99999C13.612 6.99999 14.832 6.99999 14.832 7.78022C14.832 9.32693 14.2174 10.8103 13.1237 11.9039C12.0301 12.9976 10.5467 13.612 9 13.612Z" fill="currentColor"/>
+      <circle cx="9" cy="9" r="2.4" fill="currentColor"/>
+    </svg>`;
+  const EYE_HIDE_ICON = `
+    <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M2.2 2.2 15.8 15.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M9 3.468C4.668 3.468 1.125 7.781 1.125 9.18c0 .78.9 2.02 2.4 3.16l1.5-1.5A3.83 3.83 0 0 1 9 5.35c.52 0 1.03.1 1.5.29l1.1-1.1A6.2 6.2 0 0 0 9 3.468Zm5.4 2.86-1.5 1.5A3.83 3.83 0 0 1 9 12.65c-.52 0-1.03-.1-1.5-.29l-1.1 1.1c.8.35 1.68.54 2.6.54 4.332 0 7.875-4.31 7.875-5.71 0-.78-.9-2.02-2.475-3.16Z" fill="currentColor"/>
+    </svg>`;
+
+  function setMarkupsHidden(hidden) {
+    annotationState.markupsHidden = hidden;
+    const layer = document.querySelector('.annotation-floating-layer');
+    if (layer) layer.style.display = hidden ? 'none' : '';
+    document.body.classList.toggle('peregrine-collab-markups-hidden', hidden);
+    const btn = annotationUI.visibilityToggleEl;
+    if (btn instanceof HTMLButtonElement) {
+      btn.setAttribute('aria-pressed', String(hidden));
+      btn.title = hidden ? 'Show markups' : 'Hide all markups';
+      btn.innerHTML = hidden ? EYE_HIDE_ICON : EYE_SHOW_ICON;
+    }
+    if (hidden) hideBlockHover();
   }
+
+  function applyOwnerOnlyToggleState() {}
 
   function applyDisableEditsState() {
     const noToken = !new URLSearchParams(window.location.search).get('token') && !window.streamConfig?.token;
     if (!window.streamConfig?.disableEdits && !noToken) return;
-    const toolbar = annotationUI.panelEl?.querySelector('.annotation-mode-toolbar');
-    if (!toolbar) return;
-    toolbar.querySelectorAll('.annotation-mode-btn').forEach((btn) => {
+    const bar = annotationUI.topbarEl;
+    if (!bar) return;
+    bar.querySelectorAll('.peregrine-collab-topbar-btn').forEach((btn) => {
       if (btn instanceof HTMLButtonElement) {
         btn.disabled = true;
         btn.setAttribute('aria-disabled', 'true');
       }
     });
+  }
+
+  // ── Identity / collaborator helpers ─────────────────────────────────────────
+
+  function getCollabSnapshot() {
+    return annotationState.latestRemoteCollabSnapshot?.collab || null;
+  }
+
+  function getWorkspaceTitle() {
+    const collab = getCollabSnapshot();
+    return `${collab?.title || ''}`.trim() || 'Workspace';
+  }
+
+  function getCurrentUserKey() {
+    const identity = getCurrentUserIdentity();
+    const profileId = `${identity?.profileId ?? ''}`.trim();
+    if (profileId) return `profile:${profileId}`;
+    const name = `${window.streamConfig?.username || window.streamConfig?.userName || window.streamConfig?.userEmail || ''}`.trim().toLowerCase();
+    return name ? `name:${name}` : '';
+  }
+
+  function isMessageByCurrentUser(message) {
+    if (!message) return false;
+    const identity = getCurrentUserIdentity();
+    const currentProfileId = `${identity?.profileId ?? ''}`.trim();
+    const authorProfileId = `${message.authorProfileId ?? ''}`.trim();
+    if (currentProfileId && authorProfileId) return currentProfileId === authorProfileId;
+    const currentName = `${window.streamConfig?.username || window.streamConfig?.userName || ''}`.trim().toLowerCase();
+    const authorName = `${message.username || ''}`.trim().toLowerCase();
+    return Boolean(currentName && authorName && currentName === authorName);
+  }
+
+  function isThreadMine(thread) {
+    return (thread?.messages || []).some((message) => isMessageByCurrentUser(message));
+  }
+
+  function getCollaborators() {
+    const collab = getCollabSnapshot();
+    const participants = Array.isArray(collab?.participants) ? collab.participants : [];
+    const seenNames = new Set();
+    const people = [];
+    const currentKey = getCurrentUserKey();
+
+    participants.forEach((participant, index) => {
+      if (!participant || typeof participant !== 'object') return;
+      const profileId = getParticipantProfileId(participant);
+      const displayName = getParticipantDisplayName(participant, index);
+      // One icon per person — dedupe by display name (ignore duplicates).
+      const nameKey = displayName.trim().toLowerCase();
+      if (!nameKey || seenNames.has(nameKey)) return;
+      seenNames.add(nameKey);
+      const key = profileId ? `profile:${profileId}` : `name:${nameKey}`;
+      people.push({
+        key,
+        name: displayName,
+        role: normalizeRole(participant.role || participant.collabRole || participant.type),
+        isCurrent: Boolean(currentKey) && key === currentKey,
+      });
+    });
+
+    // Ensure the current user always appears — but only if not already present by name.
+    const selfName = `${window.streamConfig?.username || window.streamConfig?.userName || window.streamConfig?.userEmail || 'You'}`.trim();
+    if (currentKey && !seenNames.has(selfName.toLowerCase())) {
+      seenNames.add(selfName.toLowerCase());
+      people.unshift({
+        key: currentKey,
+        name: selfName,
+        role: normalizeRole(window.streamConfig?.collabRole),
+        isCurrent: true,
+      });
+    }
+    // Current user first.
+    people.sort((a, b) => (b.isCurrent ? 1 : 0) - (a.isCurrent ? 1 : 0));
+    return people;
+  }
+
+  function buildAvatarEl(name, key, { size = 26, withDot = false, className = '' } = {}) {
+    const avatar = document.createElement('span');
+    avatar.className = `peregrine-collab-avatar${className ? ` ${className}` : ''}`;
+    avatar.style.width = `${size}px`;
+    avatar.style.height = `${size}px`;
+    avatar.style.background = getAvatarColor(key || name);
+    avatar.style.fontSize = `${Math.round(size * 0.42)}px`;
+    avatar.textContent = getAvatarInitials(name);
+    avatar.title = name;
+    if (withDot) {
+      const dot = document.createElement('span');
+      dot.className = 'peregrine-collab-avatar-dot';
+      avatar.appendChild(dot);
+    }
+    return avatar;
+  }
+
+  function buildResolvedAvatar(size = 22) {
+    const avatar = document.createElement('span');
+    avatar.className = 'peregrine-collab-avatar';
+    avatar.style.width = `${size}px`;
+    avatar.style.height = `${size}px`;
+    avatar.style.background = '#2e9e6b';
+    avatar.title = 'Resolved';
+    avatar.innerHTML = MARKER_CHECK_ICON;
+    return avatar;
+  }
+
+  // ── Top bar ─────────────────────────────────────────────────────────────────
+
+  function ensureAnnotationTopbar() {
+    const existing = document.querySelector('.peregrine-collab-topbar');
+    if (existing) existing.remove();
+
+    const bar = document.createElement('div');
+    bar.className = 'peregrine-collab-topbar';
+    bar.setAttribute('role', 'banner');
+    bar.innerHTML = `
+      <div class="peregrine-collab-topbar-brand">
+        <span class="peregrine-collab-topbar-glyph" aria-hidden="true">✦</span>
+        <span class="peregrine-collab-topbar-title" title="">Workspace</span>
+      </div>
+      <div class="peregrine-collab-topbar-spacer"></div>
+      <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-comments">
+        <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        </span>
+        <span>Comments</span>
+        <span class="peregrine-collab-topbar-badge" hidden>0</span>
+      </button>
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-activity">
+        <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12h4l2 6 4-14 2 8h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>Activity</span>
+        <span class="peregrine-collab-topbar-caret" aria-hidden="true">▾</span>
+      </button>
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
+    `;
+    document.body.appendChild(bar);
+
+    annotationUI.topbarEl = bar;
+    annotationUI.workspaceTitleEl = bar.querySelector('.peregrine-collab-topbar-title');
+    annotationUI.presenceEl = bar.querySelector('.peregrine-collab-topbar-presence');
+    annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
+    annotationUI.activityBtnEl = bar.querySelector('.peregrine-collab-topbar-activity');
+    annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
+
+    setMarkupsHidden(false);
+
+    annotationUI.visibilityToggleEl.addEventListener('click', () => {
+      setMarkupsHidden(!annotationState.markupsHidden);
+    });
+
+    annotationUI.commentsBtnEl.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleCommentsDrawer('mine');
+    });
+    annotationUI.activityBtnEl.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleCommentsDrawer('all');
+    });
+
+    renderWorkspaceTitle();
+    renderPresence();
+    updateCommentsBadge();
+    applyDisableEditsState();
+  }
+
+  function renderWorkspaceTitle() {
+    if (!(annotationUI.workspaceTitleEl instanceof HTMLElement)) return;
+    const title = getWorkspaceTitle();
+    annotationUI.workspaceTitleEl.textContent = title;
+    annotationUI.workspaceTitleEl.title = title;
+  }
+
+  function renderPresence() {
+    if (!(annotationUI.presenceEl instanceof HTMLElement)) return;
+    const people = getCollaborators();
+    annotationUI.presenceEl.innerHTML = '';
+    const MAX_VISIBLE = 5;
+    people.slice(0, MAX_VISIBLE).forEach((person) => {
+      const avatar = buildAvatarEl(person.name, person.key, {
+        size: 28,
+        withDot: person.isCurrent,
+        className: 'peregrine-collab-presence-avatar',
+      });
+      avatar.title = person.isCurrent ? `${person.name} (you)` : person.name;
+      annotationUI.presenceEl.appendChild(avatar);
+    });
+    if (people.length > MAX_VISIBLE) {
+      const more = document.createElement('span');
+      more.className = 'peregrine-collab-avatar peregrine-collab-presence-avatar peregrine-collab-presence-more';
+      more.style.width = '28px';
+      more.style.height = '28px';
+      more.textContent = `+${people.length - MAX_VISIBLE}`;
+      annotationUI.presenceEl.appendChild(more);
+    }
+  }
+
+  function updateCommentsBadge() {
+    const badge = annotationUI.commentsBtnEl?.querySelector('.peregrine-collab-topbar-badge');
+    if (!(badge instanceof HTMLElement)) return;
+    const mineCount = annotationState.store.threads
+      .filter((thread) => store.getThreadType(thread) === 'comment')
+      .filter((thread) => isThreadMine(thread)).length;
+    badge.textContent = String(mineCount);
+    badge.hidden = mineCount === 0;
+  }
+
+  // ── Activity drawer (open/close) ────────────────────────────────────────────
+
+  function isCommentsDrawerOpen() {
+    return Boolean(annotationUI.panelEl?.classList.contains('is-open'));
+  }
+
+  function syncDrawerChrome() {
+    const filter = annotationState.activityFilter || 'all';
+    annotationUI.panelEl?.querySelectorAll('.peregrine-collab-activity-chip').forEach((chip) => {
+      chip.classList.toggle('is-active', chip.dataset.filter === filter);
+    });
+    const open = isCommentsDrawerOpen();
+    annotationUI.activityBtnEl?.classList.toggle('is-open', open && filter !== 'mine');
+    annotationUI.commentsBtnEl?.classList.toggle('is-open', open && filter === 'mine');
+  }
+
+  function openCommentsDrawer(filter) {
+    if (!annotationUI.panelEl) return;
+    if (filter) annotationState.activityFilter = filter;
+    annotationUI.panelEl.classList.add('is-open');
+    document.body.classList.add('peregrine-collab-drawer-open');
+    renderCommentsPanel();
+    syncDrawerChrome();
+    scheduleFloatingUISync();
+  }
+
+  function ensureCommentsDrawerOpen() {
+    if (!isCommentsDrawerOpen()) openCommentsDrawer();
+  }
+
+  function closeCommentsDrawer() {
+    if (!annotationUI.panelEl) return;
+    annotationUI.panelEl.classList.remove('is-open');
+    document.body.classList.remove('peregrine-collab-drawer-open');
+    syncDrawerChrome();
+    scheduleFloatingUISync();
+  }
+
+  function toggleCommentsDrawer(filter) {
+    if (isCommentsDrawerOpen()
+      && (!filter || filter === annotationState.activityFilter)) {
+      closeCommentsDrawer();
+      return;
+    }
+    openCommentsDrawer(filter);
+  }
+
+  // ── Block hover "add here" affordance ───────────────────────────────────────
+
+  function resolveHoverBlock(target) {
+    if (!(target instanceof HTMLElement) || !annotationUI.mainEl) return null;
+    if (!annotationUI.mainEl.contains(target)) return null;
+    // Prefer a Milo block (main > div > div); fall back to the section child.
+    const block = target.closest('main > div > div') || target.closest('main > div');
+    if (!(block instanceof HTMLElement)) return null;
+    if (block === annotationUI.mainEl) return null;
+    return block;
+  }
+
+  function showBlockHover(block) {
+    if (annotationState.markupsHidden) return;
+    if (annotationState.hoveredBlockEl === block) return;
+    if (annotationState.hoveredBlockEl instanceof HTMLElement) {
+      annotationState.hoveredBlockEl.classList.remove('peregrine-collab-block-hover');
+    }
+    annotationState.hoveredBlockEl = block;
+    block.classList.add('peregrine-collab-block-hover');
+  }
+
+  function hideBlockHover() {
+    if (annotationState.hoveredBlockEl instanceof HTMLElement) {
+      annotationState.hoveredBlockEl.classList.remove('peregrine-collab-block-hover');
+    }
+    annotationState.hoveredBlockEl = null;
   }
 
   function ensureCanvasRefreshBar() {
@@ -268,6 +532,13 @@ export default function createCommentsPanelController({
 
   function isThreadClosed(thread) {
     return Boolean(thread) && store.normalizeCommentStatus(thread.status) === 'Closed';
+  }
+
+  // A thread counts as "resolved" (green tick) once it leaves the Open state —
+  // i.e. Accepted, Rejected, or Closed.
+  function isThreadResolved(thread) {
+    if (!thread) return false;
+    return store.normalizeCommentStatus(thread.status) !== 'Open';
   }
 
   function isCommentEditableByCurrentUser(thread, message) {
@@ -1089,6 +1360,9 @@ export default function createCommentsPanelController({
 
     if (snapshot?.collab) {
       renderReviewerControls();
+      renderWorkspaceTitle();
+      renderPresence();
+      updateCommentsBadge();
     }
 
     // Update assets from snapshot (edits API returns { edits, assets })
@@ -1197,6 +1471,8 @@ export default function createCommentsPanelController({
     renderRefreshAction();
     updateModeButtonStates();
     applyDisableEditsState();
+    updateCommentsBadge();
+    syncDrawerChrome();
 
     const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
       annotationUI.mainEl,
@@ -1288,12 +1564,25 @@ export default function createCommentsPanelController({
       return;
     }
 
-    const unifiedItems = buildUnifiedItems();
+    const activityFilter = annotationState.activityFilter || 'all';
+    const unifiedItems = buildUnifiedItems().filter((item) => {
+      if (activityFilter === 'all') return true;
+      // Mine / Others apply to comment threads; edits & assets show under "All" only.
+      if (item.kind !== 'comment') return false;
+      const mine = isThreadMine(item.thread);
+      return activityFilter === 'mine' ? mine : !mine;
+    });
 
     if (!unifiedItems.length) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
+      if (activityFilter === 'mine') {
+        empty.textContent = 'No comments from you yet. Click an element on the page to add one.';
+      } else if (activityFilter === 'others') {
+        empty.textContent = 'No comments from others yet.';
+      } else {
+        empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
+      }
       annotationUI.panelListEl.appendChild(empty);
       finalizeFragmentHints();
       return;
@@ -1310,10 +1599,15 @@ export default function createCommentsPanelController({
         const canEditRootComment = isCommentThread
           && !isClosedThread
           && isCommentEditableByCurrentUser(thread, group.comment);
+        // Comment threads are collapsed to their top comment until opened;
+        // edit/asset items always render in full.
+        const isExpanded = !isCommentThread
+          || thread.id === annotationState.expandedThreadId;
         const card = document.createElement('article');
         card.className = isCommentThread
           ? 'annotation-panel-comment annotation-panel-comment-item'
           : 'annotation-panel-comment annotation-panel-edit-item';
+        if (isCommentThread && !isExpanded) card.classList.add('is-collapsed');
         card.dataset.threadId = thread.id;
         card.dataset.messageId = group.comment.id || '';
         const isActiveMessage = Boolean(annotationState.activeMessageId)
@@ -1372,16 +1666,26 @@ export default function createCommentsPanelController({
           }
         }
 
-        const username = document.createElement('p');
-        username.className = 'annotation-panel-comment-user';
-        username.textContent = group.comment.username
+        const cardAuthor = group.comment.username
           || thread.username
           || ANNOTATION_DEFAULT_USERNAME;
 
+        const username = document.createElement('p');
+        username.className = 'annotation-panel-comment-user';
+        username.textContent = cardAuthor;
+
         const cardHeader = document.createElement('div');
         cardHeader.className = 'annotation-panel-comment-header';
+        if (isCommentThread) {
+          const cardAuthorKey = `${group.comment.authorProfileId ?? ''}` || cardAuthor;
+          const cardAvatar = isThreadResolved(thread)
+            ? buildResolvedAvatar(22)
+            : buildAvatarEl(cardAuthor, cardAuthorKey, { size: 22 });
+          cardAvatar.classList.add('annotation-panel-comment-avatar');
+          cardHeader.append(cardAvatar);
+        }
         cardHeader.append(username);
-        if (statusControls) cardHeader.append(statusControls);
+        if (statusControls && isExpanded) cardHeader.append(statusControls);
 
         const hasPending = !!group.comment?.hasPendingHistory || !group.comment?.isCommitted;
         if (!isCommentThread && group.comment?.isCurrent && hasPending) {
@@ -1442,7 +1746,7 @@ export default function createCommentsPanelController({
 
         const repliesWrap = document.createElement('div');
         repliesWrap.className = 'annotation-panel-replies-list';
-        group.replies.forEach((reply) => {
+        (isExpanded ? group.replies : []).forEach((reply) => {
           const replyRow = document.createElement('div');
           replyRow.className = 'annotation-panel-reply-row';
 
@@ -1498,7 +1802,16 @@ export default function createCommentsPanelController({
 
         card.append(repliesWrap);
 
-        if (isCommentThread && !isClosedThread) {
+        // Collapsed comment card: show a compact "N replies" hint instead of the thread.
+        if (isCommentThread && !isExpanded && group.replies.length) {
+          const hint = document.createElement('p');
+          hint.className = 'annotation-panel-reply-hint';
+          const n = group.replies.length;
+          hint.textContent = `${n} ${n === 1 ? 'reply' : 'replies'}`;
+          card.append(hint);
+        }
+
+        if (isCommentThread && isExpanded && !isClosedThread) {
           const composerKey = `${thread.id}::${group.comment.id || ''}`;
           if (preservedComposer && preservedComposerKey === composerKey) {
             card.append(preservedComposer);
@@ -1587,6 +1900,7 @@ export default function createCommentsPanelController({
   function scrollAssetInPanel(elementPath) {
     if (!annotationUI.panelEl || !annotationUI.panelListEl || !elementPath) return;
 
+    ensureCommentsDrawerOpen();
     renderCommentsPanel();
 
     const runScroll = () => {
@@ -1700,6 +2014,11 @@ export default function createCommentsPanelController({
     annotationState.activeThreadId = threadId;
     annotationState.activeMessageId = messageId || firstCommentId;
     annotationState.activeEditId = '';
+    // Opening a thread from a marker expands it in the drawer.
+    if (store.getThreadType(thread) === 'comment') {
+      annotationState.expandedThreadId = threadId;
+    }
+    ensureCommentsDrawerOpen();
     renderCommentsPanel();
 
     const runScroll = () => {
@@ -1776,6 +2095,7 @@ export default function createCommentsPanelController({
   }
 
   function scrollCommentsPanelToBottom() {
+    ensureCommentsDrawerOpen();
     const scrollContainer = getCommentsScrollContainer();
     if (!scrollContainer) return;
     window.requestAnimationFrame(() => {
@@ -1801,10 +2121,11 @@ export default function createCommentsPanelController({
 
     const resolveMarkerPosition = (baseTop, baseLeft) => {
       const row = Math.max(0, Math.round(baseTop));
+      // Left-anchored markers: on collision, step rightward into the block.
       let nextLeft = Math.max(MIN_MARKER_LEFT, Math.round(baseLeft));
       let slotKey = `${row}:${nextLeft}`;
-      while (occupiedMarkerSlots.has(slotKey) && nextLeft > MIN_MARKER_LEFT) {
-        nextLeft = Math.max(MIN_MARKER_LEFT, nextLeft - MARKER_STEP);
+      while (occupiedMarkerSlots.has(slotKey)) {
+        nextLeft += MARKER_STEP;
         slotKey = `${row}:${nextLeft}`;
       }
       occupiedMarkerSlots.add(slotKey);
@@ -1829,30 +2150,35 @@ export default function createCommentsPanelController({
         const rect = targetEl.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
-        const groups = buildCommentGroups(thread);
-        groups.forEach((group, idx) => {
-          const marker = document.createElement('button');
-          marker.type = 'button';
-          marker.className = 'annotation-thread-marker';
-          marker.dataset.threadId = thread.id;
-          marker.dataset.messageId = group.comment.id || '';
-          marker.dataset.commentIndex = String(idx);
-          marker.title = `Comment ${idx + 1}`;
-          marker.setAttribute('aria-label', `Open comment ${idx + 1}`);
-          marker.innerHTML = `
-            <svg class="annotation-thread-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 4h16v11H7l-3 3z"></path>
-            </svg>
-          `;
+        // One icon per thread (root author) — no duplicate icons per comment.
+        const rootComment = getRootComment(thread) || {};
+        const author = rootComment.username || thread.username || ANNOTATION_DEFAULT_USERNAME;
+        const resolved = isThreadResolved(thread);
+        const marker = document.createElement('button');
+        marker.type = 'button';
+        marker.className = 'annotation-thread-marker';
+        marker.dataset.threadId = thread.id;
+        marker.dataset.messageId = rootComment.id || '';
+        marker.dataset.commentIndex = '0';
+        if (resolved) {
+          // Resolved thread → green check instead of the author's face.
+          marker.classList.add('is-resolved');
+          marker.title = `${author} · resolved`;
+          marker.setAttribute('aria-label', `Resolved comment thread by ${author}`);
+          marker.style.setProperty('--annotation-marker-color', '#2e9e6b');
+          marker.innerHTML = MARKER_CHECK_ICON;
+        } else {
+          marker.title = `${author} · comment thread`;
+          marker.setAttribute('aria-label', `Open comment thread by ${author}`);
+          const authorKey = `${rootComment.authorProfileId ?? ''}` || author;
+          marker.style.setProperty('--annotation-marker-color', getAvatarColor(authorKey));
+          marker.textContent = getAvatarInitials(author);
+        }
 
-          const position = resolveMarkerPosition(
-            rect.top - 8,
-            rect.right - 8 - (idx * MARKER_STEP),
-          );
-          marker.style.top = `${position.top}px`;
-          marker.style.left = `${position.left}px`;
-          annotationUI.layerEl.appendChild(marker);
-        });
+        const position = resolveMarkerPosition(rect.top - 8, rect.left + 8);
+        marker.style.top = `${position.top}px`;
+        marker.style.left = `${position.left}px`;
+        annotationUI.layerEl.appendChild(marker);
       });
 
     annotationState.store.threads
@@ -1882,7 +2208,7 @@ export default function createCommentsPanelController({
 
           const position = resolveMarkerPosition(
             rect.top - 8,
-            rect.right - 8 - (idx * MARKER_STEP),
+            rect.left + 8 + (idx * MARKER_STEP),
           );
           marker.style.top = `${position.top}px`;
           marker.style.left = `${position.left}px`;
@@ -1907,7 +2233,7 @@ export default function createCommentsPanelController({
         const rect = targetEl.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) return;
 
-        const position = resolveMarkerPosition(rect.top - 8, rect.right - 8);
+        const position = resolveMarkerPosition(rect.top - 8, rect.left + 8);
         const marker = document.createElement('button');
         marker.type = 'button';
         marker.className = 'annotation-asset-marker';
@@ -2131,7 +2457,8 @@ export default function createCommentsPanelController({
     store.saveAnnotationStore();
     renderThreadMarkers({ resolveTargets: true });
     renderCommentsPanel();
-    scrollCommentsPanelToBottom();
+    // Show the new comment in place (floating thread) — don't open the Activity drawer.
+    openFloatingThread(thread.id);
     requestParentCollabRefresh('comment-created');
   }
 
@@ -2272,11 +2599,259 @@ export default function createCommentsPanelController({
     }
   }
 
+  // ── Floating thread (opens in place next to the pin, not the drawer) ────────
+
+  function removeFloatingThread() {
+    if (annotationUI.threadEl) {
+      annotationUI.threadEl.remove();
+      annotationUI.threadEl = null;
+    }
+    annotationState.activeFloatingThreadId = '';
+    annotationState.floatingThreadAnchor = null;
+  }
+
+  function positionFloatingThread() {
+    const el = annotationUI.threadEl;
+    const anchor = annotationState.floatingThreadAnchor;
+    if (!(el instanceof HTMLElement) || !(anchor instanceof HTMLElement)) return;
+    if (!annotationUI.mainEl?.contains(anchor)) return;
+    const r = anchor.getBoundingClientRect();
+    const topbarH = 54;
+    const gap = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const w = el.offsetWidth || 300;
+    const h = el.offsetHeight || 220;
+    // Sit just right of the (left-anchored) pin, flipping left if it would overflow.
+    let left = r.left + 40;
+    if (left + w > vw - 12) left = Math.max(12, r.left - w - gap);
+    left = Math.max(12, Math.min(left, vw - w - 12));
+    let top = Math.max(topbarH + 8, r.top);
+    top = Math.min(top, Math.max(topbarH + 8, vh - h - 12));
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  }
+
+  function renderFloatingThread(threadId) {
+    const el = annotationUI.threadEl;
+    if (!(el instanceof HTMLElement)) return;
+    const thread = store.getThreadById(threadId);
+    if (!thread) { removeFloatingThread(); return; }
+
+    const resolved = isThreadResolved(thread);
+    const closed = isThreadClosed(thread);
+    const normalizedStatus = store.normalizeCommentStatus(thread.status);
+    const canEditStatus = isThreadStatusEditableByCurrentUser(thread);
+
+    const head = document.createElement('div');
+    head.className = 'peregrine-collab-thread-head';
+    const label = document.createElement('span');
+    label.className = 'peregrine-collab-thread-label';
+    label.textContent = resolved ? 'Resolved' : 'Thread';
+    head.append(label);
+
+    if (canEditStatus) {
+      const statusSelect = document.createElement('select');
+      statusSelect.className = 'peregrine-collab-thread-status';
+      THREAD_STATUS_OPTIONS.forEach((status) => {
+        const option = document.createElement('option');
+        option.value = status;
+        option.textContent = status;
+        option.selected = normalizedStatus === status;
+        statusSelect.appendChild(option);
+      });
+      statusSelect.addEventListener('change', () => {
+        changeFloatingThreadStatus(threadId, statusSelect.value, statusSelect);
+      });
+      head.append(statusSelect);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'peregrine-collab-thread-status-badge';
+      badge.textContent = normalizedStatus;
+      head.append(badge);
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'peregrine-collab-thread-close';
+    closeBtn.setAttribute('aria-label', 'Close thread');
+    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    closeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeFloatingThread();
+    });
+    head.append(closeBtn);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'peregrine-collab-thread-body';
+    (thread.messages || []).forEach((message) => {
+      const author = message.username || ANNOTATION_DEFAULT_USERNAME;
+      const authorKey = `${message.authorProfileId ?? ''}` || author;
+      const cmt = document.createElement('div');
+      cmt.className = 'peregrine-collab-thread-cmt';
+      const meta = document.createElement('div');
+      meta.className = 'peregrine-collab-thread-meta';
+      meta.append(buildAvatarEl(author, authorKey, { size: 20 }));
+      const nm = document.createElement('span');
+      nm.className = 'peregrine-collab-thread-nm';
+      nm.textContent = author;
+      meta.append(nm);
+      const tmText = formatRelativeTime(message.editedAt || message.createdAt);
+      if (tmText) {
+        const tm = document.createElement('span');
+        tm.className = 'peregrine-collab-thread-tm';
+        tm.textContent = tmText;
+        meta.append(tm);
+      }
+      const bd = document.createElement('p');
+      bd.className = 'peregrine-collab-thread-bd';
+      bd.innerHTML = linkifyText(message.text);
+      cmt.append(meta, bd);
+      bodyEl.append(cmt);
+    });
+
+    el.innerHTML = '';
+    el.append(head, bodyEl);
+
+    if (!closed) {
+      const composer = document.createElement('div');
+      composer.className = 'peregrine-collab-thread-composer';
+      const input = document.createElement('textarea');
+      input.className = 'peregrine-collab-thread-input';
+      input.rows = 1;
+      input.placeholder = 'Reply…';
+      const send = document.createElement('button');
+      send.type = 'button';
+      send.className = 'peregrine-collab-thread-send';
+      send.textContent = 'Reply';
+      send.disabled = true;
+      input.addEventListener('input', () => {
+        send.disabled = !input.value.trim();
+        input.style.height = 'auto';
+        input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          if (!send.disabled) submitFloatingReply(threadId, input.value, input, send);
+        }
+      });
+      send.addEventListener('click', () => submitFloatingReply(threadId, input.value, input, send));
+      composer.append(input, send);
+      el.append(composer);
+    }
+
+    positionFloatingThread();
+  }
+
+  function openFloatingThread(threadId, targetEl) {
+    if (!threadId) return;
+    if (annotationState.activeFloatingThreadId === threadId && annotationUI.threadEl) {
+      removeFloatingThread();
+      return;
+    }
+    removeFloatingThread();
+    closePopupAndSelection();
+    closeCommentsDrawer();
+    const thread = store.getThreadById(threadId);
+    if (!thread) return;
+    const anchor = targetEl instanceof HTMLElement ? targetEl : store.getElementForThread(thread);
+    if (!(anchor instanceof HTMLElement)) return;
+
+    const el = document.createElement('div');
+    el.className = 'peregrine-collab-thread';
+    el.dataset.threadId = threadId;
+    document.body.appendChild(el);
+    annotationUI.threadEl = el;
+    annotationState.activeFloatingThreadId = threadId;
+    annotationState.floatingThreadAnchor = anchor;
+    annotationState.activeThreadId = threadId;
+    renderFloatingThread(threadId);
+    window.requestAnimationFrame(() => {
+      const input = el.querySelector('.peregrine-collab-thread-input');
+      if (input instanceof HTMLTextAreaElement) input.focus();
+    });
+  }
+
+  async function changeFloatingThreadStatus(threadId, nextStatus, selectEl) {
+    const thread = store.getThreadById(threadId);
+    if (!thread) return;
+    if (!isThreadStatusEditableByCurrentUser(thread)) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusRestricted);
+      if (selectEl) selectEl.value = store.normalizeCommentStatus(thread.status);
+      return;
+    }
+    const previousStatus = thread.status;
+    if (selectEl) selectEl.disabled = true;
+    try {
+      const remoteThread = await annotationService.updateThreadStatus(threadId, nextStatus);
+      if (remoteThread) store.upsertThread(remoteThread);
+      hideGlobalSnackbar();
+      store.saveAnnotationStore();
+      renderThreadMarkers({ resolveTargets: true });
+      renderCommentsPanel();
+      renderFloatingThread(threadId);
+      requestParentCollabRefresh('thread-status-updated');
+    } catch (error) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.updateStatusError);
+      if (selectEl) {
+        selectEl.value = store.normalizeCommentStatus(previousStatus);
+        selectEl.disabled = false;
+      }
+      // eslint-disable-next-line no-console
+      console.warn('Could not update thread status in service', error);
+    }
+  }
+
+  async function submitFloatingReply(threadId, rawValue, inputEl, sendEl) {
+    if (!isCommentsServiceAvailable()) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.commentsUnavailableSnackbar);
+      return;
+    }
+    const value = (rawValue || '').trim();
+    if (!value) return;
+    const thread = store.getThreadById(threadId);
+    if (!thread) return;
+    if (isThreadClosed(thread)) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.closedThreadRestricted);
+      return;
+    }
+    if (inputEl) inputEl.readOnly = true;
+    if (sendEl) sendEl.disabled = true;
+
+    let didPersist = false;
+    try {
+      const result = await annotationService.createReply(threadId, value);
+      if (result?.persisted) didPersist = true;
+      if (result?.thread) store.upsertThread(result.thread);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not save reply to service', error);
+    }
+
+    if (!didPersist) {
+      showGlobalSnackbar(ANNOTATION_MESSAGES.sendReplyError);
+      if (inputEl) inputEl.readOnly = false;
+      if (sendEl) sendEl.disabled = false;
+      return;
+    }
+
+    hideGlobalSnackbar();
+    store.saveAnnotationStore();
+    renderThreadMarkers({ resolveTargets: true });
+    renderCommentsPanel();
+    renderFloatingThread(threadId);
+    requestParentCollabRefresh('reply-created');
+  }
+
   function syncFloatingUI() {
     if (!annotationUI.mainEl) return;
     renderThreadMarkers();
     if (annotationUI.popupEl && annotationState.selectedElement) {
       positionPopup(annotationState.selectedElement);
+    }
+    if (annotationUI.threadEl && annotationState.activeFloatingThreadId) {
+      positionFloatingThread();
     }
   }
 
@@ -2316,6 +2891,22 @@ export default function createCommentsPanelController({
       document.removeEventListener('scroll', annotationState.mainScrollHandler, true);
       annotationState.mainScrollHandler = null;
     }
+    if (annotationUI.mainEl && annotationState.blockHoverHandler) {
+      annotationUI.mainEl.removeEventListener('mousemove', annotationState.blockHoverHandler);
+      annotationState.blockHoverHandler = null;
+    }
+    if (annotationUI.mainEl && annotationState.blockHoverLeaveHandler) {
+      annotationUI.mainEl.removeEventListener('mouseleave', annotationState.blockHoverLeaveHandler);
+      annotationState.blockHoverLeaveHandler = null;
+    }
+    hideBlockHover();
+    removeFloatingThread();
+    if (annotationUI.topbarEl) {
+      annotationUI.topbarEl.remove();
+      annotationUI.topbarEl = null;
+    }
+    document.body.classList.remove('peregrine-collab-drawer-open');
+    annotationState.hoveredBlockEl = null;
     if (annotationUI.mainEl && annotationState.mainClickHandler) {
       annotationUI.mainEl.removeEventListener('click', annotationState.mainClickHandler, true);
       annotationState.mainClickHandler = null;
@@ -2373,6 +2964,7 @@ export default function createCommentsPanelController({
     annotationUI.mainEl = mainEl;
     ensureFloatingLayer();
     ensureCommentsPanel();
+    ensureAnnotationTopbar();
     ensureCanvasRefreshBar();
     store.loadAnnotationStore();
     store.rebindThreadsToCurrentDom();
@@ -2412,18 +3004,14 @@ export default function createCommentsPanelController({
       }
       const marker = target.closest('.annotation-thread-marker');
       if (!(marker instanceof HTMLButtonElement)) return;
-      scrollThreadInPanel(
-        marker.dataset.threadId,
-        marker.dataset.messageId,
-        Number.parseInt(marker.dataset.commentIndex || '0', 10),
-      );
+      // Open the thread in place next to the pin (not the Activity drawer).
+      openFloatingThread(marker.dataset.threadId);
     };
     annotationUI.layerEl.addEventListener('click', annotationState.layerClickHandler);
 
     annotationState.panelClickHandler = async (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
-      if (target.closest('.annotation-mode-toolbar')) return;
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
@@ -2548,24 +3136,27 @@ export default function createCommentsPanelController({
 
       if (target.closest('.annotation-panel-reply-input')) return;
       if (target.closest('.annotation-panel-edit-form')) return;
+      if (target.closest('.annotation-panel-reply-composer')) return;
       if (target.closest('.annotation-panel-status-select')) return;
       if (!(card instanceof HTMLElement)) return;
 
       const thread = store.getThreadById(card.dataset.threadId);
       if (!thread) return;
+
+      // Toggle this comment thread open/closed in the drawer.
+      const wasExpanded = annotationState.expandedThreadId === thread.id;
+      annotationState.expandedThreadId = wasExpanded ? '' : thread.id;
       annotationState.activeEditId = '';
+      annotationState.activeThreadId = thread.id;
       annotationState.activeMessageId = card.dataset.messageId || '';
-      const targetEl = store.getElementForThread(thread);
-      if (!targetEl) return;
-      if (isThreadClosed(thread)) {
-        annotationState.activeThreadId = thread.id;
-        renderCommentsPanel();
-        targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      renderCommentsPanel();
+
+      if (!wasExpanded) {
+        // Opened — locate the anchored element on the page.
+        const targetEl = store.getElementForThread(thread);
+        if (targetEl) targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
         pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
-        return;
       }
-      openPopupForElement(targetEl, true);
-      pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
     };
     annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);
 
@@ -2670,9 +3261,16 @@ export default function createCommentsPanelController({
     annotationUI.panelEl.addEventListener('change', annotationState.panelChangeHandler);
 
     annotationState.documentClickHandler = (event) => {
-      if (popupSubmitPending) return;
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
+      // Close the floating thread when clicking away from it (and not on a pin).
+      if (annotationUI.threadEl
+        && !target.closest('.peregrine-collab-thread')
+        && !target.closest('.annotation-thread-marker')) {
+        removeFloatingThread();
+      }
+      if (popupSubmitPending) return;
+      if (target.closest('.peregrine-collab-thread')) return;
       if (target.closest('.annotation-floating-popup')) return;
       if (target.closest('.annotation-thread-marker')) return;
       if (target.closest('.annotation-comments-panel')) return;
@@ -2687,12 +3285,32 @@ export default function createCommentsPanelController({
         if (annotationUI.panelEl?.contains(target)) return;
         if (annotationUI.popupEl?.contains(target)) return;
       }
+      hideBlockHover();
       scheduleFloatingUISync();
     };
-    annotationState.windowResizeHandler = scheduleFloatingUISync;
+    annotationState.windowResizeHandler = () => {
+      scheduleFloatingUISync();
+    };
     mainEl.addEventListener('scroll', annotationState.mainScrollHandler);
     document.addEventListener('scroll', annotationState.mainScrollHandler, true);
     window.addEventListener('resize', annotationState.windowResizeHandler);
+
+    annotationState.blockHoverHandler = (event) => {
+      if (!isCommentsViewActive()) return;
+      if (annotationState.markupsHidden) return;
+      if (popupSubmitPending) return;
+      const block = resolveHoverBlock(event.target);
+      if (block) {
+        showBlockHover(block);
+      } else {
+        hideBlockHover();
+      }
+    };
+    annotationState.blockHoverLeaveHandler = () => {
+      hideBlockHover();
+    };
+    mainEl.addEventListener('mousemove', annotationState.blockHoverHandler);
+    mainEl.addEventListener('mouseleave', annotationState.blockHoverLeaveHandler);
   }
 
   return {
