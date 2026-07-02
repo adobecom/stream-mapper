@@ -209,6 +209,14 @@ async function handleBrokenBlocks(placeholderHtml = BROKEN_PLACEHOLDER_HTML.defa
   handler();
 }
 
+export function getEnvFromRef() {
+  const ref = (new URLSearchParams(window.location.search).get('streamRef') || '').toLowerCase();
+  if (ref === 'prod') return 'prod';
+  if (ref === 'stage') return 'stage';
+  if (ref === 'dev02') return 'dev02';
+  return 'dev';
+}
+
 export function getMapperEnv() {
   const { origin } = window.location;
   let mapperOrigin = origin;

@@ -191,7 +191,7 @@ export async function initiatePreviewer(forceOperation = null) {
       updateLoader({ percentage: 50, message: 'Loading Page' });
       await mergeImageUrls();
       updateLoader({ percentage: 80, message: 'Loading Page' });
-      annotationOperationOnHostPage();
+      await annotationOperationOnHostPage();
       updateLoader({ percentage: 100, message: 'Loading Page' });
       attachRegenHandlers();
       hideLoader();
@@ -512,6 +512,7 @@ export async function mergeImageUrls() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
   const repo = host.split('--')[1];
+  if (!repo) return;
   const daUrl = `adobecom/${repo}${pathname}`;
   const daHtml = await fetchDAContent(daUrl);
   const daImg = daHtml.querySelectorAll('main img');
@@ -535,6 +536,7 @@ export async function selfRender() {
   const searchParams = new URLSearchParams(window.location.search);
   if (searchParams.get('daRenderingApp') !== 'stream' && searchParams.get('darenderingapp') !== 'stream') return;
   if (window.location.host.includes('stream-mapper--adobecom.aem')) return;
+  if (!document.querySelector('main')) return;
   const mapperOrigin = searchParams.get('mapperOrigin') || searchParams.get('mapperorigin');
   loadCssFiles(`${mapperOrigin}/streamlibs/styles/styles.css`);
   await initPreviewer();

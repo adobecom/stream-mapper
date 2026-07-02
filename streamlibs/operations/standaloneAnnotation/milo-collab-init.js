@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { CONFIG } from '../../utils/config.js';
-import { getMapperEnv, initializeTokens } from '../../utils/utils.js';
+import { getMapperEnv, initializeTokens, getEnvFromRef } from '../../utils/utils.js';
 import {
   resetTargetHtmlInStore,
   resetPreviewHtmlInStore,
@@ -11,7 +11,7 @@ import { initiatePreviewer, setupMessageListener } from '../../previewer.js';
 import { setupBlockActionModal } from '../../utils/block-action-modal.js';
 import { applyRemoteCollabSnapshot } from '../../utils/operations.js';
 
-const API_ENDPOINT = 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io/api';
+const API_ENDPOINT = `${CONFIG[getEnvFromRef()].streamMapper.serviceEP}/api`;
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
 
@@ -102,7 +102,7 @@ async function fetchAndApplyCollabSnapshot(collabId) {
 async function startAnnotation(createdCollabId = null) {
   const params = new URLSearchParams(window.location.search);
   loadCssFiles('https://standaloneAnnotation--stream-mapper--adobecom.aem.live/streamlibs/styles/styles.css');
-  const env = getMapperEnv();
+  const env = getEnvFromRef();
   const collabId = createdCollabId || params.get('miloCollabId');
   const { host, pathname } = window.location;
   if (!host.includes('.aem.')) return;
