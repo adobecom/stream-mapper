@@ -29,7 +29,7 @@ function loadCssFiles(filePath) {
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = filePath;
-  link.dataset.streamMapperStyles = '';
+  link.dataset.peregrineMapperStyles = '';
   document.head.appendChild(link);
 }
 
@@ -89,7 +89,7 @@ async function assignCollabRoles(collabId, assignments) {
 async function fetchAndApplyCollabSnapshot(collabId) {
   const token = getToken();
   if (!collabId || !token) return;
-  const serviceEP = window.streamConfig?.streamMapper?.serviceEP || '';
+  const serviceEP = window.peregrineConfig?.peregrineMapper?.serviceEP || '';
   if (!serviceEP) return;
   const headers = { Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName };
   try {
@@ -118,8 +118,8 @@ async function startAnnotation(createdCollabId = null) {
   const pageUrl = window.location.href;
   const draftLocation = '';
   const username = resolvedName || resolvedEmail.split('@')[0] || 'Unknown';
-  window.streamConfig = {
-    streamMapper: { ...CONFIG[env].streamMapper },
+  window.peregrineConfig = {
+    peregrineMapper: { ...CONFIG[env].peregrineMapper },
     source: 'da',
     contentUrl: draftLocation,
     target: 'da',

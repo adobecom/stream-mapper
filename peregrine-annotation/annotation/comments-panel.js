@@ -355,8 +355,8 @@ export default function createCommentsPanelController({
   function applyOwnerOnlyToggleState() {}
 
   function applyDisableEditsState() {
-    const noToken = !new URLSearchParams(window.location.search).get('token') && !window.streamConfig?.token;
-    if (!window.streamConfig?.disableEdits && !noToken) return;
+    const noToken = !new URLSearchParams(window.location.search).get('token') && !window.peregrineConfig?.token;
+    if (!window.peregrineConfig?.disableEdits && !noToken) return;
     const bar = annotationUI.topbarEl;
     if (!bar) return;
     bar.querySelectorAll('.peregrine-collab-topbar-btn').forEach((btn) => {
@@ -382,7 +382,7 @@ export default function createCommentsPanelController({
     const identity = getCurrentUserIdentity();
     const profileId = `${identity?.profileId ?? ''}`.trim();
     if (profileId) return `profile:${profileId}`;
-    const name = `${window.streamConfig?.username || window.streamConfig?.userName || window.streamConfig?.userEmail || ''}`.trim().toLowerCase();
+    const name = `${window.peregrineConfig?.username || window.peregrineConfig?.userName || window.peregrineConfig?.userEmail || ''}`.trim().toLowerCase();
     return name ? `name:${name}` : '';
   }
 
@@ -392,7 +392,7 @@ export default function createCommentsPanelController({
     const currentProfileId = `${identity?.profileId ?? ''}`.trim();
     const authorProfileId = `${message.authorProfileId ?? ''}`.trim();
     if (currentProfileId && authorProfileId) return currentProfileId === authorProfileId;
-    const currentName = `${window.streamConfig?.username || window.streamConfig?.userName || ''}`.trim().toLowerCase();
+    const currentName = `${window.peregrineConfig?.username || window.peregrineConfig?.userName || ''}`.trim().toLowerCase();
     const authorName = `${message.username || ''}`.trim().toLowerCase();
     return Boolean(currentName && authorName && currentName === authorName);
   }
@@ -426,13 +426,13 @@ export default function createCommentsPanelController({
     });
 
     // Ensure the current user always appears — but only if not already present by name.
-    const selfName = `${window.streamConfig?.username || window.streamConfig?.userName || window.streamConfig?.userEmail || 'You'}`.trim();
+    const selfName = `${window.peregrineConfig?.username || window.peregrineConfig?.userName || window.peregrineConfig?.userEmail || 'You'}`.trim();
     if (currentKey && !seenNames.has(selfName.toLowerCase())) {
       seenNames.add(selfName.toLowerCase());
       people.unshift({
         key: currentKey,
         name: selfName,
-        role: normalizeRole(window.streamConfig?.collabRole),
+        role: normalizeRole(window.peregrineConfig?.collabRole),
         isCurrent: true,
       });
     }
@@ -712,12 +712,12 @@ export default function createCommentsPanelController({
   }
 
   function isCurrentUserCollabOwner() {
-    const normalizedRole = `${window.streamConfig?.collabRole || ''}`
+    const normalizedRole = `${window.peregrineConfig?.collabRole || ''}`
       .trim()
       .toLowerCase()
       .replace(/[_-]+/g, ' ');
     if (!normalizedRole) {
-      return window.streamConfig?.inlineEditingAllowed === true;
+      return window.peregrineConfig?.inlineEditingAllowed === true;
     }
     return normalizedRole === 'owner'
       || normalizedRole === 'collab owner';
@@ -822,7 +822,7 @@ export default function createCommentsPanelController({
   function isReviewerCurrentUser(reviewer) {
     const currentProfileId = getCurrentReviewerProfileId();
     if (currentProfileId && reviewer.profileId === currentProfileId) return true;
-    const currentUsername = `${window.streamConfig?.username || ''}`.trim().toLowerCase();
+    const currentUsername = `${window.peregrineConfig?.username || ''}`.trim().toLowerCase();
     return !!currentUsername && reviewer.userId.toLowerCase() === currentUsername;
   }
 

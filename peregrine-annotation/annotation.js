@@ -46,31 +46,6 @@ async function initializePreview() {
   document.body.prepend(headerEle);
 }
 
-// ── URL / HTML helpers ────────────────────────────────────────────────────────
-
-function rewriteAttr(el, attr, origin) {
-  const val = el.getAttribute(attr);
-  if (!val) return;
-  if (val.startsWith('data:')) { el.setAttribute('data-regen-src', val); return; }
-  if (!origin) return;
-  if (val.startsWith('./media')) {
-    el.setAttribute(attr, `${origin}/${val.slice(2)}`);
-  } else if (val.startsWith('/') && !val.startsWith('//')) {
-    el.setAttribute(attr, `${origin}${val}`);
-  }
-}
-
-function rewriteMediaUrls(container) {
-  const origin = (typeof window !== 'undefined' && window.location?.origin) || '';
-  container.querySelectorAll('img').forEach((img) => {
-    rewriteAttr(img, 'src', origin);
-    if (img.hasAttribute('srcset')) rewriteAttr(img, 'srcset', origin);
-  });
-  container.querySelectorAll('source').forEach((source) => {
-    rewriteAttr(source, 'srcset', origin);
-  });
-}
-
 // ── HTML export ───────────────────────────────────────────────────────────────
 
 function buildHtmlWithEdits() {
@@ -79,7 +54,6 @@ function buildHtmlWithEdits() {
   const container = document.createElement('div');
   container.innerHTML = `<main>${html}</main>`;
 
-  rewriteMediaUrls(container);
   const mainEl = container.querySelector('main');
 
   return { easyEdits, daCompatibleHtml: mainEl.innerHTML };
@@ -121,7 +95,7 @@ export async function annotationOperation(options = {}) {
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  if (window.streamConfig?.source === 'da') {
+  if (window.peregrineConfig?.source === 'da') {
     mainEl.querySelectorAll(':scope > div').forEach((div) => {
       if (!div.dataset.source) div.dataset.source = 'da';
     });
@@ -131,7 +105,7 @@ export async function annotationOperation(options = {}) {
 
   const metadataDom = document.body.querySelector('.page-metadata');
   const metadataSeparator = document.createElement('div');
-  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
+  metadataSeparator.classList.add('section', 'peregrine-annotation-page-metadata');
   metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
   metadataSeparator.append(metadataDom);
   mainEl.append(metadataSeparator);
@@ -166,26 +140,6 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState });
-
-  const stripBase64QueryParam = (el) => {
-    const attr = el.tagName === 'SOURCE' ? 'srcset' : 'src';
-    const val = el[attr];
-    if (!val?.includes('base64')) return;
-    const queryIdx = val.indexOf('?');
-    if (queryIdx === -1) return;
-    el[attr] = val.substring(0, queryIdx);
-  };
-
-  const mergedElements = [...document.querySelectorAll('main img, main source')];
-  if (mergedElements.length) {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((m) => stripBase64QueryParam(m.target));
-    });
-    mergedElements.forEach((el) => {
-      stripBase64QueryParam(el);
-      observer.observe(el, { attributes: true, attributeFilter: ['src', 'srcset'] });
-    });
-  }
 }
 
 async function persistEditsToDb() {

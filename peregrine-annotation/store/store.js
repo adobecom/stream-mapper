@@ -27,13 +27,13 @@ export function resetPreviewHtmlInStore() {
 
 // Handle edit changes in store
 export function fetchEditChangesFromStore() {
-  return window.sessionStorage.getItem('stream-edit');
+  return window.sessionStorage.getItem('peregrine-edit');
 }
 
 export function pushEditChangesToStore(changes) {
-  window.sessionStorage.setItem('stream-edit', changes);
+  window.sessionStorage.setItem('peregrine-edit', changes);
 }
 
 export function resetEditChangesInStore() {
-  window.sessionStorage.removeItem('stream-edit');
+  window.sessionStorage.removeItem('peregrine-edit');
 }

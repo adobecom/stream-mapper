@@ -191,10 +191,10 @@ export const LOADER_MSG_LIST = [
   'Constructing the masterpiece. Stay tuned ',
 ];
 
-export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
-export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
-export const ANNOTATION_SAVE_EVENT = 'stream-mapper:annotation-save';
-export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
+export const LOADER_PROGRESS_EVENT = 'peregrine-mapper:loader-progress';
+export const ANNOTATION_REFRESH_EVENT = 'peregrine-mapper:annotation-refresh';
+export const ANNOTATION_SAVE_EVENT = 'peregrine-mapper:annotation-save';
+export const ANNOTATION_READY_EVENT = 'PEREGRINE_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {
   START: 0,
@@ -224,7 +224,7 @@ export function getBlocksCreationMessage(current, total) {
   return `Creating blocks ${current}/${total}`;
 }
 
-export const ANNOTATION_DEFAULT_USERNAME = 'stream';
+export const ANNOTATION_DEFAULT_USERNAME = 'peregrine';
 
 export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Accepted', 'Rejected', 'Closed'];
 

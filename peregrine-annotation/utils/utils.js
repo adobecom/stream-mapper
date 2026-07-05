@@ -31,18 +31,18 @@ export async function getConfig() {
 
 export function initializeTokens(token) {
   if (token == null || `${token}`.trim() === '') return;
-  if (!window.streamConfig?.streamMapper) return;
+  if (!window.peregrineConfig?.peregrineMapper) return;
   const normalized = `${token}`.trim().startsWith('Bearer ') ? token : `Bearer ${token}`;
-  window.streamConfig.streamMapper.figmaAuthToken = normalized;
-  window.streamConfig.streamMapper.daToken = normalized;
+  window.peregrineConfig.peregrineMapper.figmaAuthToken = normalized;
+  window.peregrineConfig.peregrineMapper.daToken = normalized;
 }
 
-export function ensureStreamMapperForStandalone(overrides = {}) {
-  const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
-  const existing = window.streamConfig?.streamMapper || {};
-  const serviceEP = streamServiceEP || existing.serviceEP;
-  if (!window.streamConfig) window.streamConfig = {};
-  window.streamConfig.streamMapper = {
+export function ensurePeregrineMapperForStandalone(overrides = {}) {
+  const peregrineServiceEP = `${overrides.peregrineServiceEP || overrides.serviceEP || ''}`.trim();
+  const existing = window.peregrineConfig?.peregrineMapper || {};
+  const serviceEP = peregrineServiceEP || existing.serviceEP;
+  if (!window.peregrineConfig) window.peregrineConfig = {};
+  window.peregrineConfig.peregrineMapper = {
     serviceEP,
     pushToDaUrl: '/api/push-html',
     figmaMappingUrl: '/api/fig-comps',
