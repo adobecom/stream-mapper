@@ -221,6 +221,25 @@ body.annotation-mode main::-webkit-scrollbar {
   color: var(--annotation-accent);
 }
 
+.peregrine-collab-topbar-browser-mode {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+  color: var(--annotation-ink-soft);
+}
+
+.peregrine-collab-topbar-browser-mode svg {
+  width: 18px;
+  height: 18px;
+}
+
+.peregrine-collab-topbar-browser-mode[aria-pressed="true"],
+.peregrine-collab-topbar-browser-mode.is-active {
+  background: #e8f5e9;
+  border-color: #81c784;
+  color: #2e7d32;
+}
+
 /* ── Activity drawer filter chips (All / Mine / Others) ────────────────── */
 
 .peregrine-collab-activity-filters {
@@ -447,6 +466,21 @@ body.peregrine-collab-markups-hidden .peregrine-collab-block-hover {
 
 .annotation-floating-layer.is-hidden {
   display: none;
+}
+
+/* Browser mode: allow page interactions */
+body.peregrine-browser-mode-active .annotation-floating-layer {
+  pointer-events: none !important;
+}
+
+body.peregrine-browser-mode-active .annotation-thread-marker,
+body.peregrine-browser-mode-active .annotation-block-outline,
+body.peregrine-browser-mode-active .annotation-floating-ui {
+  pointer-events: none !important;
+}
+
+body.peregrine-browser-mode-active main {
+  pointer-events: auto !important;
 }
 
 .annotation-thread-marker {

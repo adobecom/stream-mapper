@@ -352,6 +352,51 @@ export default function createCommentsPanelController({
     if (hidden) hideBlockHover();
   }
 
+  function setBrowserMode(enabled) {
+    annotationState.browserModeActive = enabled;
+    const btn = annotationUI.browserModeToggleEl;
+    if (btn instanceof HTMLButtonElement) {
+      btn.setAttribute('aria-pressed', String(enabled));
+      btn.classList.toggle('is-active', enabled);
+      btn.title = enabled ? 'Disable browser mode' : 'Enable browser mode';
+    }
+    
+    // Toggle annotation overlay and interactions
+    document.body.classList.toggle('peregrine-browser-mode-active', enabled);
+    
+    if (enabled) {
+      // Close all comments popups and panels
+      closePopupAndSelection();
+      const panel = annotationUI.panelEl;
+      if (panel instanceof HTMLElement) {
+        panel.classList.remove('is-open');
+      }
+      
+      // Hide all markups
+      setMarkupsHidden(true);
+      
+      // Enable page interactions
+      const layer = document.querySelector('.annotation-floating-layer');
+      if (layer) {
+        layer.style.pointerEvents = 'none';
+      }
+    } else {
+      // Restore annotation mode
+      const layer = document.querySelector('.annotation-floating-layer');
+      if (layer) {
+        layer.style.pointerEvents = '';
+      }
+      
+      // Restore markups visibility
+      setMarkupsHidden(false);
+    }
+  }
+
+  function toggleBrowserMode() {
+    const newState = !annotationState.browserModeActive;
+    setBrowserMode(newState);
+  }
+
   function applyOwnerOnlyToggleState() {}
 
   function applyDisableEditsState() {
@@ -493,6 +538,11 @@ export default function createCommentsPanelController({
         <span class="peregrine-collab-topbar-badge" hidden>0</span>
       </button>
       <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
+      <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-browser-mode" aria-pressed="false" aria-label="Enable browser mode" title="Enable browser mode">
+        <span class="peregrine-collab-topbar-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="currentColor"/></svg>
+        </span>
+      </button>
     `;
     document.body.appendChild(bar);
 
@@ -501,11 +551,17 @@ export default function createCommentsPanelController({
     annotationUI.presenceEl = bar.querySelector('.peregrine-collab-topbar-presence');
     annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
     annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
+    annotationUI.browserModeToggleEl = bar.querySelector('.peregrine-collab-topbar-browser-mode');
 
     setMarkupsHidden(false);
+    setBrowserMode(false);
 
     annotationUI.visibilityToggleEl.addEventListener('click', () => {
       setMarkupsHidden(!annotationState.markupsHidden);
+    });
+
+    annotationUI.browserModeToggleEl.addEventListener('click', () => {
+      toggleBrowserMode();
     });
 
     annotationUI.commentsBtnEl.addEventListener('click', (event) => {
