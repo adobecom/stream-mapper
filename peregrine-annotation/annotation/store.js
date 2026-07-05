@@ -20,12 +20,6 @@ export function normalizeCommentStatus(status) {
 }
 
 export function createAnnotationStore({ annotationState, annotationUI }) {
-  let previewUrlResolverFn = null;
-
-  function setPreviewUrlResolver(fn) {
-    previewUrlResolverFn = fn;
-  }
-
   function generateId(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -242,8 +236,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return {
       threads: [],
       easyEdits,
-      assets: [],
-      localAssets: [],
     };
   }
 
@@ -254,11 +246,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function getEditPanelMessage(edit) {
-    if (edit.editType === 'image-src') {
-      const fromLabel = truncateInlineEditText(edit.from, 40);
-      const toLabel = edit.to ? truncateInlineEditText(edit.to, 40) : 'pending upload';
-      return `replaced image src "${fromLabel}" → "${toLabel}"`;
-    }
     if (edit.editType === 'image-alt') {
       return `changed alt "${truncateInlineEditText(edit.from, 40)}" → "${truncateInlineEditText(edit.to, 40)}"`;
     }
@@ -336,7 +323,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       .filter((edit) => (
         edit
         && typeof edit === 'object'
-        && edit.editType !== 'image-src'
         && (edit.from !== edit.to || (Array.isArray(edit.changeHistory) && edit.changeHistory.length > 0))
       ))
       .map((edit) => buildEditThreadFromEasyEdit(edit));
@@ -361,7 +347,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       const raw = window.sessionStorage.getItem(ANNOTATION_STORE_KEY);
       if (!raw) {
         annotationState.store = {
-          threads: [], easyEdits: [], assets: [], localAssets: [],
+          threads: [], easyEdits: [],
         };
         return;
       }
@@ -379,7 +365,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       rebuildEditThreadsFromEasyEdits();
     } catch (error) {
       annotationState.store = {
-        threads: [], easyEdits: [], assets: [], localAssets: [],
+        threads: [], easyEdits: [],
       };
     }
   }
@@ -468,7 +454,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   function keepLatestImageEdits(easyEdits = []) {
     const latestByKey = new Map();
     for (const edit of easyEdits) {
-      if (!edit || (edit.editType !== 'image-src' && edit.editType !== 'image-alt')) continue;
+      if (!edit || edit.editType !== 'image-alt') continue;
       const key = `${edit.editType}|${getEditElementPathKey(edit.elementPath, edit.elementProps)}`;
       const prev = latestByKey.get(key);
       if (!prev || new Date(edit.updatedAt || 0) >= new Date(prev.updatedAt || 0)) {
@@ -476,7 +462,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       }
     }
     return easyEdits.filter((edit) => {
-      if (!edit || (edit.editType !== 'image-src' && edit.editType !== 'image-alt')) return true;
+      if (!edit || edit.editType !== 'image-alt') return true;
       const key = `${edit.editType}|${getEditElementPathKey(edit.elementPath, edit.elementProps)}`;
       return latestByKey.get(key) === edit;
     });
@@ -486,114 +472,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     let updatedHtml = `${html || ''}`;
     const effectiveEdits = keepLatestImageEdits(easyEdits);
 
-    // Parse the ORIGINAL html once so that candidate counts stay stable across edits.
-    // Sequential edits shrink same-src lists in updatedHtml; reading from the original
-    // parse keeps getViewportOccurrenceIndex and picIndexInBlock mapping correct.
-    const origWrapper = document.createElement('div');
-    origWrapper.innerHTML = `<main>${html || ''}</main>`;
-    const origMainEl = origWrapper.querySelector('main');
     effectiveEdits.forEach((edit) => {
       if (!edit || typeof edit !== 'object') return;
-
-      if (edit.editType === 'image-src') {
-        const fromSrc = `${edit.from || ''}`;
-        const toSrc = `${edit.to || ''}`;
-        if (!fromSrc || !toSrc) return;
-
-        const imgBlockClass = edit.blockClass || edit.elementProps?.blockClass || '';
-        const imgBlockGlobalIndex = edit.blockGlobalIndex
-          ?? edit.elementProps?.blockGlobalIndex
-          ?? -1;
-
-        if (imgBlockClass && imgBlockGlobalIndex >= 0) {
-          const wrapper = document.createElement('div');
-          wrapper.innerHTML = `<main>${updatedHtml}</main>`;
-          const mainEl = wrapper.querySelector('main');
-          const targetBlock = findBlockInDaHtml(mainEl, imgBlockClass, imgBlockGlobalIndex);
-          if (targetBlock) {
-            const currentBlockHtml = targetBlock.outerHTML;
-
-            // Use original block to resolve absolute picture position.
-            // This keeps the index stable even after prior edits changed picture srcs.
-            const origBlock = findBlockInDaHtml(origMainEl, imgBlockClass, imgBlockGlobalIndex);
-            const origAllPics = origBlock
-              ? Array.from(origBlock.querySelectorAll('picture'))
-              : [];
-            let origCandidates = origAllPics.filter(
-              (pic) => pic.innerHTML.includes(fromSrc),
-            );
-            // In the iframe flow the live src matches the baseline directly. In
-            // standalone the host renderer re-hashes media URLs (media_<hash>.jpg),
-            // so the src never matches — fall back to the stable alt text, which is
-            // identical on both sides and unique per picture.
-            const fromAlt = `${edit.imgAlt || edit.elementProps?.imgAlt || ''}`.trim();
-            if (!origCandidates.length && fromAlt) {
-              origCandidates = origAllPics.filter(
-                (pic) => (pic.querySelector('img')?.getAttribute('alt') || '').trim() === fromAlt,
-              );
-            }
-            // Fall back to all pictures when neither src nor alt is in the baseline.
-            const candidatePool = origCandidates.length ? origCandidates : origAllPics;
-
-            const storedIdx = edit.picIndexInBlock ?? edit.elementProps?.picIndexInBlock ?? null;
-            const contentIdx = edit.contentPicIndexInBlock
-              ?? edit.elementProps?.contentPicIndexInBlock ?? null;
-            let origTarget = null;
-
-            if (origCandidates.length === 1) {
-              // src or alt uniquely identified the picture.
-              origTarget = origCandidates[0];
-            } else if (storedIdx !== null && storedIdx >= 0 && storedIdx < candidatePool.length) {
-              origTarget = candidatePool[storedIdx];
-            } else if (!origCandidates.length
-              && contentIdx !== null && contentIdx >= 0 && contentIdx < origAllPics.length) {
-              // No src/alt match: baseline pictures are all content pictures, so the
-              // absolute content-picture index from the live block maps directly.
-              origTarget = origAllPics[contentIdx];
-            } else {
-              const picIdx = getViewportOccurrenceIndex(
-                candidatePool.length || 1,
-                edit.viewport,
-              );
-              origTarget = candidatePool[picIdx] || null;
-            }
-
-            // Map original target → absolute index → picture in current (modified) block
-            const absIdx = origTarget ? origAllPics.indexOf(origTarget) : -1;
-            const allCurrentPics = Array.from(targetBlock.querySelectorAll('picture'));
-            const targetEl = absIdx >= 0 && absIdx < allCurrentPics.length
-              ? allCurrentPics[absIdx]
-              : null;
-
-            if (targetEl) {
-              const curEl = targetEl.outerHTML;
-              // Overwrite the picture's source(s) with `to` regardless of current src.
-              const replacementEl = targetEl.cloneNode(true);
-              replacementEl.querySelectorAll('img').forEach((img) => {
-                img.setAttribute('src', toSrc);
-                if (img.hasAttribute('srcset')) img.setAttribute('srcset', toSrc);
-              });
-              replacementEl.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', toSrc));
-              const newEl = replacementEl.outerHTML;
-              // Count identical pictures before targetEl so we replace the correct
-              // nth occurrence when multiple pictures share the same outerHTML.
-              const nth = allCurrentPics
-                .slice(0, absIdx)
-                .filter((pic) => pic.outerHTML === curEl)
-                .length;
-              const blk = currentBlockHtml;
-              const newBlk = replaceNthOccurrence(blk, curEl, newEl, nth);
-              if (newBlk !== blk) {
-                updatedHtml = replaceFirstOccurrence(updatedHtml, blk, newBlk);
-              }
-            }
-          }
-          return;
-        }
-
-        updatedHtml = replaceFirstOccurrence(updatedHtml, fromSrc, toSrc);
-        return;
-      }
 
       if (edit.editType === 'image-alt') {
         const fromAlt = `${edit.from || ''}`;
@@ -1278,9 +1158,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     if (index > -1) {
       const existing = annotationState.store.easyEdits[index];
       const history = [...(existing.changeHistory || [])];
-      const isImageEdit = normalizedEditRecord.editType === 'image-src'
-        || normalizedEditRecord.editType === 'image-alt'
-        || existing.editType === 'image-src'
+      const isImageEdit = normalizedEditRecord.editType === 'image-alt'
         || existing.editType === 'image-alt';
       // Image edits: record a step when the file or URL changes (to may stay '').
       const valueChanged = isImageEdit
@@ -1370,8 +1248,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     return annotationState.store.easyEdits
       .filter((edit) => {
         if (!edit) return false;
-        // Don't persist a pending asset edit that hasn't been assigned a URL yet.
-        if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) {
+        // Don't persist a pending alt edit that hasn't been assigned a value yet.
+        if (edit.editType === 'image-alt' && !edit.to) {
           return false;
         }
         return edit.from !== edit.to || (edit.fromHtml || '') !== (edit.toHtml || '');
@@ -1483,31 +1361,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
   const easyEditOriginalByElement = new WeakMap();
 
-  // In-memory only (never serialized): File + base64 by fileKey, and base64 by URL.
-  const assetFileByKey = new Map();
-  const assetBase64ByKey = new Map();
-  const assetBase64ByUrl = new Map();
-
-  function registerAssetFile(fileKey, file, base64) {
-    if (!fileKey) return;
-    if (file) assetFileByKey.set(fileKey, file);
-    if (base64) assetBase64ByKey.set(fileKey, base64);
-  }
-
-  function cacheAssetUrlBase64(url, base64) {
-    if (url && base64) assetBase64ByUrl.set(url, base64);
-  }
-
-  function getAssetFile(fileKey) {
-    return fileKey ? assetFileByKey.get(fileKey) || null : null;
-  }
-
-  function getAssetPreviewSrc({ to = '', fileKey = '' } = {}) {
-    if (fileKey && assetBase64ByKey.has(fileKey)) return assetBase64ByKey.get(fileKey);
-    if (to && assetBase64ByUrl.has(to)) return assetBase64ByUrl.get(to);
-    return to || '';
-  }
-
   function getEasyEditOriginalForElement(element) {
     if (!(element instanceof HTMLElement)) return null;
     return easyEditOriginalByElement.get(element) || null;
@@ -1517,47 +1370,20 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     if (!annotationUI.mainEl) return;
     removeEasyEditHighlights(annotationUI.mainEl);
 
-    const resolvedUrls = new Map();
-    if (previewUrlResolverFn) {
-      await Promise.all(
-        annotationState.store.easyEdits
-          .filter((edit) => edit?.editType === 'image-src' && edit.to?.includes('content.da.live'))
-          .map(async (edit) => {
-            const b64 = await previewUrlResolverFn(edit.to);
-            if (b64) resolvedUrls.set(edit.to, b64);
-          }),
-      );
-    }
-
     keepLatestImageEdits(annotationState.store.easyEdits).forEach((edit) => {
       const target = getElementForEdit(edit);
       if (!(target instanceof HTMLElement)) return;
-      if (target.closest('[data-class="fragment"]')) return;
 
       if (edit.from === edit.to && (edit.fromHtml || '') === (edit.toHtml || '')) return;
 
-      // Pending asset edit (empty `to`): keep the existing base64 preview.
-      if ((edit.editType === 'image-src' || edit.editType === 'image-alt') && !edit.to) return;
+      // Pending alt edit (empty `to`): keep the existing value.
+      if (edit.editType === 'image-alt' && !edit.to) return;
 
       if (edit.editType === 'text') {
         easyEditOriginalByElement.set(target, {
           from: edit.from,
           fromHtml: edit.fromHtml || '',
         });
-      }
-
-      if (edit.editType === 'image-src') {
-        const displayUrl = resolvedUrls.get(edit.to) || edit.to || '';
-        const imgEl = target.tagName === 'IMG' ? target : target.querySelector('img');
-        if (imgEl) {
-          imgEl.setAttribute('src', displayUrl);
-          if (imgEl.hasAttribute('srcset')) imgEl.setAttribute('srcset', displayUrl);
-        }
-        const picture = (imgEl || target).closest('picture');
-        if (picture) {
-          picture.querySelectorAll('source').forEach((s) => s.setAttribute('srcset', displayUrl));
-        }
-        return;
       }
 
       if (edit.editType === 'image-alt') {
@@ -1587,7 +1413,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   return {
     applyEasyEditsToDom,
     applyEasyEditsToHtmlString,
-    setPreviewUrlResolver,
     buildElementPath,
     buildCommentElementPath,
     buildEditElementAnchor,
@@ -1605,10 +1430,6 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     getElementByThreadPath,
     getEasyEditByElement,
     getEasyEditOriginalForElement,
-    registerAssetFile,
-    cacheAssetUrlBase64,
-    getAssetFile,
-    getAssetPreviewSrc,
     getElementByRef,
     getElementForThread,
     getElementForEdit,

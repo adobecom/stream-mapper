@@ -7,7 +7,6 @@ import {
 } from '../utils/constants.js';
 import createAnnotationServiceClient from './service.js';
 import requestParentCollabRefresh from './collab-sync.js';
-import syncFragmentEditDisabledHints from './fragment-hints.js';
 import { hideGlobalSnackbar, showGlobalSnackbar } from '../utils/snackbar.js';
 import {
   formatCardTimestamp,
@@ -39,7 +38,6 @@ export default function createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
-  assetsPanel,
 }) {
   const annotationService = createAnnotationServiceClient();
   let flushPendingCommentsPanelRefresh = () => {};
@@ -87,14 +85,34 @@ export default function createCommentsPanelController({
     panel.className = 'annotation-comments-panel peregrine-collab-drawer';
     panel.innerHTML = `
       <div class="annotation-comments-panel-header">
+        <span class="peregrine-collab-drawer-drag" title="Drag to move" aria-label="Drag to move panel">
+          <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+            <circle cx="3" cy="3" r="1.2" fill="currentColor"/><circle cx="7" cy="3" r="1.2" fill="currentColor"/>
+            <circle cx="3" cy="8" r="1.2" fill="currentColor"/><circle cx="7" cy="8" r="1.2" fill="currentColor"/>
+            <circle cx="3" cy="13" r="1.2" fill="currentColor"/><circle cx="7" cy="13" r="1.2" fill="currentColor"/>
+          </svg>
+        </span>
         <div class="annotation-comments-panel-heading">
           <h3>Activity</h3>
         </div>
+        <button type="button" class="peregrine-collab-drawer-dock" aria-label="Dock to other side" title="Dock to other side">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/>
+            <path d="M12 4v16" stroke="currentColor" stroke-width="1.7"/>
+          </svg>
+        </button>
         <button type="button" class="annotation-comments-panel-close-btn" aria-label="Close activity panel" title="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
+      </div>
+      <div class="peregrine-collab-search">
+        <svg class="peregrine-collab-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M20 20l-3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input type="search" class="peregrine-collab-search-input" placeholder="Search comments and authors…" aria-label="Search comments and authors" />
       </div>
       <div class="peregrine-collab-activity-filters" role="tablist">
         <button type="button" class="peregrine-collab-activity-chip is-active" data-filter="all">All</button>
@@ -113,6 +131,18 @@ export default function createCommentsPanelController({
     panel.querySelector('.annotation-comments-panel-close-btn')
       ?.addEventListener('click', () => closeCommentsDrawer());
 
+    panel.querySelector('.peregrine-collab-drawer-dock')
+      ?.addEventListener('click', () => togglePanelSide());
+
+    const searchInput = panel.querySelector('.peregrine-collab-search-input');
+    if (searchInput instanceof HTMLInputElement) {
+      searchInput.value = annotationState.searchQuery || '';
+      searchInput.addEventListener('input', () => {
+        annotationState.searchQuery = searchInput.value;
+        renderCommentsPanel();
+      });
+    }
+
     panel.querySelectorAll('.peregrine-collab-activity-filters .peregrine-collab-activity-chip')
       .forEach((chip) => {
         chip.addEventListener('click', () => {
@@ -121,9 +151,178 @@ export default function createCommentsPanelController({
         });
       });
 
+    setupPanelDrag(panel);
+    loadPanelPlacement();
+    applyPanelPlacement();
+
     updateModeButtonStates();
     applyOwnerOnlyToggleState();
     applyDisableEditsState();
+  }
+
+  // ── Panel placement (dock left/right + drag to float) ───────────────────────
+
+  const PANEL_STORAGE_PLACEMENT = 'peregrine-collab-panel-placement';
+  const PANEL_STORAGE_FLOATPOS = 'peregrine-collab-panel-floatpos';
+  const PANEL_DRAG_THRESHOLD = 4;
+  const PANEL_SNAP_EDGE = 60;
+
+  function loadPanelPlacement() {
+    try {
+      const placement = window.localStorage.getItem(PANEL_STORAGE_PLACEMENT);
+      if (placement === 'left' || placement === 'right' || placement === 'floating') {
+        annotationState.panelPlacement = placement;
+        if (placement !== 'floating') annotationState.lastDockedSide = placement;
+      }
+      const rawPos = window.localStorage.getItem(PANEL_STORAGE_FLOATPOS);
+      const pos = rawPos ? JSON.parse(rawPos) : null;
+      if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
+        annotationState.panelFloatPos = pos;
+      }
+    } catch { /* ignore storage errors */ }
+  }
+
+  function savePanelPlacement() {
+    try {
+      window.localStorage.setItem(PANEL_STORAGE_PLACEMENT, annotationState.panelPlacement);
+      if (annotationState.panelFloatPos) {
+        window.localStorage.setItem(
+          PANEL_STORAGE_FLOATPOS,
+          JSON.stringify(annotationState.panelFloatPos),
+        );
+      }
+    } catch { /* ignore storage errors */ }
+  }
+
+  function clampPanelFloatPos(x, y) {
+    const width = annotationUI.panelEl?.offsetWidth || 380;
+    const topbarH = 54;
+    const minOnscreen = 80;
+    return {
+      x: Math.min(window.innerWidth - minOnscreen, Math.max(minOnscreen - width, x)),
+      y: Math.min(window.innerHeight - 48, Math.max(topbarH + 4, y)),
+    };
+  }
+
+  function applyPanelPlacement() {
+    const panel = annotationUI.panelEl;
+    if (!(panel instanceof HTMLElement)) return;
+    const placement = annotationState.panelPlacement;
+    panel.classList.toggle('peregrine-collab-dock-left', placement === 'left');
+    panel.classList.toggle('peregrine-collab-floating', placement === 'floating');
+
+    if (placement === 'floating') {
+      const fallback = {
+        x: Math.max(16, window.innerWidth - (panel.offsetWidth || 380) - 24),
+        y: 70,
+      };
+      const clamped = clampPanelFloatPos(
+        annotationState.panelFloatPos?.x ?? fallback.x,
+        annotationState.panelFloatPos?.y ?? fallback.y,
+      );
+      annotationState.panelFloatPos = clamped;
+      panel.style.setProperty('--pc-float-x', `${clamped.x}px`);
+      panel.style.setProperty('--pc-float-y', `${clamped.y}px`);
+    } else {
+      panel.style.removeProperty('--pc-float-x');
+      panel.style.removeProperty('--pc-float-y');
+    }
+
+    const dockBtn = panel.querySelector('.peregrine-collab-drawer-dock');
+    if (dockBtn instanceof HTMLElement) {
+      dockBtn.title = placement === 'left' ? 'Dock to right' : 'Dock to left';
+    }
+    scheduleFloatingUISync();
+  }
+
+  function togglePanelSide() {
+    if (annotationState.panelPlacement === 'floating') {
+      annotationState.panelPlacement = annotationState.lastDockedSide || 'right';
+    } else {
+      annotationState.panelPlacement = annotationState.panelPlacement === 'right' ? 'left' : 'right';
+      annotationState.lastDockedSide = annotationState.panelPlacement;
+    }
+    applyPanelPlacement();
+    savePanelPlacement();
+  }
+
+  function setupPanelDrag(panel) {
+    const handle = panel.querySelector('.peregrine-collab-drawer-drag');
+    if (!(handle instanceof HTMLElement)) return;
+    let press = null;
+
+    const onMove = (event) => {
+      if (!press) return;
+      const dx = event.clientX - press.startX;
+      const dy = event.clientY - press.startY;
+      if (!press.dragging) {
+        if (Math.hypot(dx, dy) < PANEL_DRAG_THRESHOLD) return;
+        press.dragging = true;
+        panel.classList.add('is-dragging', 'peregrine-collab-floating');
+        panel.classList.remove('peregrine-collab-dock-left');
+        try { handle.setPointerCapture(press.pointerId); } catch { /* ignore */ }
+      }
+      const next = clampPanelFloatPos(press.originLeft + dx, press.originTop + dy);
+      panel.style.setProperty('--pc-float-x', `${next.x}px`);
+      panel.style.setProperty('--pc-float-y', `${next.y}px`);
+    };
+
+    const finish = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', finish);
+      document.removeEventListener('pointercancel', finish);
+      if (!press) return;
+      const wasDragging = press.dragging;
+      press = null;
+      panel.classList.remove('is-dragging');
+      if (!wasDragging) return;
+      const x = parseFloat(panel.style.getPropertyValue('--pc-float-x') || '0');
+      const y = parseFloat(panel.style.getPropertyValue('--pc-float-y') || '0');
+      const width = panel.offsetWidth || 380;
+      if (x <= PANEL_SNAP_EDGE) {
+        annotationState.panelPlacement = 'left';
+        annotationState.lastDockedSide = 'left';
+      } else if (x + width >= window.innerWidth - PANEL_SNAP_EDGE) {
+        annotationState.panelPlacement = 'right';
+        annotationState.lastDockedSide = 'right';
+      } else {
+        annotationState.panelPlacement = 'floating';
+        annotationState.panelFloatPos = { x, y };
+      }
+      applyPanelPlacement();
+      savePanelPlacement();
+    };
+
+    handle.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 && event.pointerType === 'mouse') return;
+      const rect = panel.getBoundingClientRect();
+      press = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originLeft: rect.left,
+        originTop: rect.top,
+        dragging: false,
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', finish);
+      document.addEventListener('pointercancel', finish);
+      event.preventDefault();
+    });
+  }
+
+  // Author names + message text for the drawer search filter.
+  function buildThreadHaystack(item) {
+    const parts = [];
+    const thread = item?.thread;
+    if (thread) {
+      (thread.messages || []).forEach((message) => {
+        if (message.username) parts.push(message.username);
+        if (message.text) parts.push(message.text);
+      });
+      if (thread.status) parts.push(thread.status);
+    }
+    return parts.join(' ').toLowerCase();
   }
 
   const MARKER_CHECK_ICON = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7.5" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -994,71 +1193,6 @@ export default function createCommentsPanelController({
     return annotationService.isAvailable();
   }
 
-  function showAttachAssetDropdown(anchorEl, threadId) {
-    // Remove existing dropdown if any
-    const existing = document.querySelector('.annotation-attach-dropdown');
-    if (existing) { existing.remove(); return; }
-
-    const assets = (annotationState.store.assets || [])
-      .filter((a) => a.status !== 'rejected');
-    if (!assets.length) return;
-
-    const dropdown = document.createElement('div');
-    dropdown.className = 'annotation-attach-dropdown';
-
-    assets.forEach((asset) => {
-      const item = document.createElement('button');
-      item.className = 'annotation-attach-dropdown-item';
-      item.textContent = `${asset.filename} (${asset.status})`;
-      item.title = asset.elementPath;
-      item.addEventListener('click', async () => {
-        dropdown.remove();
-        // Link this asset to the comment thread by re-uploading with comment_id
-        // For now, we show the asset thumbnail inline in the thread as a visual reference
-        try {
-          const content = await (assetsPanel
-            // eslint-disable-next-line no-underscore-dangle
-            ? Promise.resolve(asset._base64Data ? { data: asset._base64Data } : null)
-            : Promise.resolve(null));
-          if (content?.data) {
-            const thread = store.getThreadById(threadId);
-            if (thread) {
-              store.pushThreadMessage(threadId, {
-                id: `asset-attach-${asset.id}-${Date.now()}`,
-                username: '',
-                text: `[Attached: ${asset.filename}]`,
-                kind: 'reply',
-                replyToCommentId: thread.messages?.[0]?.id || '',
-                createdAt: new Date().toISOString(),
-              });
-              renderCommentsPanel();
-            }
-          }
-        } catch (err) {
-          console.error('[comments-panel] Attach asset failed:', err);
-        }
-      });
-      dropdown.appendChild(item);
-    });
-
-    // Position dropdown below the anchor button
-    const rect = anchorEl.getBoundingClientRect();
-    dropdown.style.position = 'fixed';
-    dropdown.style.top = `${rect.bottom + 4}px`;
-    dropdown.style.left = `${rect.left}px`;
-    dropdown.style.zIndex = '10000';
-    document.body.appendChild(dropdown);
-
-    // Close on outside click
-    const closeHandler = (e) => {
-      if (!dropdown.contains(e.target)) {
-        dropdown.remove();
-        document.removeEventListener('click', closeHandler, true);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
-  }
-
   function captureTransientDraftsFromDom() {
     const popupInput = annotationUI.popupEl?.querySelector('.annotation-reply-input');
     if (popupInput instanceof HTMLTextAreaElement) {
@@ -1358,22 +1492,6 @@ export default function createCommentsPanelController({
       renderPresence();
       updateCommentsBadge();
     }
-
-    // Update assets from snapshot (edits API returns { edits, assets })
-    const remoteAssets = snapshot?.edits?.assets || snapshot?.assets;
-    if (remoteAssets && assetsPanel) {
-      try {
-        assetsPanel.updateAssetsFromSnapshot(remoteAssets);
-        // eslint-disable-next-line no-use-before-define
-        clearThreadTargetCache();
-        // eslint-disable-next-line no-use-before-define
-        renderThreadMarkers({ resolveTargets: true });
-        renderCommentsPanel();
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('Could not apply remote assets snapshot', error);
-      }
-    }
   }
 
   function applyPendingRemoteEditsSnapshot() {
@@ -1416,19 +1534,6 @@ export default function createCommentsPanelController({
       }
     });
 
-    if (assetsPanel) {
-      // One item per image edit; renders as a stack of From→To history cards.
-      (annotationState.store.easyEdits || [])
-        .filter((edit) => edit && edit.editType === 'image-src')
-        .forEach((edit) => {
-          items.push({
-            kind: 'asset-edit',
-            edit,
-            timestamp: getTimestampValue(edit.updatedAt) || 0,
-          });
-        });
-    }
-
     items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     return items;
   }
@@ -1467,11 +1572,6 @@ export default function createCommentsPanelController({
     applyDisableEditsState();
     updateCommentsBadge();
     syncDrawerChrome();
-
-    const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
-      annotationUI.mainEl,
-      annotationUI.assetSelectMode,
-    );
 
     const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();
     if (activePopupThreadId) {
@@ -1528,24 +1628,6 @@ export default function createCommentsPanelController({
     }
     renderReviewerControls();
 
-    if (assetsPanel
-      && annotationUI.annotationMode === 'assets'
-      && !annotationUI.assetSelectMode) {
-      assetsPanel.enterSelectMode();
-    }
-
-    if (
-      assetsPanel
-      && annotationUI.annotationMode === 'assets'
-      && annotationUI.assetSelectMode
-    ) {
-      const hint = document.createElement('p');
-      hint.className = 'annotation-mode-hint annotation-mode-hint-assets';
-      hint.textContent = 'Click an image on the page to upload a replacement.';
-      annotationUI.panelListEl.appendChild(hint);
-      finalizeFragmentHints();
-    }
-
     if (!isCommentsServiceAvailable()) {
       const empty = document.createElement('div');
       empty.className = 'annotation-comments-empty annotation-comments-empty-warning';
@@ -1554,23 +1636,32 @@ export default function createCommentsPanelController({
         <span>${ANNOTATION_MESSAGES.collabUnavailableDescription}</span>
       `;
       annotationUI.panelListEl.appendChild(empty);
-      finalizeFragmentHints();
       return;
     }
 
     const activityFilter = annotationState.activityFilter || 'all';
+    const searchQuery = `${annotationState.searchQuery || ''}`.trim().toLowerCase();
+    const searchTokens = searchQuery ? searchQuery.split(/\s+/).filter(Boolean) : [];
     const unifiedItems = buildUnifiedItems().filter((item) => {
-      if (activityFilter === 'all') return true;
       // Mine / Others apply to comment threads; edits & assets show under "All" only.
-      if (item.kind !== 'comment') return false;
-      const mine = isThreadMine(item.thread);
-      return activityFilter === 'mine' ? mine : !mine;
+      if (activityFilter !== 'all') {
+        if (item.kind !== 'comment') return false;
+        const mine = isThreadMine(item.thread);
+        if (activityFilter === 'mine' ? !mine : mine) return false;
+      }
+      if (searchTokens.length) {
+        const haystack = buildThreadHaystack(item);
+        if (!searchTokens.every((token) => haystack.includes(token))) return false;
+      }
+      return true;
     });
 
     if (!unifiedItems.length) {
       const empty = document.createElement('p');
       empty.className = 'annotation-comments-empty';
-      if (activityFilter === 'mine') {
+      if (searchTokens.length) {
+        empty.textContent = 'No comments match your search.';
+      } else if (activityFilter === 'mine') {
         empty.textContent = 'No comments from you yet. Click an element on the page to add one.';
       } else if (activityFilter === 'others') {
         empty.textContent = 'No comments from others yet.';
@@ -1578,7 +1669,6 @@ export default function createCommentsPanelController({
         empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
       }
       annotationUI.panelListEl.appendChild(empty);
-      finalizeFragmentHints();
       return;
     }
 
@@ -1869,9 +1959,6 @@ export default function createCommentsPanelController({
         renderThreadItem(item.thread, true);
       } else if (item.kind === 'edit') {
         renderThreadItem(item.thread, false);
-      } else if (assetsPanel && item.kind === 'asset-edit') {
-        assetsPanel.buildAssetEditStepCards(item.edit)
-          .forEach((card) => annotationUI.panelListEl.appendChild(card));
       }
     });
 
@@ -1903,7 +1990,6 @@ export default function createCommentsPanelController({
         });
       }
     }
-    finalizeFragmentHints();
     enforceThreadStatusSelectOptions(annotationUI.panelEl);
   };
 
@@ -1912,59 +1998,7 @@ export default function createCommentsPanelController({
     return annotationUI.panelEl.querySelector('.annotation-comments-content');
   }
 
-  function scrollAssetInPanel(elementPath) {
-    if (!annotationUI.panelEl || !annotationUI.panelListEl || !elementPath) return;
-
-    ensureCommentsDrawerOpen();
-    renderCommentsPanel();
-
-    const runScroll = () => {
-      const scrollContainer = getCommentsScrollContainer();
-
-      // Collect all assets for this elementPath and sort newest first
-      const candidates = [];
-      (annotationState.store.localAssets || []).forEach((asset) => {
-        if (asset.elementPath === elementPath) {
-          candidates.push({
-            selector: `[data-local-asset-id="${asset.localId}"]`,
-            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
-          });
-        }
-      });
-      (annotationState.store.assets || []).forEach((asset) => {
-        if (asset.elementPath === elementPath) {
-          candidates.push({
-            selector: `[data-asset-id="${asset.id}"]`,
-            ts: assetsPanel ? assetsPanel.getAssetTimestamp(asset) : 0,
-          });
-        }
-      });
-      candidates.sort((a, b) => (b.ts || 0) - (a.ts || 0));
-
-      const target = candidates.reduce((found, candidate) => {
-        if (found) return found;
-        const card = annotationUI.panelListEl.querySelector(candidate.selector);
-        return card instanceof HTMLElement ? card : null;
-      }, null);
-
-      if (!(target instanceof HTMLElement) || !scrollContainer) return;
-
-      const targetTop = target.offsetTop + annotationUI.panelListEl.offsetTop - 16;
-      scrollContainer.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
-
-      annotationUI.panelListEl.querySelectorAll('.annotation-panel-comment-focus')
-        .forEach((el) => el.classList.remove('annotation-panel-comment-focus'));
-      target.classList.add('annotation-panel-comment-focus');
-      target.setAttribute('tabindex', '-1');
-      target.focus({ preventScroll: true });
-      window.setTimeout(() => { target.classList.remove('annotation-panel-comment-focus'); }, 1200);
-    };
-
-    window.requestAnimationFrame(runScroll);
-    window.setTimeout(runScroll, 60);
-  }
-
-  function findAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
+  function findAnnotationMarker(threadId = '', messageId = '') {
     if (!annotationUI.layerEl) return null;
     if (threadId) {
       if (messageId) {
@@ -1978,21 +2012,13 @@ export default function createCommentsPanelController({
       );
       return marker instanceof HTMLElement ? marker : null;
     }
-    if (elementPath) {
-      try {
-        const marker = annotationUI.layerEl.querySelector(
-          `.annotation-asset-marker[data-element-path="${CSS.escape(elementPath)}"]`,
-        );
-        return marker instanceof HTMLElement ? marker : null;
-      } catch { /* invalid selector */ }
-    }
     return null;
   }
 
   function applyPendingMarkerPulse() {
     const pending = annotationState.pendingMarkerPulse;
     if (!pending) return;
-    const marker = findAnnotationMarker(pending.threadId, pending.elementPath, pending.messageId);
+    const marker = findAnnotationMarker(pending.threadId, pending.messageId);
     if (!marker) return;
     marker.classList.remove('annotation-marker-pulse');
     void marker.offsetWidth; // eslint-disable-line no-void
@@ -2015,8 +2041,8 @@ export default function createCommentsPanelController({
     }, 150);
   }
 
-  function pulseAnnotationMarker(threadId = '', elementPath = '', messageId = '') {
-    annotationState.pendingMarkerPulse = { threadId, elementPath, messageId };
+  function pulseAnnotationMarker(threadId = '', messageId = '') {
+    annotationState.pendingMarkerPulse = { threadId, messageId };
     queueMarkerPulseAfterScroll();
   }
 
@@ -2070,7 +2096,7 @@ export default function createCommentsPanelController({
 
   function clearMarkers() {
     if (!annotationUI.layerEl) return;
-    annotationUI.layerEl.querySelectorAll('.annotation-thread-marker, .annotation-edit-marker, .annotation-asset-marker')
+    annotationUI.layerEl.querySelectorAll('.annotation-thread-marker, .annotation-edit-marker')
       .forEach((marker) => marker.remove());
   }
 
@@ -2230,42 +2256,6 @@ export default function createCommentsPanelController({
           annotationUI.layerEl.appendChild(marker);
         });
       });
-
-    if (assetsPanel) {
-      const assetsByPath = new Map();
-      (annotationState.store.assets || []).forEach((asset) => {
-        if (asset?.elementPath) assetsByPath.set(asset.elementPath, asset);
-      });
-      (annotationState.store.localAssets || []).forEach((asset) => {
-        if (asset?.elementPath) assetsByPath.set(asset.elementPath, asset);
-      });
-
-      [...assetsByPath.values()].forEach((asset) => {
-        const el = annotationUI.mainEl.querySelector(asset.elementPath);
-        if (!el) return;
-        const targetImg = el.tagName === 'IMG' ? el : el.querySelector('img');
-        const targetEl = targetImg || el;
-        const rect = targetEl.getBoundingClientRect();
-        if (rect.bottom < 0 || rect.top > window.innerHeight) return;
-
-        const position = resolveMarkerPosition(rect.top - 8, rect.left + 8);
-        const marker = document.createElement('button');
-        marker.type = 'button';
-        marker.className = 'annotation-asset-marker';
-        marker.dataset.assetId = `${asset.id || asset.localId || ''}`;
-        marker.dataset.elementPath = asset.elementPath;
-        marker.title = `Asset: ${asset.filename || 'image'}`;
-        marker.setAttribute('aria-label', `Asset replacement: ${asset.filename || 'image'}`);
-        marker.innerHTML = `
-          <svg class="annotation-asset-marker-icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"></path>
-          </svg>
-        `;
-        marker.style.top = `${position.top}px`;
-        marker.style.left = `${position.left}px`;
-        annotationUI.layerEl.appendChild(marker);
-      });
-    }
   }
 
   function setPopupSubmitPending(isPending) {
@@ -2639,19 +2629,28 @@ export default function createCommentsPanelController({
     const anchor = annotationState.floatingThreadAnchor;
     if (!(el instanceof HTMLElement) || !(anchor instanceof HTMLElement)) return;
     if (!annotationUI.mainEl?.contains(anchor)) return;
-    const r = anchor.getBoundingClientRect();
+
+    // Mirror the new-comment popup: sit beside the element, flip left if no room,
+    // stay clear of the drawer and viewport edges, and never cover the top bar.
+    const panelRect = annotationUI.panelEl?.getBoundingClientRect();
+    const maxRight = panelRect ? Math.max(24, panelRect.left - 12) : window.innerWidth - 12;
+    const maxWidth = Math.max(220, maxRight - 24);
+    el.style.maxWidth = `${maxWidth}px`;
+
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(el.offsetWidth || 300, maxWidth);
+    const height = el.offsetHeight || 220;
     const topbarH = 54;
-    const gap = 12;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = el.offsetWidth || 300;
-    const h = el.offsetHeight || 220;
-    // Sit just right of the (left-anchored) pin, flipping left if it would overflow.
-    let left = r.left + 40;
-    if (left + w > vw - 12) left = Math.max(12, r.left - w - gap);
-    left = Math.max(12, Math.min(left, vw - w - 12));
-    let top = Math.max(topbarH + 8, r.top);
-    top = Math.min(top, Math.max(topbarH + 8, vh - h - 12));
+
+    let left = rect.right + 12;
+    if (left + width > maxRight) {
+      left = rect.left - width - 12;
+    }
+    left = Math.max(12, Math.min(left, maxRight - width));
+
+    let { top } = rect;
+    top = Math.max(topbarH + 8, Math.min(top, window.innerHeight - height - 12));
+
     el.style.left = `${left}px`;
     el.style.top = `${top}px`;
   }
@@ -2896,7 +2895,6 @@ export default function createCommentsPanelController({
     } = options;
     hideGlobalSnackbar();
     closeCommentEditor();
-    assetsPanel.exitSelectMode();
     pendingCommentsPanelRefresh = false;
     if (!preserveRemoteEditState) {
       clearSelfSavedEditsFingerprint();
@@ -3005,6 +3003,11 @@ export default function createCommentsPanelController({
       if (target === mainEl) return;
       if (target.closest('a')) event.preventDefault();
       event.stopPropagation();
+      // Markups hidden: just highlight the element (show the box), no popup/thread.
+      if (annotationState.markupsHidden) {
+        setSelectedElement(target);
+        return;
+      }
       openPopupForElement(target);
     };
     mainEl.addEventListener('click', annotationState.mainClickHandler, true);
@@ -3012,11 +3015,6 @@ export default function createCommentsPanelController({
     annotationState.layerClickHandler = (event) => {
       const { target } = event;
       if (!(target instanceof Element)) return;
-      const assetMarker = target.closest('.annotation-asset-marker');
-      if (assetMarker instanceof HTMLButtonElement) {
-        scrollAssetInPanel(assetMarker.dataset.elementPath || '');
-        return;
-      }
       const editMarker = target.closest('.annotation-edit-marker');
       if (editMarker instanceof HTMLButtonElement) {
         scrollThreadInPanel(
@@ -3039,49 +3037,6 @@ export default function createCommentsPanelController({
       if (!isCommentsServiceAvailable()) return;
       const card = target.closest('.annotation-panel-comment');
 
-      if (card instanceof HTMLElement && card.classList.contains('annotation-panel-asset-item')) {
-        if (target.closest('.annotation-asset-actions')) return;
-        if (target.closest('.annotation-panel-cancel-btn')) return;
-        const { editId, localAssetId, assetId } = card.dataset;
-        if (editId) {
-          const edit = (annotationState.store.easyEdits || []).find((item) => item.id === editId);
-          const targetEl = edit ? store.getElementForEdit(edit) : null;
-          if (targetEl instanceof HTMLElement) {
-            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            pulseAnnotationMarker('', edit?.elementPath || '');
-          }
-          return;
-        }
-        let elementPath = null;
-        if (localAssetId) {
-          // eslint-disable-next-line max-len
-          const local = (annotationState.store.localAssets || []).find((a) => a.localId === localAssetId);
-          if (local?.targetImg instanceof HTMLElement) {
-            local.targetImg.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            pulseAnnotationMarker('', local.elementPath || '');
-            return;
-          }
-          elementPath = local?.elementPath || null;
-        } else if (assetId) {
-          // eslint-disable-next-line max-len
-          const asset = (annotationState.store.assets || []).find((a) => String(a.id) === String(assetId));
-          elementPath = asset?.elementPath || null;
-        }
-        if (elementPath) {
-          const edit = (annotationState.store.easyEdits || []).find((item) => (
-            item?.editType === 'image-src' && item.elementPath === elementPath
-          ));
-          const targetEl = edit
-            ? store.getElementForEdit(edit)
-            : annotationUI.mainEl?.querySelector(elementPath);
-          if (targetEl instanceof HTMLElement) {
-            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-            pulseAnnotationMarker('', elementPath);
-          }
-        }
-        return;
-      }
-
       if (card instanceof HTMLElement && card.classList.contains('annotation-panel-edit-item')) {
         const thread = store.getThreadById(card.dataset.threadId);
         if (!thread) return;
@@ -3090,16 +3045,7 @@ export default function createCommentsPanelController({
         annotationState.activeThreadId = thread.id;
         annotationState.activeMessageId = card.dataset.messageId || '';
         renderCommentsPanel();
-        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
-        return;
-      }
-
-      if (target.closest('.annotation-panel-attach-btn')) {
-        const attachBtn = target.closest('.annotation-panel-attach-btn');
-        if (!(attachBtn instanceof HTMLButtonElement)) return;
-        const { threadId } = attachBtn.dataset;
-        if (!threadId) return;
-        showAttachAssetDropdown(attachBtn, threadId);
+        pulseAnnotationMarker(thread.id, card.dataset.messageId || '');
         return;
       }
 
@@ -3179,7 +3125,7 @@ export default function createCommentsPanelController({
         // Opened — locate the anchored element on the page.
         const targetEl = store.getElementForThread(thread);
         if (targetEl) targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        pulseAnnotationMarker(thread.id, '', card.dataset.messageId || '');
+        pulseAnnotationMarker(thread.id, card.dataset.messageId || '');
       }
     };
     annotationUI.panelEl.addEventListener('click', annotationState.panelClickHandler);
