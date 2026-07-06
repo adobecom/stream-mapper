@@ -458,25 +458,6 @@ async function showBlockMappingReview(blockMapping) {
 
     const footer = document.createElement('div');
     footer.className = 'stream-block-review-footer';
-    const logBtn = document.createElement('button');
-    logBtn.className = 'stream-block-review-proceed';
-    logBtn.style.background = '#64748b';
-    logBtn.style.boxShadow = 'none';
-    logBtn.style.marginRight = '8px';
-    logBtn.textContent = 'Log JSON';
-    logBtn.addEventListener('click', () => {
-      const output = {
-        ...blockMapping,
-        details: {
-          ...blockMapping.details,
-          components: components
-            .filter((c) => !c._deleted)
-            .map(({ _deleted, ...rest }) => rest),
-        },
-      };
-      console.log(JSON.stringify(output, null, 2));
-    });
-    footer.appendChild(logBtn);
     const proceedBtn = document.createElement('button');
     proceedBtn.className = 'stream-block-review-proceed';
     proceedBtn.textContent = 'Proceed with Block Mapping';

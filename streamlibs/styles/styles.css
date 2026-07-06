@@ -462,7 +462,7 @@
   width: 32px;
   height: 18px;
   border-radius: 99px;
-  background: #e2e8f0;
+  background: #2e2e2e;
   position: relative;
   transition: background 0.2s;
 }
@@ -495,6 +495,7 @@
 
 .ai-toggle input:disabled ~ .ai-toggle-track {
   cursor: default;
+  background-color: #ababab;
 }
 
 .ai-toggle:has(input:disabled) {
@@ -520,8 +521,8 @@
 }
 
 .stream-block-review-table .tag-pill-na {
-  color: #dc2626;
-  background: #fee2e2;
+  color: #915902;
+  background: #ffe8b0;
 }
 
 .stream-block-review-table tbody tr.is-deleted .tag-pill {
