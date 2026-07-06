@@ -313,6 +313,150 @@ function getBlockProp(block, ...keys) {
   return '';
 }
 
+// eslint-disable-next-line object-curly-newline
+function createSearchableSelect({ options, selected, disabled, onChange }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'searchable-select';
+  if (selected === 'NA') wrapper.classList.add('is-na');
+  if (disabled) wrapper.classList.add('is-disabled');
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'searchable-select-trigger';
+  trigger.textContent = selected || 'Select block';
+  wrapper.appendChild(trigger);
+
+  const dropdown = document.createElement('div');
+  dropdown.className = 'searchable-select-dropdown';
+
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'searchable-select-search';
+  searchInput.placeholder = 'Search blocks…';
+  dropdown.appendChild(searchInput);
+
+  const optionsList = document.createElement('div');
+  optionsList.className = 'searchable-select-options';
+  dropdown.appendChild(optionsList);
+  wrapper.appendChild(dropdown);
+
+  let highlightIdx = -1;
+
+  function getFilteredOptions() {
+    const query = (searchInput.value || '').toLowerCase();
+    return options.filter((n) => !query || n.toLowerCase().includes(query));
+  }
+
+  function refreshHighlight() {
+    const items = optionsList.querySelectorAll('.searchable-select-option');
+    items.forEach((el, i) => el.classList.toggle('is-highlighted', i === highlightIdx));
+  }
+
+  function close() {
+    wrapper.classList.remove('is-open');
+    searchInput.value = '';
+    highlightIdx = -1;
+  }
+
+  function selectValue(val) {
+    trigger.textContent = val;
+    wrapper.classList.toggle('is-na', val === 'NA');
+    close();
+    if (onChange) onChange(val);
+  }
+
+  function renderOptions(filter) {
+    optionsList.innerHTML = '';
+    const query = (filter || '').toLowerCase();
+    const filtered = options.filter((n) => !query || n.toLowerCase().includes(query));
+    if (!filtered.length) {
+      const noRes = document.createElement('div');
+      noRes.className = 'searchable-select-no-results';
+      noRes.textContent = 'No matches';
+      optionsList.appendChild(noRes);
+      highlightIdx = -1;
+      return;
+    }
+    filtered.forEach((n, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'searchable-select-option';
+      if (n === selected) opt.classList.add('is-selected');
+      if (n === 'NA') opt.classList.add('is-na');
+      if (i === highlightIdx) opt.classList.add('is-highlighted');
+      opt.textContent = n;
+      opt.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        selectValue(n);
+      });
+      opt.addEventListener('mouseenter', () => {
+        highlightIdx = i;
+        refreshHighlight();
+      });
+      optionsList.appendChild(opt);
+    });
+  }
+
+  function open() {
+    if (disabled) return;
+    wrapper.classList.add('is-open');
+    searchInput.value = '';
+    highlightIdx = -1;
+    renderOptions('');
+    requestAnimationFrame(() => searchInput.focus());
+  }
+
+  trigger.addEventListener('click', () => {
+    if (wrapper.classList.contains('is-open')) close();
+    else open();
+  });
+
+  searchInput.addEventListener('input', () => {
+    highlightIdx = 0;
+    renderOptions(searchInput.value);
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    const filtered = getFilteredOptions();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      highlightIdx = Math.min(highlightIdx + 1, filtered.length - 1);
+      refreshHighlight();
+      const items = optionsList.querySelectorAll('.searchable-select-option');
+      if (items[highlightIdx]) {
+        items[highlightIdx].scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      highlightIdx = Math.max(highlightIdx - 1, 0);
+      refreshHighlight();
+      const items = optionsList.querySelectorAll('.searchable-select-option');
+      if (items[highlightIdx]) {
+        items[highlightIdx].scrollIntoView({ block: 'nearest' });
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightIdx >= 0 && highlightIdx < filtered.length) {
+        selectValue(filtered[highlightIdx]);
+      }
+    } else if (e.key === 'Escape') {
+      close();
+      trigger.focus();
+    }
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (!wrapper.contains(e.target)) close();
+  });
+
+  wrapper.getValue = () => trigger.textContent;
+  wrapper.setValue = (val) => {
+    trigger.textContent = val;
+    wrapper.classList.toggle('is-na', val === 'NA');
+  };
+
+  return wrapper;
+}
+
 function applyBlockSelection(comp, name, supportedBlocks) {
   comp.name = name;
   const match = supportedBlocks.find((b) => getBlockProp(b, 'name', 'Name') === name);
@@ -411,27 +555,28 @@ async function showBlockMappingReview(blockMapping) {
     addSection.innerHTML = `
       <span class="add-section-label">Add Section</span>
       <input type="text" class="add-section-url" placeholder="Paste Figma section URL" />
-      <select class="add-section-select">
-        <option value="" disabled selected>Block name</option>
-      </select>
+      <span class="add-section-select-slot"></span>
       <button type="button" class="add-section-btn" disabled>Add</button>`;
     const addUrlInput = addSection.querySelector('.add-section-url');
-    const addSelect = addSection.querySelector('.add-section-select');
     const addBtn = addSection.querySelector('.add-section-btn');
-    uniqueNames.forEach((n) => {
-      const opt = document.createElement('option');
-      opt.value = n;
-      opt.textContent = n;
-      addSelect.appendChild(opt);
+    let addSelectedName = '';
+    const addSearchSelect = createSearchableSelect({
+      options: uniqueNames,
+      selected: 'Block name',
+      disabled: false,
+      onChange: (val) => {
+        addSelectedName = val;
+        validateAddForm();
+      },
     });
+    addSection.querySelector('.add-section-select-slot').replaceWith(addSearchSelect);
     function validateAddForm() {
-      addBtn.disabled = !addUrlInput.value.trim() || !addSelect.value;
+      addBtn.disabled = !addUrlInput.value.trim() || !addSelectedName;
     }
     addUrlInput.addEventListener('input', validateAddForm);
-    addSelect.addEventListener('change', validateAddForm);
     addBtn.addEventListener('click', () => {
       const url = addUrlInput.value.trim();
-      if (!url || !addSelect.value) return;
+      if (!url || !addSelectedName) return;
       let figId = '';
       let sectionLink = url;
       try {
@@ -441,7 +586,7 @@ async function showBlockMappingReview(blockMapping) {
       } catch {
         figId = '';
       }
-      const name = addSelect.value;
+      const name = addSelectedName;
       const match = supportedBlocks.find((b) => getBlockProp(b, 'name', 'Name') === name);
       const id = match ? getBlockProp(match, 'id', 'Id', 'ID') : '';
       const miloId = match ? getBlockProp(match, 'miloId', 'milo-id', 'MiloId') : '';
@@ -450,7 +595,8 @@ async function showBlockMappingReview(blockMapping) {
         id, miloId, figId, name, path, tag: '', variant: 0, c1lib: false, sectionLink,
       });
       addUrlInput.value = '';
-      addSelect.value = '';
+      addSelectedName = '';
+      addSearchSelect.setValue('Block name');
       addBtn.disabled = true;
       appendRow(components.length - 1);
     });
@@ -589,30 +735,21 @@ async function showBlockMappingReview(blockMapping) {
 
       td = document.createElement('td');
       td.className = 'col-name';
-      const select = document.createElement('select');
-      select.className = `block-name-select${comp.name === 'NA' ? ' select-na' : ''}`;
-      const opts = [...uniqueNames];
-      if (comp.name && !opts.includes(comp.name)) opts.unshift(comp.name);
-      opts.forEach((n) => {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        if (n === 'NA') opt.className = 'option-na';
-        if (n === comp.name) opt.selected = true;
-        select.appendChild(opt);
-      });
-      if (isDeleted) {
-        select.disabled = true;
-      } else {
-        select.addEventListener('change', () => {
-          applyBlockSelection(components[idx], select.value, supportedBlocks);
-          if (select.value === 'NA' || components[idx].c1lib) {
+      const nameOpts = [...uniqueNames];
+      if (comp.name && !nameOpts.includes(comp.name)) nameOpts.unshift(comp.name);
+      const searchSelect = createSearchableSelect({
+        options: nameOpts,
+        selected: comp.name || '',
+        disabled: isDeleted,
+        onChange: (val) => {
+          applyBlockSelection(components[idx], val, supportedBlocks);
+          if (val === 'NA' || components[idx].c1lib) {
             components[idx].aiMapping = false;
           }
           replaceRow(idx, tr);
-        });
-      }
-      td.appendChild(select);
+        },
+      });
+      td.appendChild(searchSelect);
       tr.appendChild(td);
 
       td = document.createElement('td');

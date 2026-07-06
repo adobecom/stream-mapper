@@ -415,10 +415,11 @@
   text-decoration: none;
 }
 
-.stream-block-review-table tbody tr.is-deleted .block-name-select {
+.stream-block-review-table tbody tr.is-deleted .searchable-select .searchable-select-trigger {
   text-decoration: line-through;
   color: #e55;
   opacity: 0.55;
+  pointer-events: none;
 }
 
 .stream-block-review-table tbody tr.is-deleted .col-actions {
@@ -595,8 +596,16 @@
   color: var(--sm-color-primary-darker, #1d4ed8);
 }
 
-.stream-block-review-table .block-name-select,
-.stream-block-review-add .add-section-select {
+.searchable-select {
+  position: relative;
+  display: inline-block;
+  min-width: 130px;
+}
+
+.searchable-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 3px 18px 3px 0;
   border: none;
   border-bottom: 1px solid transparent;
@@ -607,33 +616,108 @@
   background: transparent;
   cursor: pointer;
   transition: border-color 0.15s;
-  -webkit-appearance: none;
-  appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%232563eb' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 2px center;
-  min-width: 0;
-  width: auto;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
 }
 
-.stream-block-review-table .block-name-select.select-na {
+.searchable-select-trigger:hover {
+  border-bottom-color: var(--sm-color-primary-border, #bfdbfe);
+}
+
+.searchable-select.is-na .searchable-select-trigger {
   color: #dc2626;
   background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23dc2626' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-.stream-block-review-table .block-name-select .option-na {
+.searchable-select.is-disabled .searchable-select-trigger {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: line-through;
+  color: #e55;
+}
+
+.searchable-select-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  min-width: 200px;
+  max-height: 260px;
+  background: #fff;
+  border: 1px solid var(--sm-color-primary-border, #bfdbfe);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.searchable-select.is-open .searchable-select-dropdown {
+  display: flex;
+}
+
+.searchable-select-search {
+  padding: 6px 8px;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: #f9fafb;
+  color: #1e293b;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.searchable-select-search::placeholder {
+  color: #94a3b8;
+}
+
+.searchable-select-options {
+  overflow-y: auto;
+  max-height: 220px;
+  padding: 4px 0;
+}
+
+.searchable-select-option {
+  padding: 5px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.is-highlighted {
+  background: var(--sm-color-primary-soft, #e0f2fe);
+  color: var(--sm-color-primary-darker, #1d4ed8);
+}
+
+.searchable-select-option.is-selected {
+  font-weight: 600;
+  color: var(--sm-color-primary-dark, #2563eb);
+}
+
+.searchable-select-option.is-na {
   color: #dc2626;
 }
 
-.stream-block-review-table .block-name-select:hover,
-.stream-block-review-add .add-section-select:hover {
-  border-bottom-color: var(--sm-color-primary-border, #bfdbfe);
+.searchable-select-option.is-na:hover,
+.searchable-select-option.is-na.is-highlighted {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
-.stream-block-review-table .block-name-select:focus,
-.stream-block-review-add .add-section-select:focus {
-  outline: none;
-  border-bottom-color: var(--sm-color-primary, #3b82f6);
+.searchable-select-no-results {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
 }
 
 .review-action-btn {
