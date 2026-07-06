@@ -115,28 +115,19 @@ async function startAnnotation(createdCollabId = null) {
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
   */
-  const pageUrl = window.location.href;
-  const draftLocation = '';
   const username = resolvedName || resolvedEmail.split('@')[0] || 'Unknown';
   window.streamConfig = {
     streamMapper: { ...CONFIG[env].streamMapper },
     source: 'da',
-    contentUrl: draftLocation,
-    target: 'da',
-    targetUrl: pageUrl,
-    pageUrl,
+    pageUrl: window.location.href,
     token: getToken(),
     userEmail: resolvedEmail,
     userName: resolvedName,
+    username,
     profileId: '3',
     collabId,
-    operation: 'aiSeoAnnotation',
-    username: params.get('username') || null,
     reviewId: params.get('miloCollabId') || params.get('peregrine-collab-id'),
     collabRole: 'owner',
-    draftLocation: pageUrl,
-    // eslint-disable-next-line no-dupe-keys
-    username,
   };
 
   resetTargetHtmlInStore();
