@@ -643,9 +643,7 @@
 
 .searchable-select-dropdown {
   display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   z-index: 1000;
   min-width: 200px;
   max-height: 260px;

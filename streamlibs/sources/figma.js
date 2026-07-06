@@ -396,11 +396,19 @@ function createSearchableSelect({ options, selected, disabled, onChange }) {
     });
   }
 
+  function positionDropdown() {
+    const rect = trigger.getBoundingClientRect();
+    dropdown.style.left = `${rect.left}px`;
+    dropdown.style.top = `${rect.bottom + 4}px`;
+    dropdown.style.minWidth = `${Math.max(200, rect.width)}px`;
+  }
+
   function open() {
     if (disabled) return;
     wrapper.classList.add('is-open');
     searchInput.value = '';
     highlightIdx = -1;
+    positionDropdown();
     renderOptions('');
     requestAnimationFrame(() => searchInput.focus());
   }
@@ -445,8 +453,16 @@ function createSearchableSelect({ options, selected, disabled, onChange }) {
   });
 
   document.addEventListener('mousedown', (e) => {
-    if (!wrapper.contains(e.target)) close();
+    if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) close();
   });
+
+  window.addEventListener('resize', () => {
+    if (wrapper.classList.contains('is-open')) positionDropdown();
+  });
+
+  window.addEventListener('scroll', () => {
+    if (wrapper.classList.contains('is-open')) positionDropdown();
+  }, true);
 
   wrapper.getValue = () => trigger.textContent;
   wrapper.setValue = (val) => {
