@@ -22,7 +22,8 @@ import {
 } from './dom.js';
 import createEditDragDropController from './drag-drop.js';
 import buildCombinedHtml from './serialize.js';
-import { hydrateFragmentLinksInDaBlocks } from './fragment-hydrate.js';
+import { buildFragmentBlockEntry, hydrateFragmentLinksInDaBlocks } from './fragment-hydrate.js';
+import { isFragmentPanelRow, stripFragmentIndicatorChrome, syncFragmentPathIndicators } from '../annotation/fragment-hints.js';
 
 const editState = createEditState();
 const dragDropController = createEditDragDropController({
@@ -66,7 +67,11 @@ function appendDABlocks(main, daMain) {
     div.dataset.source = 'da';
     div.dataset.sectionIndex = String(index);
     div.id = `block-da-${index}`;
-    appendBlockActionButton(div);
+    if (!isFragmentPanelRow(div)) {
+      appendBlockActionButton(div);
+    } else {
+      div.dataset.fragmentBlock = 'true';
+    }
     main.appendChild(div);
   });
 }
@@ -115,14 +120,28 @@ export function syncEditStateAfterFragmentReplace({
   minIdx,
   removeCount,
   fragmentEl,
+  fragmentRepoPath,
   pointerHtml,
 }) {
-  let originalEntry;
-  if (typeof pointerHtml === 'string' && pointerHtml.trim()) {
+  const templateBlock = editState.originalDABlocks[minIdx] || null;
+  let originalEntry = null;
+
+  if (fragmentRepoPath) {
+    originalEntry = buildFragmentBlockEntry(fragmentRepoPath, templateBlock);
+  }
+
+  if (!originalEntry && typeof pointerHtml === 'string' && pointerHtml.trim()) {
     const tmp = document.createElement('div');
     tmp.innerHTML = pointerHtml.trim();
     originalEntry = tmp.firstElementChild;
+    if (templateBlock && originalEntry?.getAttribute?.('data-class') === 'fragment') {
+      const shell = templateBlock.cloneNode(false);
+      shell.removeAttribute('id');
+      shell.innerHTML = originalEntry.outerHTML;
+      originalEntry = shell;
+    }
   }
+
   if (!originalEntry) {
     const clone = fragmentEl.cloneNode(true);
     clone.querySelectorAll('.broken-placeholder-fragment, [data-failed="true"]').forEach((n) => n.remove());
@@ -145,6 +164,7 @@ export function syncEditStateAfterFragmentReplace({
 
 export function handleBackToEditor() {
   showEditorShell(editState);
+  syncFragmentPathIndicators(document.body, { variant: 'highlight', blockControls: true });
 }
 
 /**
@@ -155,6 +175,7 @@ function stripEditorChromeOnBlock(block) {
   if (!(block instanceof Element)) return;
   block.querySelectorAll('.block-action-btn, .da-section-delete, .edit-fragment-btn, .block-selection-bar')
     .forEach((b) => b.remove());
+  stripFragmentIndicatorChrome(block);
   block.classList.remove('has-block-action', 'has-edit-fragment', 'block-selected', 'da-section-removed');
   delete block.dataset.deleteEnabled;
   delete block.dataset.removed;
@@ -200,6 +221,12 @@ export async function applyEditChanges() {
 
   exitEditorMode(editState);
   commitEditedDomToMain(editState);
+  const previewMain = editState.mainEl?.isConnected
+    ? editState.mainEl
+    : document.querySelector('main');
+  if (previewMain) {
+    syncFragmentPathIndicators(previewMain, { variant: 'highlight' });
+  }
 }
 
 export async function editStreamOperation() {
@@ -232,4 +259,5 @@ export async function editStreamOperation() {
   elevateBlockFragmentControls(editState.daPanelEl);
   elevateBlockFragmentControls(editState.figmaPanelEl);
   rebuildTargetStoreFromEditor();
+  syncFragmentPathIndicators(document.body, { variant: 'highlight', blockControls: true });
 }

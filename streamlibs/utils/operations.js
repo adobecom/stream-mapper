@@ -6,6 +6,7 @@ export {
   editStreamOperation,
   applyEditChanges,
   handleBackToEditor,
+  rebuildTargetStoreFromEditor,
 } from '../operations/edit/edit.js';
 export { preflightOperation } from '../operations/preflight/preflight.js';
 export {

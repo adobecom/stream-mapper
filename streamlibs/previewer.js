@@ -2,6 +2,7 @@
 /* eslint-disable no-use-before-define */
 import {
   persistOnTarget,
+  postData,
   targetCompatibleHtml,
 } from './target/da.js';
 import {
@@ -28,6 +29,7 @@ import {
   editStreamOperation,
   applyEditChanges,
   handleBackToEditor,
+  rebuildTargetStoreFromEditor,
   preflightOperation,
   annotationOperation,
   annotationOperationOnHostPage,
@@ -394,7 +396,20 @@ export async function persist(versionLabel = null) {
     if (isAnnotationOp()) {
       await persistAnnotationChangesToDA(versionLabel);
     } else {
+      if (window.streamConfig?.operation === 'edit') {
+        rebuildTargetStoreFromEditor();
+      }
       await persistOnTarget(versionLabel);
+      const draftLoc = window.streamConfig?.draftLocation;
+      const pageTarget = window.streamConfig?.pageUrl || window.streamConfig?.targetUrl;
+      const pushedHtml = fetchTargetHtmlFromStore();
+      if (draftLoc && pushedHtml && draftLoc !== pageTarget) {
+        try {
+          await postData(draftLoc, pushedHtml, { suppressErrorPage: true, versionLabel });
+        } catch (syncErr) {
+          console.warn('[stream-mapper] Could not sync collab draft after push', syncErr);
+        }
+      }
     }
     hideLoader();
     showDOMElements([document.querySelector('main')]);

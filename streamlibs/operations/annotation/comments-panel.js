@@ -1273,12 +1273,7 @@ export default function createCommentsPanelController({
     renderRefreshAction();
     updateModeButtonStates();
 
-    const finalizeFragmentHints = () => syncFragmentEditDisabledHints(
-      annotationUI.mainEl,
-      annotationUI.annotationMode === 'edit'
-        || annotationUI.inlineMode
-        || annotationUI.assetSelectMode,
-    );
+    const finalizeFragmentHints = () => syncFragmentEditDisabledHints(annotationUI.mainEl, true);
 
     const activePopupThreadId = `${annotationUI.popupEl?.dataset.threadId || ''}`.trim();
     if (activePopupThreadId) {
@@ -2690,6 +2685,7 @@ export default function createCommentsPanelController({
       const { target } = event;
       if (!(target instanceof HTMLElement)) return;
       if (target === mainEl) return;
+      if (target.closest('.stream-fragment-path-label a')) return;
       if (target.closest('a')) event.preventDefault();
       event.stopPropagation();
       openPopupForElement(target);

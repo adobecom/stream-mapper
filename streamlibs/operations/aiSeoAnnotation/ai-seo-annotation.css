@@ -166,16 +166,17 @@
 
 .stream-img-model-select:focus { border-color: #1d4ed8; }
 
-main div.fragment {
+/* Collab fragments use stream-fragment-readonly in annotation.css (fragment-hints.js). */
+body:not(.annotation-mode) main div.fragment {
     position: relative;
     pointer-events: none;
 }
 
-main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div {
+body:not(.annotation-mode) main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div {
     filter: blur(2px);
 }
 
-main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before {
+body:not(.annotation-mode) main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before {
     content: 'Fragment edit blocked';
     position: absolute;
     inset: 0;

@@ -1476,37 +1476,89 @@ body.annotation-inline-edit-mode .annotation-selected-element {
   cursor: text;
 }
 
-/* Embedded Milo fragments: not editable in annotation (source of truth is the fragment doc). */
-body.annotation-mode main [data-class="fragment"] {
+/* Embedded Milo fragments: blocked banner + link, blurred body, centered overlay. */
+body.annotation-mode main [data-class="fragment"].stream-fragment-readonly {
   position: relative;
-  opacity: 0.86;
   border-radius: 6px;
-  box-shadow: inset 0 0 0 1px rgb(107 114 128 / 0.45);
-  background: rgb(243 244 246 / 0.5);
+  overflow: hidden;
 }
 
-body.annotation-inline-edit-mode main [data-class="fragment"] {
-  opacity: 0.78;
-  /* Block text/link interaction; fragment source of truth is the fragment doc. */
+body.annotation-inline-edit-mode main [data-class="fragment"].stream-fragment-readonly,
+body.annotation-asset-select-mode main [data-class="fragment"].stream-fragment-readonly {
   pointer-events: none;
 }
 
-/* Asset select: block all interaction inside embedded fragments (incl. image upload). */
-body.annotation-asset-select-mode main [data-class="fragment"] {
-  pointer-events: none;
+body.annotation-inline-edit-mode main [data-class="fragment"].stream-fragment-readonly > .stream-fragment-path-label,
+body.annotation-asset-select-mode main [data-class="fragment"].stream-fragment-readonly > .stream-fragment-path-label {
+  pointer-events: auto;
 }
 
-body.annotation-mode main [data-class="fragment"] > .annotation-fragment-readonly-hint {
+body.annotation-mode main [data-class="fragment"].stream-fragment-readonly > .stream-fragment-path-label {
   display: block;
-  padding: 8px 12px;
-  margin: 0 0 12px;
+  padding: 10px 14px;
+  margin: 0;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
+  color: #1e40af;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
+  pointer-events: auto;
+  position: relative;
+  z-index: 12;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-blocked-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #1e3a8a;
+  margin-bottom: 6px;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-path-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  word-break: break-all;
+  font-weight: 500;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-path-link:hover {
+  color: #1e3a8a;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-path-fallback {
+  color: #475569;
+  word-break: break-all;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-readonly-body {
+  position: relative;
+  min-height: 120px;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-readonly-body > :not(.stream-fragment-readonly-overlay) {
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
+}
+
+body.annotation-mode main [data-class="fragment"] .stream-fragment-readonly-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(107 114 128 / 50%);
+  color: #bed9ff;
+  font-size: clamp(22px, 3.5vw, 40px);
   font-weight: 600;
-  color: #374151;
-  background: linear-gradient(to bottom, #eef0f2, #e5e7eb);
-  border-radius: 4px;
-  border: 1px solid rgb(107 114 128 / 0.45);
+  letter-spacing: 0.03em;
+  pointer-events: none;
   font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
 }
 

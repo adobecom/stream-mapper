@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 /* eslint-disable no-use-before-define */
 import { pushBlockFragmentToDa, extractRepoPath, fragmentExistsOnDa } from '../target/da.js';
+import { buildFragmentBlockEntry } from '../operations/edit/fragment-hydrate.js';
 import { previewDAPage } from '../sources/da.js';
 import { fetchTargetHtmlFromStore, pushTargetHtmlToStore } from '../store/store.js';
 import { mountBlockActionUi } from './block-action-modal-ui.js';
-import { appendBlockActionButton } from './block-action-button.js';
 import { attachSectionDeleteControls } from '../operations/edit/dom.js';
 import {
   getEditBlockHtmlForFragmentFromOriginals,
@@ -13,6 +13,7 @@ import {
 } from '../operations/edit/edit.js';
 import { fillFragmentWrapperFromRepo } from '../operations/edit/fragment-hydrate.js';
 import { miloLoadArea } from './utils.js';
+import { isFragmentPanelRow, syncFragmentBlockControls, syncFragmentPathIndicators } from '../operations/annotation/fragment-hints.js';
 
 const MODAL_ID = 'block-action-modal';
 
@@ -123,6 +124,7 @@ function updateSelectionBar() {
 
 /** Call after the edit UI mounts (or returning to editor) so the selection bar state is correct. */
 export function syncBlockSelectionChrome() {
+  syncFragmentBlockControls();
   updateSelectionBar();
 }
 
@@ -141,6 +143,11 @@ function showSelectionToast(message) {
 
 function toggleBlockSelection(blockId) {
   if (!blockId) return;
+  const blockEl = document.getElementById(blockId);
+  if (isFragmentPanelRow(blockEl)) {
+    showSelectionToast('This section is already a fragment.');
+    return;
+  }
   const idx = selectedBlockIds.indexOf(blockId);
   if (idx !== -1) {
     selectedBlockIds.splice(idx, 1);
@@ -313,9 +320,9 @@ function getFragmentPreviewUrl(repoPath) {
   return `https://main--${repo}--${org}.aem.page${pagePath}`;
 }
 
-function buildFragmentBlockHtml(fragmentPath) {
-  const previewUrl = getFragmentPreviewUrl(fragmentPath);
-  return `<div data-class='fragment'><div><div><a href='${previewUrl}'>${previewUrl}</a></div></div></div>`;
+function buildFragmentBlockHtml(fragmentPath, templateBlock = null) {
+  const entry = buildFragmentBlockEntry(fragmentPath, templateBlock);
+  return entry?.outerHTML || '';
 }
 
 /* ------------------------------------------------------------------ */
@@ -375,8 +382,9 @@ async function replaceBlocksInPreview(fragmentPath, options = {}) {
     if (isEditDa) {
       fragmentEl.dataset.source = 'da';
       fragmentEl.dataset.sectionIndex = String(minSectionIdx);
+      fragmentEl.dataset.fragmentSpan = String(orderedIds.length);
       fragmentEl.id = `block-da-frag-${minSectionIdx}-${Date.now()}`;
-      appendBlockActionButton(fragmentEl);
+      fragmentEl.dataset.fragmentBlock = 'true';
       const daPanel = document.querySelector('.da-panel');
       if (daPanel) attachSectionDeleteControls(daPanel);
       return { fragmentEl, minIdx: minSectionIdx, removeCount: orderedIds.length };
@@ -410,6 +418,7 @@ async function replaceBlocksInPreview(fragmentPath, options = {}) {
     if (firstEl) firstEl.replaceWith(fragmentEl);
 
     await fillFragmentWrapperFromRepo(fragmentEl, fragmentPath);
+    fragmentEl.setAttribute('data-fragment-repo-path', fragmentPath);
     await miloLoadArea(fragmentEl);
     await miloLoadArea();
 
@@ -419,6 +428,7 @@ async function replaceBlocksInPreview(fragmentPath, options = {}) {
   const fragmentEl = document.createElement('div');
   fragmentEl.setAttribute('data-class', 'fragment');
   fragmentEl.setAttribute('data-path', pagePath);
+  fragmentEl.setAttribute('data-fragment-repo-path', fragmentPath);
   fragmentEl.setAttribute('data-block-status', 'loaded');
   fragmentEl.style.display = 'block';
 
@@ -461,10 +471,15 @@ function updateTargetHtmlWithFragments(blockIds, fragmentPath) {
   const firstEl = doc.getElementById(orderedIds[0]);
   if (!firstEl) return;
 
-  const fragmentHtml = buildFragmentBlockHtml(fragmentPath);
-  const tempDiv = doc.createElement('div');
-  tempDiv.innerHTML = fragmentHtml;
-  firstEl.replaceWith(tempDiv.firstElementChild);
+  const fragmentEntry = buildFragmentBlockEntry(fragmentPath, firstEl);
+  if (fragmentEntry) {
+    firstEl.replaceWith(fragmentEntry);
+  } else {
+    const fragmentHtml = buildFragmentBlockHtml(fragmentPath, firstEl);
+    const tempDiv = doc.createElement('div');
+    tempDiv.innerHTML = fragmentHtml;
+    if (tempDiv.firstElementChild) firstEl.replaceWith(tempDiv.firstElementChild);
+  }
 
   orderedIds.slice(1).forEach((id) => {
     const el = doc.getElementById(id);
@@ -650,9 +665,7 @@ async function handleProceed() {
       minIdx,
       removeCount,
       fragmentEl,
-      // Persist the lightweight "<a href=…>" pointer in originalDABlocks so Push to DA
-      // and applyEditChanges serialize the fragment link form, not the inlined Milo DOM.
-      pointerHtml: buildFragmentBlockHtml(createdFragmentPath),
+      fragmentRepoPath: createdFragmentPath,
     });
     rebuildTargetStoreFromEditor();
   } else if (hydrateRemote && window.streamConfig?.operation === 'edit') {
@@ -661,6 +674,7 @@ async function handleProceed() {
     updateTargetHtmlWithFragments(selectedBlockIds, createdFragmentPath);
   }
   dispatchFragmentAction('replace', { fragmentPath: createdFragmentPath });
+  syncFragmentPathIndicators(document.body, { variant: 'highlight', blockControls: true });
   applyPendingButtonDisable();
   const msg = pendingReplacedMessage || 'Fragment replaced.';
   pendingReplacedMessage = '';
@@ -682,6 +696,11 @@ function resetFormInputs() {
 function openBlockActionModal() {
   const els = getModalElements();
   if (!els || selectedBlockIds.length === 0) return;
+  if (selectedBlockIds.some((id) => isFragmentPanelRow(document.getElementById(id)))) {
+    showSelectionToast('This section is already a fragment.');
+    clearBlockSelection();
+    return;
+  }
   if (!selectionIsConsecutive()) {
     showSelectionToast('Only consecutive blocks can be selected.');
     clearBlockSelection();
@@ -741,8 +760,12 @@ export function setupBlockActionModal() {
 
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.block-action-btn');
-    if (!btn) return;
-    const block = btn.closest('[id^="block-"]');
+    if (!btn || btn.disabled || btn.classList.contains('block-action-btn--disabled')) return;
+    const block = btn.closest('[id^="block-"], [data-source="da"], [data-source="figma"]');
+    if (isFragmentPanelRow(block)) {
+      showSelectionToast('This section is already a fragment.');
+      return;
+    }
     if (block?.id) toggleBlockSelection(block.id);
     e.preventDefault();
     e.stopPropagation();

@@ -151,6 +151,36 @@ function insertFailureBlock(anchorEl) {
   host.replaceWith(wrap);
 }
 
+/** Inner Milo/DA fragment pointer markup (embed inside a section block shell). */
+export function buildFragmentPointerInnerHtml(previewUrl) {
+  if (!previewUrl) return '';
+  return `<div data-class="fragment"><div><div><a href="${previewUrl}">${previewUrl}</a></div></div></div>`;
+}
+
+/**
+ * Build a DA page block that references a fragment. Keeps the outer shell of the merged
+ * section(s) so Push to DA persists a recognizable embed.
+ */
+export function buildFragmentBlockEntry(fragmentRepoPath, templateBlock = null) {
+  const previewUrl = helixPreviewUrlFromRepoPath(
+    String(fragmentRepoPath || '').trim().replace(/\.html$/i, ''),
+  );
+  if (!previewUrl) return null;
+
+  const pointerInner = buildFragmentPointerInnerHtml(previewUrl);
+
+  if (templateBlock instanceof HTMLElement) {
+    const shell = templateBlock.cloneNode(false);
+    shell.removeAttribute('id');
+    shell.innerHTML = pointerInner;
+    return shell;
+  }
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = pointerInner;
+  return tmp.firstElementChild;
+}
+
 /** Helix preview URL for repo path `org/repo/drafts/...` (matches fragment preview links). */
 export function helixPreviewUrlFromRepoPath(repoPath) {
   let path = typeof repoPath === 'string' ? repoPath.trim() : '';
@@ -264,6 +294,7 @@ function mountFragmentFromPlain(anchorEl, plainHtml, dataPathAttr, repoPath) {
   const wrap = document.createElement('div');
   wrap.setAttribute('data-class', 'fragment');
   wrap.setAttribute('data-path', dataPathAttr.startsWith('/') ? dataPathAttr : `/${dataPathAttr}`);
+  if (repoPath) wrap.setAttribute('data-fragment-repo-path', repoPath);
   wrap.setAttribute('data-block-status', 'loaded');
   wrap.appendChild(inner);
 
@@ -298,6 +329,7 @@ export async function fillFragmentWrapperFromRepo(fragmentWrapEl, repoPath) {
   fragmentWrapEl.appendChild(inner);
   fragmentWrapEl.setAttribute('data-class', 'fragment');
   fragmentWrapEl.setAttribute('data-path', dataPathAttr.startsWith('/') ? dataPathAttr : `/${dataPathAttr}`);
+  fragmentWrapEl.setAttribute('data-fragment-repo-path', cleanPath);
   fragmentWrapEl.setAttribute('data-block-status', 'loaded');
   return true;
 }

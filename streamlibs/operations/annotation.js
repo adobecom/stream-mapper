@@ -8,6 +8,7 @@ import {
   copyDaPage,
 } from '../sources/da.js';
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
+import syncFragmentEditDisabledHints from './annotation/fragment-hints.js';
 import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
 import { fetchImageAsBase64 } from './edit/dom.js';
@@ -801,6 +802,7 @@ export async function annotationOperation(options = {}) {
   await miloLoadArea();
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  syncFragmentEditDisabledHints(mainEl, true);
 }
 
 export async function annotationOperationOnHostPage(options = {}) {
@@ -841,6 +843,7 @@ export async function annotationOperationOnHostPage(options = {}) {
   }
 
   await finishAnnotationSession(mainEl, { preserveRemoteEditState, shouldRestoreInlineMode });
+  syncFragmentEditDisabledHints(mainEl, true);
 
   const stripBase64QueryParam = (el) => {
     const attr = el.tagName === 'SOURCE' ? 'srcset' : 'src';

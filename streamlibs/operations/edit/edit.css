@@ -256,3 +256,59 @@ div.figma-panel.hidden {
   70% { box-shadow: 0 0 0 20px rgba(253, 94, 83, 0%); }
   100% { box-shadow: 0 0 0 0 rgba(253, 94, 83, 0%); }
 }
+
+/* Fragment path indicators (edit mode + editor preview) */
+.stream-fragment-highlight {
+  position: relative;
+  border-radius: 6px;
+  box-sizing: border-box;
+  border: 3px solid #2563eb;
+}
+
+body.editor-mode .da-panel > .stream-fragment-highlight {
+  border-width: 6px;
+}
+
+main > .stream-fragment-highlight {
+  display: flow-root;
+  margin-block: 8px;
+}
+
+.stream-fragment-path-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: linear-gradient(to bottom, #eff6ff, #dbeafe);
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
+  position: relative;
+  z-index: 7000;
+  pointer-events: auto;
+}
+
+.stream-fragment-path-prefix {
+  flex: 0 0 auto;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  color: #1d4ed8;
+}
+
+.stream-fragment-path-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  word-break: break-all;
+  font-weight: 500;
+}
+
+.stream-fragment-path-link:hover {
+  color: #1e40af;
+}
