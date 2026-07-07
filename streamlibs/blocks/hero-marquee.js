@@ -88,8 +88,12 @@ function blockBackground(value, areaEl, properties) {
 
 function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = value || LOGOS.placeholder; });
-  areaEl.querySelector('img').src = value || LOGOS.placeholder;
+  const url = (typeof value === 'object' && value.url) ? value.url : value;
+  const altText = (typeof value === 'object' && value.altText) ? value.altText : '';
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url || LOGOS.placeholder; });
+  const imgEl = areaEl.querySelector('img');
+  imgEl.src = url || LOGOS.placeholder;
+  if (altText) imgEl.alt = altText;
 }
 
 function handleSupplemental(blockContent, selector, value) {

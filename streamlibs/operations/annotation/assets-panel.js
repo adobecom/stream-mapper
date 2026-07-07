@@ -4,6 +4,7 @@
 /* eslint-disable no-restricted-syntax */
 import { showGlobalSnackbar } from '../../utils/snackbar.js';
 import { formatCardTimestamp, ARROW_ICON_SVG } from '../../utils/utils.js';
+import { isMetadata } from '../../utils/constants.js';
 
 const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg',
@@ -100,6 +101,9 @@ export default function createAssetsPanelController({
   // Sets href on an anchor to realUrl when it's a proper URL, or attaches a
   // blob-URL click handler when only a data URL (previewSrc) is available.
   function setAssetLinkHref(anchorEl, previewSrc, realUrl) {
+    if (realUrl && realUrl.includes('fpo.svg#')) {
+      realUrl = realUrl.split('#')[1].replace('admin.da.live/source/', 'content.da.live/');
+    }
     if (realUrl && !realUrl.startsWith('data:')) {
       anchorEl.href = realUrl;
       return;
@@ -499,12 +503,14 @@ export default function createAssetsPanelController({
     const assetFileKey = store.generateId('asset-file');
     store.registerAssetFile(assetFileKey, file, base64Data);
     localAsset.assetFileKey = assetFileKey;
+    const blockClass = isMetadata(targetImg);
     store.upsertEasyEdit({
       editType: 'image-src',
       elementPath,
+      blockClass,
       elementProps,
       elementRef,
-      from: originalSrc,
+      from: blockClass ? targetImg.dataset.streamOriginalSrc : originalSrc,
       to: '',
       fromHtml: '',
       toHtml: '',
