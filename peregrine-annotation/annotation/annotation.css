@@ -1060,7 +1060,7 @@ body.peregrine-collab-markups-hidden .peregrine-collab-block-hover {
   }
 }
 
-.stream-snackbar {
+.peregrine-snackbar {
   position: fixed;
   top: 24px;
   right: 24px;
@@ -1086,12 +1086,12 @@ body.peregrine-collab-markups-hidden .peregrine-collab-block-hover {
   text-align: left;
 }
 
-.stream-snackbar.is-visible {
+.peregrine-snackbar.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
 
-.stream-snackbar-icon {
+.peregrine-snackbar-icon {
   width: 20px;
   height: 20px;
   min-width: 20px;
@@ -1106,46 +1106,46 @@ body.peregrine-collab-markups-hidden .peregrine-collab-block-hover {
   font-weight: 700;
 }
 
-.stream-snackbar[data-variant="loading"] {
+.peregrine-snackbar[data-variant="loading"] {
   border-color: #bfdbfe;
   background: linear-gradient(180deg, #f8fbff 0%, #fff 100%);
   box-shadow: 0 10px 26px rgb(37 99 235 / 12%);
   color: #1d4ed8;
 }
 
-.stream-snackbar[data-variant="warning"] {
+.peregrine-snackbar[data-variant="warning"] {
   border-color: #fcd34d;
   background: linear-gradient(180deg, #fff7dd 0%, #fff 100%);
   box-shadow: 0 10px 26px rgb(180 83 9 / 12%);
   color: #92400e;
 }
 
-.stream-snackbar[data-variant="warning"] .stream-snackbar-icon {
+.peregrine-snackbar[data-variant="warning"] .peregrine-snackbar-icon {
   background: #fef3c7;
   border-color: #fcd34d;
   color: #b45309;
 }
 
-.stream-snackbar[data-variant="loading"] .stream-snackbar-icon {
+.peregrine-snackbar[data-variant="loading"] .peregrine-snackbar-icon {
   background: transparent;
   border-color: #93c5fd;
 }
 
-.stream-snackbar-icon.is-spinner {
+.peregrine-snackbar-icon.is-spinner {
   border-width: 2px;
   border-style: solid;
   border-color: #93c5fd;
   border-top-color: #2563eb;
   background: transparent;
-  animation: stream-snackbar-spin 0.8s linear infinite;
+  animation: peregrine-snackbar-spin 0.8s linear infinite;
 }
 
-.stream-snackbar-message {
+.peregrine-snackbar-message {
   color: inherit;
   font-weight: 700;
 }
 
-@keyframes stream-snackbar-spin {
+@keyframes peregrine-snackbar-spin {
   from {
     transform: rotate(0deg);
   }
@@ -2050,7 +2050,7 @@ body.annotation-inline-edit-mode .annotation-selected-element {
     height: 100%;
     margin: 0;
     padding: 0;
-    background: url('/streamlibs/assets/failed-mapping.png') no-repeat center center;
+    background: url('/peregrinelibs/assets/failed-mapping.png') no-repeat center center;
     background-size: cover;
 }
 
@@ -2561,7 +2561,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     outline-offset: 2px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata {
+  .annotation-mode .peregrine-annotation-page-metadata {
     width: 100%;
     border-top: 2px dashed #ababab;
     margin-top: 10px;
@@ -2574,7 +2574,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     padding-bottom: 50px;
   }
 
-  .annotation-mode .stream-annotation-page-metadata h3 {
+  .annotation-mode .peregrine-annotation-page-metadata h3 {
     display: flex;
     align-items: start;
     width: 80%;
@@ -2612,7 +2612,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     max-width: 100px;
   }
 
-  .annotation-mode .stream-annotation-metadata-actions {
+  .annotation-mode .peregrine-annotation-metadata-actions {
     display: none;
     width: 80%;
     flex-direction: row;
@@ -2620,11 +2620,11 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     margin-top: 10px;
   }
 
-  .annotation-inline-edit-mode .stream-annotation-metadata-actions {
+  .annotation-inline-edit-mode .peregrine-annotation-metadata-actions {
     display: flex;
   }
 
-  .annotation-mode .stream-annotation-add-metadata-row {
+  .annotation-mode .peregrine-annotation-add-metadata-row {
     padding: 5px 14px;
     background: #fff;
     border: 1px solid #3d63ae;
@@ -2635,7 +2635,7 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn.block-action-b
     white-space: nowrap;
   }
 
-  .annotation-inline-edit-mode .stream-annotation-add-metadata-row:hover {
+  .annotation-inline-edit-mode .peregrine-annotation-add-metadata-row:hover {
     background: #3d63ae;
     color: #fff;
   }
