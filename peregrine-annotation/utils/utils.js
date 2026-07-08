@@ -31,23 +31,23 @@ export async function getConfig() {
 
 export function initializeTokens(token) {
   if (token == null || `${token}`.trim() === '') return;
-  if (!window.streamConfig?.streamMapper) return;
+  if (!window.peregrineConfig?.peregrineMapper) return;
   const normalized = `${token}`.trim().startsWith('Bearer ') ? token : `Bearer ${token}`;
-  window.streamConfig.streamMapper.figmaAuthToken = normalized;
-  window.streamConfig.streamMapper.daToken = normalized;
+  window.peregrineConfig.peregrineMapper.figmaAuthToken = normalized;
+  window.peregrineConfig.peregrineMapper.daToken = normalized;
 }
 
-export function ensureStreamMapperForStandalone(overrides = {}) {
-  const streamServiceEP = `${overrides.streamServiceEP || overrides.serviceEP || ''}`.trim();
-  const existing = window.streamConfig?.streamMapper || {};
-  const serviceEP = streamServiceEP || existing.serviceEP;
-  if (!window.streamConfig) window.streamConfig = {};
-  window.streamConfig.streamMapper = {
+export function ensurePeregrineMapperForStandalone(overrides = {}) {
+  const peregrineServiceEP = `${overrides.peregrineServiceEP || overrides.serviceEP || ''}`.trim();
+  const existing = window.peregrineConfig?.peregrineMapper || {};
+  const serviceEP = peregrineServiceEP || existing.serviceEP;
+  if (!window.peregrineConfig) window.peregrineConfig = {};
+  window.peregrineConfig.peregrineMapper = {
     serviceEP,
     pushToDaUrl: '/api/push-html',
     figmaMappingUrl: '/api/fig-comps',
     figmaBlockContentUrl: '/api/fig-comp-details',
-    blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
+    blockMappingsUrl: 'https://main--peregrine-mapper--adobecom.aem.live/block-mappings',
     figmaAuthToken: '',
     daToken: '',
     ...existing,
@@ -212,9 +212,9 @@ export function getMapperEnv() {
   if (params.get('daRenderingApp') || params.get('darenderingapp')) {
     mapperOrigin = params.get('mapperOrigin') || params.get('mapperorigin');
   }
-  if (mapperOrigin.includes('https://dev--stream-mapper')) return 'dev';
-  if (mapperOrigin.includes('https://dev02--stream-mapper')) return 'dev02';
-  if (mapperOrigin.includes('https://stage--stream-mapper')) return 'stage';
-  if (mapperOrigin.includes('https://main--stream-mapper')) return 'prod';
+  if (mapperOrigin.includes('https://dev--peregrine-mapper')) return 'dev';
+  if (mapperOrigin.includes('https://dev02--peregrine-mapper')) return 'dev02';
+  if (mapperOrigin.includes('https://stage--peregrine-mapper')) return 'stage';
+  if (mapperOrigin.includes('https://main--peregrine-mapper')) return 'prod';
   return 'dev';
 }

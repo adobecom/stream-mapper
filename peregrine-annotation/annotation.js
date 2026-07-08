@@ -121,7 +121,7 @@ export async function annotationOperation(options = {}) {
   const mainEl = document.querySelector('main');
   if (!mainEl) return;
 
-  if (window.streamConfig?.source === 'da') {
+  if (window.peregrineConfig?.source === 'da') {
     mainEl.querySelectorAll(':scope > div').forEach((div) => {
       if (!div.dataset.source) div.dataset.source = 'da';
     });
@@ -131,7 +131,7 @@ export async function annotationOperation(options = {}) {
 
   const metadataDom = document.body.querySelector('.page-metadata');
   const metadataSeparator = document.createElement('div');
-  metadataSeparator.classList.add('section', 'stream-annotation-page-metadata');
+  metadataSeparator.classList.add('section', 'peregrine-annotation-page-metadata');
   metadataSeparator.innerHTML = '<h3>Page Metadata</h3>';
   metadataSeparator.append(metadataDom);
   mainEl.append(metadataSeparator);

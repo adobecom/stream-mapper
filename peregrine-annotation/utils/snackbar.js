@@ -10,16 +10,16 @@ function ensureSnackbar() {
   }
 
   snackbarEl = document.createElement('div');
-  snackbarEl.className = 'stream-snackbar';
+  snackbarEl.className = 'peregrine-snackbar';
   snackbarEl.setAttribute('role', 'status');
   snackbarEl.setAttribute('aria-live', 'polite');
   snackbarEl.innerHTML = `
-    <span class="stream-snackbar-icon" aria-hidden="true">!</span>
-    <span class="stream-snackbar-message"></span>
+    <span class="peregrine-snackbar-icon" aria-hidden="true">!</span>
+    <span class="peregrine-snackbar-message"></span>
   `;
 
-  snackbarIconEl = snackbarEl.querySelector('.stream-snackbar-icon');
-  snackbarMessageEl = snackbarEl.querySelector('.stream-snackbar-message');
+  snackbarIconEl = snackbarEl.querySelector('.peregrine-snackbar-icon');
+  snackbarMessageEl = snackbarEl.querySelector('.peregrine-snackbar-message');
   document.body.appendChild(snackbarEl);
   return snackbarEl;
 }
@@ -27,7 +27,7 @@ function ensureSnackbar() {
 function setSnackbarVariant(variant = 'error') {
   if (!(snackbarEl instanceof HTMLElement)) return;
   if (!(snackbarIconEl instanceof HTMLElement)) {
-    snackbarIconEl = snackbarEl.querySelector('.stream-snackbar-icon');
+    snackbarIconEl = snackbarEl.querySelector('.peregrine-snackbar-icon');
   }
 
   snackbarEl.dataset.variant = variant;
@@ -62,7 +62,7 @@ export function showGlobalSnackbar(message, options = {}) {
 
   const snackbar = ensureSnackbar();
   if (!(snackbarMessageEl instanceof HTMLElement)) {
-    snackbarMessageEl = snackbar.querySelector('.stream-snackbar-message');
+    snackbarMessageEl = snackbar.querySelector('.peregrine-snackbar-message');
   }
   if (!(snackbarMessageEl instanceof HTMLElement)) return;
 
@@ -83,7 +83,7 @@ export function showGlobalSyncIndicator(message = 'Syncing changes...') {
   loadingRequestCount += 1;
   const snackbar = ensureSnackbar();
   if (!(snackbarMessageEl instanceof HTMLElement)) {
-    snackbarMessageEl = snackbar.querySelector('.stream-snackbar-message');
+    snackbarMessageEl = snackbar.querySelector('.peregrine-snackbar-message');
   }
   if (!(snackbarMessageEl instanceof HTMLElement)) return;
 

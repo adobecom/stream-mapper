@@ -1,6 +1,6 @@
 import { ANNOTATION_COMMENT_STATUSES, ANNOTATION_DEFAULT_USERNAME } from '../utils/constants.js';
 
-const ANNOTATION_STORE_KEY = 'stream-annotation-comments';
+const ANNOTATION_STORE_KEY = 'peregrine-annotation-comments';
 export const DEFAULT_USERNAME = ANNOTATION_DEFAULT_USERNAME;
 export const COMMENT_STATUSES = ANNOTATION_COMMENT_STATUSES;
 
@@ -44,8 +44,8 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   function getPersistedElementSource(element) {
     if (!(element instanceof HTMLElement)) return '';
 
-    const originalSource = element.getAttribute('data-stream-original-src')
-      || element.closest('picture')?.getAttribute('data-stream-original-src')
+    const originalSource = element.getAttribute('data-peregrine-original-src')
+      || element.closest('picture')?.getAttribute('data-peregrine-original-src')
       || '';
     if (originalSource) return originalSource;
 
@@ -199,7 +199,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
       changedFrom: `${edit.changedFrom || ''}`,
       changedTo: `${edit.changedTo || ''}`,
       updatedAt: edit.updatedAt || new Date().toISOString(),
-      authorUsername: `${edit.authorUsername || window.streamConfig?.username || ''}`,
+      authorUsername: `${edit.authorUsername || window.peregrineConfig?.username || ''}`,
       changeHistory: Array.isArray(edit.changeHistory) ? edit.changeHistory : [],
       isCommitted: !!edit.isCommitted,
       // In-memory key into the asset maps; stripped in buildSavePayload.
@@ -208,14 +208,14 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
   }
 
   function getReviewId() {
-    const collabId = window.streamConfig?.collabId;
+    const collabId = window.peregrineConfig?.collabId;
     if (collabId !== null && collabId !== undefined && `${collabId}`.trim()) {
       return `collab:${`${collabId}`.trim()}`;
     }
 
-    const streamConfigReviewId = window.streamConfig?.reviewId;
-    if (streamConfigReviewId !== null && streamConfigReviewId !== undefined && `${streamConfigReviewId}`.trim()) {
-      return `${streamConfigReviewId}`.trim();
+    const peregrineConfigReviewId = window.peregrineConfig?.reviewId;
+    if (peregrineConfigReviewId !== null && peregrineConfigReviewId !== undefined && `${peregrineConfigReviewId}`.trim()) {
+      return `${peregrineConfigReviewId}`.trim();
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -387,7 +387,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
 
     const serialized = JSON.stringify(existingMap);
     window.sessionStorage.setItem(ANNOTATION_STORE_KEY, serialized);
-    window.streamAnnotationComments = existingMap;
+    window.peregrineAnnotationComments = existingMap;
   }
 
   function replaceFirstOccurrence(source, fromValue, toValue) {
@@ -1311,7 +1311,7 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
     thread.messages = thread.messages || [];
     thread.messages.push({
       id: generateId('message'),
-      username: window.streamConfig?.username || DEFAULT_USERNAME,
+      username: window.peregrineConfig?.username || DEFAULT_USERNAME,
       text,
       kind,
     });

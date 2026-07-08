@@ -23,7 +23,7 @@ export function normalizeToken(token) {
 }
 
 export function getAnnotationCollabId() {
-  const cfg = window.streamConfig || {};
+  const cfg = window.peregrineConfig || {};
   const collabId = cfg.collabId ?? cfg.collab_id;
   return `${collabId || ''}`.trim();
 }
@@ -162,14 +162,14 @@ function normalizeEditsSnapshot(data) {
 
 export default function createAnnotationServiceClient() {
   async function annotationServiceFetch(path, options = {}) {
-    const resolvedServiceEndpoint = `${window.streamConfig?.streamMapper?.serviceEP || ''}`.trim();
+    const resolvedServiceEndpoint = `${window.peregrineConfig?.peregrineMapper?.serviceEP || ''}`.trim();
     const collabId = getAnnotationCollabId();
     if (!resolvedServiceEndpoint || !collabId) return null;
 
     const headers = {
       ...(options.headers || {}),
     };
-    const token = normalizeToken(window.streamConfig?.token);
+    const token = normalizeToken(window.peregrineConfig?.token);
     if (token) headers.Authorization = token;
     if (options.body && !headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
@@ -193,7 +193,7 @@ export default function createAnnotationServiceClient() {
   }
 
   function getCurrentUserIdentity() {
-    const profileId = window.streamConfig?.profileId ?? null;
+    const profileId = window.peregrineConfig?.profileId ?? null;
 
     return {
       profileId: profileId === null || profileId === undefined ? null : `${profileId}`,

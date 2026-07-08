@@ -1,4 +1,4 @@
-export const DEFAULT_TMP_URL = 'https://main--stream-mapper--adobecom.aem.live/stream';
+export const DEFAULT_TMP_URL = 'https://main--peregrine-mapper--adobecom.aem.live/peregrine';
 
 export const ACCENT_BARS = {
   'Accent Bar / CC Gradient': 'linear-gradient(90deg, #FA0F00 0%, #E9740A 15.42%, #FFCE2E 39.44%, #009C3B 67.99%, #2799F6 85.76%, #6349E0 95.42%, #9999FC 100%)',
@@ -97,7 +97,7 @@ export const LOGOS = {
 };
 
 export const SVG_ICONS = {
-  placeholder: 'https://main--stream-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
+  placeholder: 'https://main--peregrine-mapper--adobecom.aem.live/assets/placeholder-svg.svg',
 };
 
 export const COMPONENTS_NAMES = {
@@ -191,10 +191,10 @@ export const LOADER_MSG_LIST = [
   'Constructing the masterpiece. Stay tuned ',
 ];
 
-export const LOADER_PROGRESS_EVENT = 'stream-mapper:loader-progress';
-export const ANNOTATION_REFRESH_EVENT = 'stream-mapper:annotation-refresh';
-export const ANNOTATION_SAVE_EVENT = 'stream-mapper:annotation-save';
-export const ANNOTATION_READY_EVENT = 'STREAM_ANNOTATION_READY';
+export const LOADER_PROGRESS_EVENT = 'peregrine-mapper:loader-progress';
+export const ANNOTATION_REFRESH_EVENT = 'peregrine-mapper:annotation-refresh';
+export const ANNOTATION_SAVE_EVENT = 'peregrine-mapper:annotation-save';
+export const ANNOTATION_READY_EVENT = 'PEREGRINE_ANNOTATION_READY';
 
 export const LOADER_PROGRESS_STEPS = {
   START: 0,
@@ -224,7 +224,7 @@ export function getBlocksCreationMessage(current, total) {
   return `Creating blocks ${current}/${total}`;
 }
 
-export const ANNOTATION_DEFAULT_USERNAME = 'stream';
+export const ANNOTATION_DEFAULT_USERNAME = 'peregrine';
 
 export const ANNOTATION_COMMENT_STATUSES = ['Open', 'Accepted', 'Rejected', 'Closed'];
 

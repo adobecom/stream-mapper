@@ -6,7 +6,7 @@
 /* stylelint-disable media-feature-range-notation */
 /* stylelint-disable keyframes-name-pattern */
 
-/* Stream client-aligned theme tokens */
+/* Peregrine client-aligned theme tokens */
 :root {
   --sm-color-primary: #3b82f6;
   --sm-color-primary-dark: #2563eb;
@@ -19,7 +19,7 @@
   --sm-gradient-inline: linear-gradient(90deg, var(--sm-color-primary) 0%, var(--sm-color-primary-darker) 100%);
 }
 
-.stream-error-page {
+.peregrine-error-page {
   font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
   min-height: 100vh;
   width: 100%;
@@ -31,7 +31,7 @@
   background: var(--sm-color-primary-soft);
 }
 
-.stream-error-card {
+.peregrine-error-card {
   width: 80%;
   display: flex;
   flex-direction: column;
@@ -43,7 +43,7 @@
   box-shadow: none;
 }
 
-.stream-error-copy {
+.peregrine-error-copy {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -51,16 +51,16 @@
   text-align: center;
 }
 
-.stream-error-image-wrap {
+.peregrine-error-image-wrap {
   position: relative;
   border-radius: 100px;
   width: 200px;
   height: 200px;
   box-shadow: 0 0 0 0 rgba(29, 78, 216, 0.45);
-  animation: stream-image-pulse 2.2s ease-out infinite;
+  animation: peregrine-image-pulse 2.2s ease-out infinite;
 }
 
-.stream-error-page img {
+.peregrine-error-page img {
   border-radius: 100px;
   width: 100%;
   height: 100%;
@@ -68,7 +68,7 @@
   filter: hue-rotate(150deg);
 }
 
-@keyframes stream-image-pulse {
+@keyframes peregrine-image-pulse {
   0% {
     box-shadow:
       0 0 0 0 rgba(29, 78, 216, 0.45),
@@ -88,7 +88,7 @@
   }
 }
 
-.stream-error-title {
+.peregrine-error-title {
   font-size: clamp(22px, 2vw, 26px);
   font-weight: 600;
   line-height: 1.5;
@@ -96,14 +96,14 @@
   margin: 0;
 }
 
-.stream-error-subtitle {
+.peregrine-error-subtitle {
   margin: 0;
   font-size: 15px;
   line-height: 1.4;
   color: #000;
 }
 
-.stream-retry-line {
+.peregrine-retry-line {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -112,11 +112,11 @@
   margin: 0;
 }
 
-.stream-retry-text {
+.peregrine-retry-text {
   line-height: 1.2;
 }
 
-.stream-retry-btn {
+.peregrine-retry-btn {
   border: none;
   border-radius: 0;
   padding: 0;
@@ -133,22 +133,22 @@
   box-shadow: none;
 }
 
-.stream-retry-btn:hover {
+.peregrine-retry-btn:hover {
   color: var(--sm-color-primary);
   opacity: 0.9;
 }
 
-.stream-retry-btn:active {
+.peregrine-retry-btn:active {
   opacity: 0.75;
 }
 
-.stream-retry-btn:focus-visible {
+.peregrine-retry-btn:focus-visible {
   outline: 2px solid rgba(59, 130, 246, 0.35);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-.stream-retry-btn.is-loading {
+.peregrine-retry-btn.is-loading {
   position: relative;
   cursor: default;
   text-decoration: none;
@@ -156,7 +156,7 @@
   pointer-events: none;
 }
 
-.stream-retry-btn.is-loading::after {
+.peregrine-retry-btn.is-loading::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -168,10 +168,10 @@
   border: 2px solid rgba(59, 130, 246, 0.25);
   border-top-color: var(--sm-color-primary-darker);
   border-radius: 50%;
-  animation: stream-retry-spin 0.7s linear infinite;
+  animation: peregrine-retry-spin 0.7s linear infinite;
 }
 
-@keyframes stream-retry-spin {
+@keyframes peregrine-retry-spin {
   to { transform: rotate(360deg); }
 }
 
