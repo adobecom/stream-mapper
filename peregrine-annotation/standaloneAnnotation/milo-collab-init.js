@@ -63,7 +63,7 @@ async function createCollab(collabData) {
   const res = await fetch(`${API_ENDPOINT}/collabs`, {
     method: 'POST',
     // eslint-disable-next-line object-curly-newline
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(collabData),
   });
   const result = await res.json().catch(() => ({}));
@@ -77,7 +77,7 @@ async function assignCollabRoles(collabId, assignments) {
   const res = await fetch(`${API_ENDPOINT}/collabs/${encodeURIComponent(collabId)}/roles/assign`, {
     method: 'POST',
     // eslint-disable-next-line object-curly-newline
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ assignments }),
   });
   if (!res.ok) {
@@ -91,7 +91,7 @@ async function fetchAndApplyCollabSnapshot(collabId) {
   if (!collabId || !token) return;
   const serviceEP = window.streamConfig?.streamMapper?.serviceEP || '';
   if (!serviceEP) return;
-  const headers = { Authorization: `Bearer ${token}`, 'X-User-Email': resolvedEmail, 'X-User-Name': resolvedName };
+  const headers = { Authorization: `Bearer ${token}` };
   try {
     const r = await fetch(`${serviceEP}/api/collabs/${encodeURIComponent(collabId)}`, { headers });
     const collab = await r.json();
