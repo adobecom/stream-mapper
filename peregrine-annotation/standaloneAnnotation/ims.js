@@ -86,7 +86,7 @@ export function initIms(serverOrigin, onChange) {
   return initPromise;
 }
 
-export function getImsToken() { return sessionStorage.getItem('peregrine.ims.accessToken') || window[IMS_INSTANCE]?.getAccessToken?.()?.token ?? null; }
+export function getImsToken() { return window[IMS_INSTANCE]?.getAccessToken?.()?.token ?? null; }
 
 export function getImsProfile() { return imsProfile; }
 
