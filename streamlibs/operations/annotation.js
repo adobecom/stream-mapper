@@ -10,6 +10,7 @@ import {
 import { hydrateFragmentLinksInDaBlocks } from './edit/fragment-hydrate.js';
 import { miloLoadArea } from '../utils/utils.js';
 import { getDACompatibleHtml, postData } from '../target/da.js';
+import { fetchImageAsBase64 } from './edit/dom.js';
 import { createAnnotationState, createAnnotationUI } from './annotation/state.js';
 import { createAnnotationStore } from './annotation/store.js';
 import createCommentsPanelController from './annotation/comments-panel.js';
@@ -75,8 +76,18 @@ export async function setupCollabSpace() {
 
 export async function recordImageRegenAsLocalAsset(imgEl, generatedUrl, pendingAlt = '') {
   if (!(imgEl instanceof HTMLImageElement) || !generatedUrl) return;
-  // Pass the DA URL directly — no base64 fetch needed
-  await assetsPanel.registerLocalAssetFromRegen(imgEl, generatedUrl, pendingAlt);
+
+  const base64Data = await fetchImageAsBase64(generatedUrl);
+  if (!base64Data) return;
+
+  const mimeType = base64Data.split(';')[0].split(':')[1] || 'image/jpeg';
+  const ext = mimeType.split('/')[1]?.split('+')[0] || 'jpg';
+  const binaryStr = atob(base64Data.split(',')[1]);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i += 1) bytes[i] = binaryStr.charCodeAt(i);
+  const file = new File([bytes], `generated-${Date.now()}.${ext}`, { type: mimeType });
+
+  await assetsPanel.registerLocalAssetFromRegen(imgEl, file, base64Data, pendingAlt, generatedUrl);
 }
 
 const commentsPanel = createCommentsPanelController({
