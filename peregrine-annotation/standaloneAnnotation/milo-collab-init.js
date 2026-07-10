@@ -7,7 +7,12 @@ import {
   resetEditChangesInStore,
 } from '../store/store.js';
 import { annotationOperationOnHostPage, applyRemoteCollabSnapshot } from '../annotation.js';
-import { initIms, getImsToken, getImsProfile } from './ims.js';
+import {
+  initIms,
+  getImsToken,
+  getStoredImsToken,
+  getImsProfile,
+} from './ims.js';
 
 const API_ENDPOINT = 'http://localhost:8081/api';
 const SEARCH_DEBOUNCE_MS = 250;
@@ -34,7 +39,15 @@ function loadCssFiles(filePath) {
 }
 
 function getToken() {
-  return getImsToken() || resolvedToken || window.adobeIMS?.getAccessToken()?.token || '';
+  return getImsToken()
+    || getStoredImsToken()
+    || resolvedToken
+    || window.adobeIMS?.getAccessToken()?.token
+    || '';
+}
+
+export function hasPeregrineAuthToken() {
+  return Boolean(getToken());
 }
 
 async function searchUsers(query) {
@@ -103,6 +116,12 @@ async function fetchAndApplyCollabSnapshot(collabId) {
 
 async function startAnnotation(createdCollabId = null) {
   const params = new URLSearchParams(window.location.search);
+  const token = getToken();
+  if (!token) {
+    console.error('[milo-collab-init] No auth token found.');
+    return false;
+  }
+
   loadCssFiles(new URL('../annotation/annotation.css', import.meta.url).href);
   const env = getMapperEnv();
   const collabId = createdCollabId || params.get('miloCollabId') || params.get('peregrine-collab-id');
@@ -120,7 +139,7 @@ async function startAnnotation(createdCollabId = null) {
     peregrineMapper: { ...CONFIG[env].peregrineMapper },
     source: 'da',
     pageUrl: window.location.href,
-    token: getToken(),
+    token,
     userEmail: resolvedEmail,
     userName: resolvedName,
     username,
@@ -166,6 +185,7 @@ async function startAnnotation(createdCollabId = null) {
     }
   });
   startPolling();
+  return true;
 }
 
 function injectModalStyles() {
@@ -702,7 +722,7 @@ export async function initializePeregrineAnnotation(sidekickDetail = null) {
         resolvedName = imsProfile.name || resolvedName;
       }
     });
-    const imsToken = getImsToken();
+    const imsToken = getImsToken() || getStoredImsToken();
     if (imsToken) {
       resolvedToken = imsToken;
       const imsProfile = getImsProfile();
@@ -744,23 +764,29 @@ export async function initializePeregrineAnnotation(sidekickDetail = null) {
     resolvedToken = window.adobeIMS?.getAccessToken()?.token || '';
   }
 
+  if (!hasPeregrineAuthToken()) {
+    console.error('[milo-collab-init] No auth token found.');
+    initInProgress = false;
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
 
   const collabId = params.get('miloCollabId') || params.get('peregrine-collab-id');
   if (collabId) {
-    await startAnnotation(collabId);
+    const started = await startAnnotation(collabId);
+    if (!started) initInProgress = false;
     return;
   }
 
-  if (!resolvedToken) {
-    console.error('[milo-collab-init] No auth token found.');
-    // return;
+  const result = await showCollabModal();
+  if (!result) {
+    initInProgress = false;
+    return;
   }
 
-  const result = await showCollabModal();
-  if (!result) return;
-
   if (result.action === 'open') {
-    await startAnnotation(result.collabId);
+    const started = await startAnnotation(result.collabId);
+    if (!started) initInProgress = false;
   }
 }

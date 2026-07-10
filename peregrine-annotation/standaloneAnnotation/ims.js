@@ -1,6 +1,7 @@
 // Adapted from forge chitchat project: milo-logs-deploy/src/annotations/client/ims.js
 const IMS_INSTANCE = 'peregrine_annotationIMS';
 const IMS_SCOPES = 'AdobeID,openid,email';
+const IMS_SESSION_ACCESS_TOKEN_KEY = 'peregrine.ims.accessToken';
 
 export const IMS_CLIENT_ID = 'milo-logs-claude-mcp';
 
@@ -13,13 +14,32 @@ function getImsEnv() {
   const param = new URLSearchParams(window.location.search).get('pc_ims_env');
   if (param === 'prod' || param === 'stg1') return param;
   let host;
-  try { host = serverOriginRef ? new URL(serverOriginRef).hostname : window.location.hostname; }
-  catch { host = window.location.hostname; }
+  try {
+    host = serverOriginRef ? new URL(serverOriginRef).hostname : window.location.hostname;
+  } catch {
+    host = window.location.hostname;
+  }
   return (host === 'localhost' || host.includes('stage')) ? 'stg1' : 'prod';
 }
 
 function getImsHost() {
   return getImsEnv() === 'prod' ? 'ims-na1.adobelogin.com' : 'ims-na1-stg1.adobelogin.com';
+}
+
+export function getImsToken() { return window[IMS_INSTANCE]?.getAccessToken?.()?.token ?? null; }
+
+export function getStoredImsToken() {
+  try {
+    const raw = window.sessionStorage?.getItem(IMS_SESSION_ACCESS_TOKEN_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw)?.token || raw;
+    } catch {
+      return raw;
+    }
+  } catch {
+    return null;
+  }
 }
 
 async function fetchProfile() {
@@ -66,8 +86,14 @@ async function bootstrap() {
         useLocalStorage: false,
         logsEnabled: false,
         modalMode: true,
-        onAccessToken: async () => { await fetchProfile(); onChangeCallback?.(getImsToken(), imsProfile); },
-        onReauthAccessToken: async () => { await fetchProfile(); onChangeCallback?.(getImsToken(), imsProfile); },
+        onAccessToken: async () => {
+          await fetchProfile();
+          onChangeCallback?.(getImsToken(), imsProfile);
+        },
+        onReauthAccessToken: async () => {
+          await fetchProfile();
+          onChangeCallback?.(getImsToken(), imsProfile);
+        },
         onAccessTokenHasExpired: () => { imsProfile = null; onChangeCallback?.(null, null); },
         onError: (type, msg) => { console.warn(`[peregrine-annotation] IMS error [${type}]: ${msg}`); },
       }, IMS_INSTANCE);
@@ -85,8 +111,6 @@ export function initIms(serverOrigin, onChange) {
   initPromise ??= bootstrap();
   return initPromise;
 }
-
-export function getImsToken() { return window[IMS_INSTANCE]?.getAccessToken?.()?.token ?? null; }
 
 export function getImsProfile() { return imsProfile; }
 
