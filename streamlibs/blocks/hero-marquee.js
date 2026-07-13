@@ -1,10 +1,13 @@
 import {
+  flagForRemoval,
   handleActionButtons,
   handleBackground, handleComponents, handleImageComponent, handleProductLockup,
 } from '../components/components.js';
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
-import { divSwap, getFirstType, getIconSize } from '../utils/utils.js';
+import {
+  divSwap, getFirstType, getIconSize, isEmptyValue,
+} from '../utils/utils.js';
 
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
@@ -17,8 +20,15 @@ function handleSwap(blockContent, properties) {
 }
 
 function handleProductLockups(value, areaEl) {
-  if (!value) return;
-  value.forEach((productLockup) => {
+  if (!value || !areaEl) return;
+  // Skip blank entries so one empty lockup can't flag the shared container
+  // and wipe out the valid ones at the sweep.
+  const lockups = value.filter((productLockup) => !isEmptyValue(productLockup));
+  if (!lockups.length) {
+    flagForRemoval(areaEl);
+    return;
+  }
+  lockups.forEach((productLockup) => {
     handleProductLockup(productLockup, areaEl);
   });
 }
@@ -138,6 +148,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             value,
             actionEL,
           );
+          // action/action1 can hold buttons even when actions is empty —
+          // unflag so the populated element survives the sweep.
+          if (actionEL.innerHTML.trim()) actionEL.classList.remove('to-remove');
           break;
         }
         case 'checklistItems':

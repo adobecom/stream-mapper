@@ -27,6 +27,13 @@ export function fixRelativeLinks(html) {
   return html.replaceAll('./media', 'https://main--milo--adobecom.aem.page/media');
 }
 
+export function isEmptyValue(value) {
+  if (value === false || value == null || value === '') return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return false;
+}
+
 export async function getConfig() {
   const { getConfig: miloGetConfig } = await import(`${getLibs()}/utils/utils.js`);
   return miloGetConfig();

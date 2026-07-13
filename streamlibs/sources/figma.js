@@ -1,6 +1,7 @@
 import { handleError, safeFetch } from '../utils/error-handler.js';
 import { createFigmaLoaderReporter } from '../utils/loader.js';
 import { appendBlockActionButton } from '../utils/block-action-button.js';
+import { isEmptyValue } from '../utils/utils.js';
 
 const PLACEHOLDER_URL = 'https://main--stream-mapper--adobecom.aem.live/fragments/stream-block-placeholder';
 const METADATA_KEYS = new Set(['colorTheme', 'miloTag', 'layout']);
@@ -10,13 +11,7 @@ function isEmptyBlockContent(properties) {
   if (!properties || typeof properties !== 'object') return true;
   const entries = Object.entries(properties);
   if (entries.length === 0) return true;
-  return entries.every(([key, value]) => {
-    if (METADATA_KEYS.has(key)) return true;
-    if (value === false || value === '' || value == null) return true;
-    if (Array.isArray(value)) return value.length === 0;
-    if (typeof value === 'object') return Object.keys(value).length === 0;
-    return false;
-  });
+  return entries.every(([key, value]) => METADATA_KEYS.has(key) || isEmptyValue(value));
 }
 
 function createPlaceholder() {

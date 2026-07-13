@@ -80,6 +80,7 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
               selector: 'p:nth-child(2)',
               value: media.text,
             });
+            mediaDiv.querySelectorAll('.to-remove').forEach((el) => el.remove());
             mediaDiv.classList.add('section');
             sections.push(mediaDiv);
           });

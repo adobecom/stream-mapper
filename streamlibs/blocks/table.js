@@ -106,13 +106,13 @@ function createDataRow(row, rowTemplate, cellTemplate) {
     // For section title rows, create only ONE cell with the heading
     const titleCell = document.createElement('div');
     titleCell.setAttribute('data-valign', 'middle');
-    titleCell.innerHTML = `<strong>${row.heading || ''}</strong>`;
+    if (row.heading) titleCell.innerHTML = `<strong>${row.heading}</strong>`;
     rowEl.appendChild(titleCell);
   } else {
     // Regular data row - first cell is row heading
     const headingCell = document.createElement('div');
     headingCell.setAttribute('data-valign', 'middle');
-    headingCell.innerHTML = `<strong>${row.heading || ''}</strong>`;
+    if (row.heading) headingCell.innerHTML = `<strong>${row.heading}</strong>`;
     rowEl.appendChild(headingCell);
 
     // Data cells

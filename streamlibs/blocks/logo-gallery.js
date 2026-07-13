@@ -2,6 +2,7 @@ import {
   replaceImage,
   handleSpacerWithSectionMetadata,
 } from '../components/components.js';
+import { isEmptyValue } from '../utils/utils.js';
 
 function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.topSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.topSpacer.name, 'top');
@@ -26,6 +27,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   try {
     addActionScroller(sectionWrapper);
     properties['logo-items'].forEach((logo) => {
+      if (isEmptyValue(logo?.image)) return;
       const actionItem = blockContent.cloneNode(true);
       replaceImage(actionItem.querySelector('picture'), logo.image);
       sectionWrapper.appendChild(actionItem);

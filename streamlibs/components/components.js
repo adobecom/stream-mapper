@@ -6,6 +6,24 @@ import {
   LOGOS,
   ICON_CLASS,
 } from '../utils/constants.js';
+import { isEmptyValue } from '../utils/utils.js';
+
+export function flagForRemoval(el, selector) {
+  const target = selector ? el.querySelector(selector) : el;
+  if (!target) return null;
+  target.classList.add('to-remove');
+  // Flag parent wrappers left with no real content, but never structural
+  // row/cell divs — Milo parses blocks positionally.
+  const isRemovable = (node) => (node.nodeType === Node.TEXT_NODE && !node.textContent.trim())
+    || (node.nodeType === Node.ELEMENT_NODE && node.classList.contains('to-remove'));
+  let parent = target.parentElement;
+  while (parent && parent !== el && parent.tagName !== 'DIV'
+    && [...parent.childNodes].every(isRemovable)) {
+    parent.classList.add('to-remove');
+    parent = parent.parentElement;
+  }
+  return null;
+}
 
 export function resolveImageValue(value) {
   if (!value) return { url: '', altText: '' };
@@ -14,8 +32,8 @@ export function resolveImageValue(value) {
 }
 
 export function handleTextComponent({ el, value, selector }) {
+  if (isEmptyValue(value)) return flagForRemoval(el, selector);
   const textEl = el.querySelector(selector);
-  if (!value) return textEl.classList.add('to-remove');
   textEl.innerHTML = '';
   const lines = value.split('\n');
   if (lines.length === 1) {
@@ -29,8 +47,8 @@ export function handleTextComponent({ el, value, selector }) {
 }
 
 export function handleImageComponent({ el, value, selector }) {
+  if (isEmptyValue(value)) return flagForRemoval(el, selector);
   const picEl = el.querySelector(selector);
-  if (!value) return picEl.classList.add('to-remove');
   const { url, altText } = resolveImageValue(value);
   picEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = picEl.querySelector('img');
@@ -40,16 +58,15 @@ export function handleImageComponent({ el, value, selector }) {
 }
 
 function handleContainerComponent({ el, value, selector }) {
+  if (isEmptyValue(value)) return flagForRemoval(el, selector);
   const containerEl = el.querySelector(selector);
-  if (!value || (Array.isArray(value) && value.length < 1)) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
   return containerEl;
 }
 
 function handleLogoContainerComponent({ el, value, selector }) {
-  const containerEl = el.querySelector(selector);
-  if (!value) return containerEl.classList.add('to-remove');
-  return containerEl;
+  if (isEmptyValue(value)) return flagForRemoval(el, selector);
+  return el.querySelector(selector);
 }
 
 function addSVGInButton(icon) {
@@ -75,6 +92,7 @@ export function handleButtonComponent({
   hasLeadingIcon,
   hasTrailingIcon,
 }) {
+  if (!actionArea) return;
   const btnType = buttonType ? buttonType.toLowerCase() : 'm button / text';
   // Button type
   // eslint-disable-next-line no-restricted-syntax
@@ -96,6 +114,9 @@ export function handleButtonComponent({
 }
 
 export function handleComponents(el, value, mappingConfig) {
+  if (isEmptyValue(value)) {
+    return mappingConfig.selector ? flagForRemoval(el, mappingConfig.selector) : null;
+  }
   switch (mappingConfig.type) {
     case 'text':
       return handleTextComponent({ el, selector: mappingConfig.selector, value });
@@ -322,7 +343,7 @@ export function replaceImage(pic, src) {
 export function handleProductLockup(value, areaEl) {
   if (!areaEl) return;
   // eslint-disable-next-line consistent-return
-  if (!value) return areaEl.classList.add('to-remove');
+  if (isEmptyValue(value)) return flagForRemoval(areaEl);
   // eslint-disable-next-line prefer-destructuring, no-param-reassign
   if (Array.isArray(value)) value = value[0];
   const tileName = value?.productTile?.name || 'placeholder';
