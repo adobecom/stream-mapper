@@ -73,7 +73,8 @@ function handleInline(blockContent, properties) {
 
 function handleSplitHalf(blockContent, properties) {
   const half = extractByPattern(properties?.miloTag, 'half');
-  if (half?.raw) {
+  const splitHalf = typeof properties?.split === 'string' && properties.split.toLowerCase().includes('half');
+  if (half?.raw || splitHalf) {
     blockContent?.classList.add('half');
   }
 }

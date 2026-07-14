@@ -184,6 +184,17 @@ async function mapFigmaContent(blockContent, block, figContent) {
   }
 }
 
+function resolveAsideVariant(block, properties) {
+  if (block.id === 'aside-std') return 0;
+  if (block.id !== 'aside') return block.variant ?? 0;
+
+  if (block.tag?.includes('inline') || properties?.miloTag?.includes?.('inline')) return 1;
+
+  if (properties?.productGrid || properties?.productLinks?.length || properties?.split) return 2;
+
+  return block.variant ?? 2;
+}
+
 async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   if (!block.id || !block.path) return { _failed: true, block };
   const [doc, figContent] = await Promise.all([
@@ -200,7 +211,7 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
     return placeholder;
   }
 
-  let blockContent = getHtml(doc, block.miloId, block.variant);
+  let blockContent = getHtml(doc, block.miloId, resolveAsideVariant(block, properties));
   figContent.details.properties.miloTag = block.tag;
   blockContent = await mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
