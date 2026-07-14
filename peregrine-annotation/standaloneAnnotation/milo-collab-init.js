@@ -7,20 +7,11 @@ import {
   resetEditChangesInStore,
 } from '../store/store.js';
 import { annotationOperationOnHostPage, applyRemoteCollabSnapshot } from '../annotation.js';
-import {
-  initIms,
-  getImsToken,
-  getStoredImsToken,
-  getImsProfile,
-} from './ims.js';
 
 const API_ENDPOINT = 'http://localhost:8081/api';
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
-
-let resolvedToken = '';
-let resolvedEmail = '';
-let resolvedName = '';
+const SESSION_TOKEN_KEY = 'peregrine.ims.accessToken';
 
 function getMapperEnv() {
   return 'dev';
@@ -39,11 +30,13 @@ function loadCssFiles(filePath) {
 }
 
 function getToken() {
-  return getImsToken()
-    || getStoredImsToken()
-    || resolvedToken
-    || window.adobeIMS?.getAccessToken()?.token
-    || '';
+  try {
+    const raw = window.sessionStorage?.getItem(SESSION_TOKEN_KEY);
+    if (!raw) return '';
+    try { return JSON.parse(raw)?.token || raw; } catch { return raw; }
+  } catch {
+    return '';
+  }
 }
 
 export function hasPeregrineAuthToken() {
@@ -134,15 +127,14 @@ async function startAnnotation(createdCollabId = null) {
   filename = filename[filename.length - 1];
   const draftLocation = `adobecom/${repo}/drafts/collab/${collabId}/${filename}`;
   */
-  const username = resolvedName || resolvedEmail.split('@')[0] || 'Unknown';
   window.peregrineConfig = {
     peregrineMapper: { ...CONFIG[env].peregrineMapper },
     source: 'da',
     pageUrl: window.location.href,
     token,
-    userEmail: resolvedEmail,
-    userName: resolvedName,
-    username,
+    userEmail: '',
+    userName: '',
+    username: 'Unknown',
     profileId: '3',
     collabId,
     reviewId: params.get('miloCollabId') || params.get('peregrine-collab-id'),
@@ -483,15 +475,6 @@ function showCollabModal() {
     const ownerField = createCollaboratorField('Owners', 'Search owners...');
     startContent.appendChild(ownerField.el);
 
-    // Pre-fill current user as pinned owner
-    try {
-      const imsProfile = getImsProfile();
-      const profile = imsProfile || window.adobeIMS?.getProfile?.();
-      const userId = profile?.userId || profile?.email || '';
-      const displayName = profile?.displayName || profile?.name || userId;
-      if (userId) ownerField.addPinned(userId, displayName);
-    } catch { /* ignore */ }
-
     // Result area (hidden initially, shown after creation)
     const resultArea = document.createElement('div');
     resultArea.className = 'sc-field';
@@ -709,60 +692,9 @@ function showCollabModal() {
 
 let initInProgress = false;
 // eslint-disable-next-line import/prefer-default-export
-export async function initializePeregrineAnnotation(sidekickDetail = null) {
+export async function initializePeregrineAnnotation() {
   if (initInProgress) return;
   initInProgress = true;
-
-  // Primary: bootstrap IMS library for auth
-  try {
-    await initIms(window.location.href, (token, imsProfile) => {
-      if (token && imsProfile) {
-        resolvedToken = token;
-        resolvedEmail = imsProfile.email || resolvedEmail;
-        resolvedName = imsProfile.name || resolvedName;
-      }
-    });
-    const imsToken = getImsToken() || getStoredImsToken();
-    if (imsToken) {
-      resolvedToken = imsToken;
-      const imsProfile = getImsProfile();
-      if (imsProfile) {
-        resolvedEmail = imsProfile.email || resolvedEmail;
-        resolvedName = imsProfile.name || resolvedName;
-      }
-    }
-  } catch (e) {
-    console.warn('[milo-collab-init] IMS bootstrap failed, falling back:', e);
-  }
-
-  // Fallback: backend token exchange via sidekick profile
-  if (!resolvedToken) {
-    const profile = sidekickDetail?.status?.profile;
-    if (profile) {
-      try {
-        const response = await fetch(`${API_ENDPOINT}/auth/token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ profile }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          resolvedToken = data.token || '';
-          resolvedEmail = data.email || '';
-          resolvedName = profile.name || profile.email?.split('@')[0] || '';
-        } else {
-          console.warn('[milo-collab-init] Token exchange failed:', response.status);
-        }
-      } catch (error) {
-        console.warn('[milo-collab-init] Token exchange error:', error);
-      }
-    }
-  }
-
-  // Last resort: existing window.adobeIMS
-  if (!resolvedToken) {
-    resolvedToken = window.adobeIMS?.getAccessToken()?.token || '';
-  }
 
   if (!hasPeregrineAuthToken()) {
     console.error('[milo-collab-init] No auth token found.');
