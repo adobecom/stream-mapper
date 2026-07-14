@@ -73,6 +73,18 @@ function handleAvatar(value, areaEl) {
   if (altText) imgEl.alt = altText;
 }
 
+function handleLogo(value, areaEl) {
+  if (!areaEl || !value) return;
+  const url = value.image || value.url || value;
+  if (!url) return;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  if (imgEl) {
+    imgEl.src = url;
+    if (value.altText) imgEl.alt = value.altText;
+  }
+}
+
 export default async function mapBlockContent(
   sectionWrapper,
   blockContent,
@@ -97,7 +109,13 @@ export default async function mapBlockContent(
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'productLockup':
-          handleProductLockup(value, areaEl);
+          if (value) {
+            handleProductLockup(value, areaEl);
+          } else if (properties.logo) {
+            const logoArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+            logoArea?.classList.remove('to-remove');
+            handleLogo(properties.logo, logoArea);
+          }
           break;
         case 'actions':
           handleActionButtons(blockContent, properties, value, areaEl);

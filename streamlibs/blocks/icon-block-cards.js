@@ -54,6 +54,12 @@ function handleGrid(acc) {
   if (grid?.number) {
     finalArray.push(`grid width ${grid?.number}`);
   }
+  if(!grid?.number && properties?.blocks?.length===2){
+    finalArray.push('grid width 10');
+  }
+  if(!grid?.number && properties?.blocks?.length>2){
+    finalArray.push('grid width 12');
+  }
   return acc;
 }
 

@@ -313,6 +313,18 @@ function getBlockProp(block, ...keys) {
   return '';
 }
 
+function getBlockVariant(match) {
+  const variant = getBlockProp(match, 'variant', 'Variant');
+  return variant !== '' ? Number(variant) : 0;
+}
+
+function findSupportedBlock(comp, supportedBlocks) {
+  return supportedBlocks.find(
+    (b) => getBlockProp(b, 'name', 'Name') === comp.name
+      || getBlockProp(b, 'id', 'Id', 'ID') === comp.id,
+  );
+}
+
 // eslint-disable-next-line object-curly-newline
 function createSearchableSelect({ options, selected, disabled, onChange }) {
   const wrapper = document.createElement('div');
@@ -483,15 +495,20 @@ function applyBlockSelection(comp, name, supportedBlocks) {
   if (id) comp.id = id;
   if (miloId) comp.miloId = miloId;
   if (path) comp.path = path;
+  comp.variant = getBlockVariant(match);
 }
 
 // eslint-disable-next-line no-async-promise-executor
 async function showBlockMappingReview(blockMapping) {
   const supportedBlocks = await fetchSupportedBlocks();
-  const components = blockMapping.details.components.map((c) => ({
-    ...c,
-    aiMapping: c.aiMapping !== undefined ? c.aiMapping : (!c.c1lib && c.name !== 'NA'),
-  }));
+  const components = blockMapping.details.components.map((c) => {
+    const match = findSupportedBlock(c, supportedBlocks);
+    return {
+      ...c,
+      aiMapping: c.aiMapping !== undefined ? c.aiMapping : (!c.c1lib && c.name !== 'NA'),
+      variant: match ? getBlockVariant(match) : (c.variant ?? 0),
+    };
+  });
 
   const loaderContainer = document.querySelector('#loader-container');
   if (loaderContainer) {
@@ -608,7 +625,15 @@ async function showBlockMappingReview(blockMapping) {
       const miloId = match ? getBlockProp(match, 'miloId', 'milo-id', 'MiloId') : '';
       const path = match ? getBlockProp(match, 'path', 'Path') : '';
       components.push({
-        id, miloId, figId, name, path, tag: '', variant: 0, c1lib: false, sectionLink,
+        id,
+        miloId,
+        figId,
+        name,
+        path,
+        tag: '',
+        variant: match ? getBlockVariant(match) : 0,
+        c1lib: false,
+        sectionLink,
       });
       addUrlInput.value = '';
       addSelectedName = '';
