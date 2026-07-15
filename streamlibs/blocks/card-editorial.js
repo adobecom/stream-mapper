@@ -83,7 +83,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     blockContent.classList.add('to-remove');
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
-    handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase());
+    handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase(), properties.cards?.length);
     if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {

@@ -246,14 +246,22 @@ export function handleColorThemeWithSectionMetadata(secEl, blockEl, value) {
   styleLoc.innerHTML += value;
 }
 
-export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
+export function handleUpsWithSectionMetadata(secEl, blockEl, value, count) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
+  const hasUp = /[2-6]\s*up/i.test(value);
   if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
   if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
   if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
   if (/5\s*up/i.test(value)) styleLoc.innerHTML += 'five-up';
   if (/6\s*up/i.test(value)) styleLoc.innerHTML += 'six-up';
+  if (!hasUp) {
+    // fallback: no up-value in the milotag, infer it from the card/block count
+    const upsByCount = {
+      2: 'two-up', 3: 'three-up', 4: 'four-up', 5: 'five-up', 6: 'six-up',
+    };
+    if (upsByCount[count]) styleLoc.innerHTML += upsByCount[count];
+  }
 }
 
 export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
