@@ -192,6 +192,28 @@ export default function createAnnotationServiceClient() {
     return Boolean(getAnnotationCollabId());
   }
 
+  async function searchUsers(query) {
+    const resolvedServiceEndpoint = `${window.peregrineConfig?.peregrineMapper?.serviceEP || ''}`.trim();
+    if (!resolvedServiceEndpoint || !query || query.length < 2) return [];
+    const token = normalizeToken(window.peregrineConfig?.token);
+    if (!token) return [];
+    try {
+      const res = await fetch(
+        `${resolvedServiceEndpoint}/api/search/groups-or-users?q=${encodeURIComponent(query)}`,
+        { headers: { Authorization: token } },
+      );
+      if (!res.ok) return [];
+      const payload = await res.json();
+      // eslint-disable-next-line no-nested-ternary
+      const result = Array.isArray(payload?.result)
+        ? payload.result
+        : Array.isArray(payload) ? payload : [];
+      return result.filter((item) => item?.type === 'user' && item?.id).slice(0, 8);
+    } catch {
+      return [];
+    }
+  }
+
   function getCurrentUserIdentity() {
     const profileId = window.peregrineConfig?.profileId ?? null;
 
@@ -403,6 +425,7 @@ export default function createAnnotationServiceClient() {
     normalizeEditsSnapshot,
     normalizeThreadsPayload,
     saveEdits,
+    searchUsers,
     updateComment,
     updateThreadStatus,
   };

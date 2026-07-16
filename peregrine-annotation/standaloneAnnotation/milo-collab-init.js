@@ -13,6 +13,33 @@ const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
 const SESSION_TOKEN_KEY = 'peregrine.ims.accessToken';
 
+function getImsHost() {
+  const hostname = window.location.hostname;
+  return (hostname === 'localhost' || hostname.includes('stage'))
+    ? 'ims-na1-stg1.adobelogin.com' : 'ims-na1.adobelogin.com';
+}
+
+let cachedUserProfile = null;
+
+async function fetchCurrentUserProfile(token) {
+  if (cachedUserProfile) return cachedUserProfile;
+  if (!token) return null;
+  try {
+    const res = await fetch(`https://${getImsHost()}/ims/profile/v1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const p = await res.json();
+    cachedUserProfile = {
+      email: `${p?.email || ''}`.trim().toLowerCase(),
+      name: `${p?.displayName || p?.first_name || ''}`.trim(),
+    };
+    return cachedUserProfile;
+  } catch {
+    return null;
+  }
+}
+
 function getMapperEnv() {
   return 'dev';
 }
@@ -118,6 +145,9 @@ async function startAnnotation(createdCollabId = null) {
   loadCssFiles(new URL('../annotation/annotation.css', import.meta.url).href);
   const env = getMapperEnv();
   const collabId = createdCollabId || params.get('miloCollabId') || params.get('peregrine-collab-id');
+
+  const userProfile = await fetchCurrentUserProfile(token);
+
   /*
   const { host, pathname } = window.location;
   if (!host.includes('.aem.')) return;
@@ -132,9 +162,9 @@ async function startAnnotation(createdCollabId = null) {
     source: 'da',
     pageUrl: window.location.href,
     token,
-    userEmail: '',
-    userName: '',
-    username: 'Unknown',
+    userEmail: userProfile?.email || '',
+    userName: userProfile?.name || '',
+    username: userProfile?.name || userProfile?.email || 'Unknown',
     profileId: '3',
     collabId,
     reviewId: params.get('miloCollabId') || params.get('peregrine-collab-id'),

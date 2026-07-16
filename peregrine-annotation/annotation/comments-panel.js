@@ -34,12 +34,295 @@ function linkifyText(str) {
   );
 }
 
+// Mention storage format: @[Display Name](email)
+// Also handles legacy plain @word mentions.
+// Combined regex: structured @[Name](email) first, then plain @word fallback.
+const MENTION_COMBINED_RE = /(@\[([^\]]+)\]\(([^)]*)\))|(@([a-zA-Z][a-zA-Z0-9._-]*))/g;
+
+function renderTextWithMentions(str, participantMap) {
+  if (!str) return '';
+  const parts = [];
+  let last = 0;
+  const re = new RegExp(MENTION_COMBINED_RE.source, 'g');
+  let m;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) parts.push(linkifyText(str.slice(last, m.index)));
+    if (m[1]) {
+      // Structured @[Name](email) — show the stored display name as a chip
+      const safeName = m[2].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const safeEmail = m[3].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      parts.push(`<span class="annotation-mention" title="${safeEmail}">${safeName}</span>`);
+    } else {
+      // Plain @word — resolve to display name if participant map is available
+      const word = m[5];
+      const resolved = participantMap && participantMap[word.toLowerCase()];
+      const display = resolved || `@${word}`;
+      const safeDisplay = display.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const title = resolved ? word : '';
+      parts.push(`<span class="annotation-mention"${title ? ` title="${title}"` : ''}>${safeDisplay}</span>`);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < str.length) parts.push(linkifyText(str.slice(last)));
+  return parts.join('');
+}
+
+function resolveUserDisplayName(user) {
+  return (
+    user?.displayName
+    || user?.name
+    || user?.fullName
+    || ((user?.firstName || user?.lastName)
+      ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
+      : null)
+    || user?.username
+    || user?.id
+    || ''
+  );
+}
+
+function resolveUserEmail(user) {
+  const candidate = user?.email || user?.emailAddress || '';
+  if (candidate) return candidate;
+  const id = `${user?.id || ''}`;
+  return id.includes('@') ? id : (id ? `${id}@adobe.com` : '');
+}
+
+function createMentionController(searchUsersFn) {
+  const DEBOUNCE_MS = 250;
+  let dropdownEl = null;
+  let activeInput = null;
+  let mentionStart = -1;
+  let debounceTimer = null;
+  let activeIndex = 0;
+  let userResults = [];
+  const backdropMap = new WeakMap();
+  // Maps userId (lowercase) → { name, email } for expanding @id → @[Name](email) on submit
+  const mentionCache = new Map();
+
+  function getOrCreateBackdrop(inputEl) {
+    if (!(inputEl instanceof HTMLTextAreaElement)) return null;
+    if (backdropMap.has(inputEl)) return backdropMap.get(inputEl);
+    const parent = inputEl.parentElement;
+    if (!parent) return null;
+
+    const cs = window.getComputedStyle(inputEl);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'annotation-mention-field-wrap';
+    parent.insertBefore(wrapper, inputEl);
+    wrapper.appendChild(inputEl);
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'annotation-mention-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.style.fontSize = cs.fontSize;
+    backdrop.style.fontFamily = cs.fontFamily;
+    backdrop.style.fontWeight = cs.fontWeight;
+    backdrop.style.lineHeight = cs.lineHeight;
+    backdrop.style.padding = cs.padding;
+    backdrop.style.borderRadius = cs.borderRadius;
+    wrapper.insertBefore(backdrop, inputEl);
+
+    inputEl.addEventListener('scroll', () => {
+      backdrop.scrollTop = inputEl.scrollTop;
+    });
+
+    backdropMap.set(inputEl, backdrop);
+    return backdrop;
+  }
+
+  function syncBackdrop(inputEl) {
+    const backdrop = backdropMap.get(inputEl);
+    if (!backdrop) return;
+    const escaped = inputEl.value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    // Highlight both structured @[Name](email) and plain @word in the backdrop
+    backdrop.innerHTML = escaped.replace(
+      /(@\[([^\]]+)\]\([^)]*\))|(@[a-zA-Z][a-zA-Z0-9._-]*)/g,
+      (match, structured, name) => (structured ? `<mark>@${name}</mark>` : `<mark>${match}</mark>`),
+    );
+    backdrop.scrollTop = inputEl.scrollTop;
+  }
+
+  function clearDropdownUI() {
+    dropdownEl?.remove();
+    dropdownEl = null;
+    activeIndex = 0;
+    userResults = [];
+  }
+
+  function removeDropdown() {
+    clearTimeout(debounceTimer);
+    clearDropdownUI();
+    activeInput = null;
+    mentionStart = -1;
+  }
+
+  function setActive(idx) {
+    if (!dropdownEl) return;
+    Array.from(dropdownEl.querySelectorAll('.annotation-mention-item')).forEach((item, i) => {
+      item.classList.toggle('is-active', i === idx);
+    });
+    activeIndex = idx;
+  }
+
+  function positionDropdown(inputEl) {
+    if (!dropdownEl || !inputEl) return;
+    const rect = inputEl.getBoundingClientRect();
+    dropdownEl.style.left = `${rect.left}px`;
+    dropdownEl.style.top = `${rect.bottom + 4}px`;
+    dropdownEl.style.minWidth = `${Math.max(200, rect.width)}px`;
+  }
+
+  function selectUser(user) {
+    const inputEl = activeInput;
+    if (mentionStart < 0 || !inputEl) { removeDropdown(); return; }
+    const name = resolveUserDisplayName(user);
+    const email = resolveUserEmail(user);
+    const rawId = `${user?.id || ''}`.trim();
+    const userId = rawId || name.replace(/\s+/g, '_');
+    // Cache the full user data so we can expand @userId → @[Name](email) on submit
+    if (userId) mentionCache.set(userId.toLowerCase(), { name, email });
+    const before = inputEl.value.slice(0, mentionStart);
+    const after = inputEl.value.slice(inputEl.selectionStart ?? inputEl.value.length);
+    // Show the compact @userId in the input (readable); expand to markup on submit
+    const token = `@${userId}`;
+    inputEl.value = `${before}${token} ${after}`;
+    const pos = before.length + token.length + 1;
+    inputEl.setSelectionRange(pos, pos);
+    getOrCreateBackdrop(inputEl);
+    removeDropdown();
+    syncBackdrop(inputEl);
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.focus();
+  }
+
+  function showSuggestions(inputEl, users) {
+    clearDropdownUI();
+    if (!users.length) return;
+    userResults = users;
+    activeInput = inputEl;
+    const ul = document.createElement('ul');
+    ul.className = 'annotation-mention-dropdown';
+    ul.setAttribute('role', 'listbox');
+    ul.setAttribute('aria-label', 'Mention suggestions');
+    users.forEach((user, i) => {
+      const li = document.createElement('li');
+      li.className = 'annotation-mention-item';
+      li.setAttribute('role', 'option');
+      li.dataset.idx = i;
+      const name = resolveUserDisplayName(user) || 'Unknown';
+      const email = resolveUserEmail(user);
+      const safeN = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const safeE = email.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      li.innerHTML = `<span class="annotation-mention-item-name">${safeN}</span>`
+        + `<span class="annotation-mention-item-email">${safeE}</span>`;
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); selectUser(user); });
+      ul.append(li);
+    });
+    document.body.appendChild(ul);
+    dropdownEl = ul;
+    positionDropdown(inputEl);
+    setActive(0);
+  }
+
+  function handleInput(event) {
+    const inputEl = event.target;
+    if (!(inputEl instanceof HTMLTextAreaElement || inputEl instanceof HTMLInputElement)) return;
+    syncBackdrop(inputEl);
+    const text = inputEl.value;
+    const cursor = inputEl.selectionStart ?? text.length;
+    const textBefore = text.slice(0, cursor);
+    const atIdx = textBefore.lastIndexOf('@');
+    if (atIdx < 0) { removeDropdown(); return; }
+    const query = textBefore.slice(atIdx + 1);
+    // Close only on nested @ (new mention started) or [ (inside existing markup token)
+    if (query.includes('@') || query.includes('[')) { removeDropdown(); return; }
+    // Need at least 2 non-space chars to trigger search
+    if (query.replace(/\s/g, '').length < 2) { if (dropdownEl) removeDropdown(); return; }
+    mentionStart = atIdx;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      const users = await searchUsersFn(query);
+      if (mentionStart >= 0) {
+        if (users.length) showSuggestions(inputEl, users);
+        else removeDropdown();
+      }
+    }, DEBOUNCE_MS);
+  }
+
+  function handleKeydown(event) {
+    if (!dropdownEl || !userResults.length) return false;
+    const { key } = event;
+    if (key === 'ArrowDown') {
+      event.preventDefault();
+      setActive(Math.min(activeIndex + 1, userResults.length - 1));
+      return true;
+    }
+    if (key === 'ArrowUp') {
+      event.preventDefault();
+      setActive(Math.max(activeIndex - 1, 0));
+      return true;
+    }
+    if ((key === 'Enter' || key === 'Tab') && userResults[activeIndex]) {
+      event.preventDefault();
+      selectUser(userResults[activeIndex]);
+      return true;
+    }
+    if (key === 'Escape') {
+      removeDropdown();
+      return true;
+    }
+    return false;
+  }
+
+  function attachToTextarea(inputEl) {
+    if (inputEl instanceof HTMLTextAreaElement) getOrCreateBackdrop(inputEl);
+  }
+
+  // Expands @userId tokens (inserted on selection) into @[Name](email) markup for storage
+  function expandMentions(text) {
+    if (!text || !mentionCache.size) return text;
+    return text.replace(/@([a-zA-Z][a-zA-Z0-9._-]*)/g, (match, word) => {
+      const entry = mentionCache.get(word.toLowerCase());
+      return entry ? `@[${entry.name}](${entry.email})` : match;
+    });
+  }
+
+  return {
+    handleInput, handleKeydown, removeDropdown, attachToTextarea, expandMentions,
+  };
+}
+
 export default function createCommentsPanelController({
   annotationState,
   annotationUI,
   store,
 }) {
   const annotationService = createAnnotationServiceClient();
+  const mentionCtrl = createMentionController((q) => annotationService.searchUsers(q));
+
+  function buildParticipantMap() {
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (!Array.isArray(participants)) return {};
+    const map = {};
+    participants.forEach((p, i) => {
+      const userId = `${p?.userId || p?.user_id || ''}`.trim().toLowerCase();
+      const displayName = p?.username || p?.displayName || p?.fullName || p?.name || p?.email || `Reviewer ${i + 1}`;
+      if (userId) map[userId] = displayName;
+      const email = `${p?.email || ''}`;
+      if (email.includes('@')) map[email.split('@')[0].toLowerCase()] = displayName;
+    });
+    return map;
+  }
+
+  function renderCommentText(text) {
+    return renderTextWithMentions(text, buildParticipantMap());
+  }
+
   let flushPendingCommentsPanelRefresh = () => {};
   let renderCommentsPanel = () => {};
   let popupSubmitPending = false;
@@ -115,9 +398,9 @@ export default function createCommentsPanelController({
         <input type="search" class="peregrine-collab-search-input" placeholder="Search comments and authors…" aria-label="Search comments and authors" />
       </div>
       <div class="peregrine-collab-activity-filters" role="tablist">
-        <button type="button" class="peregrine-collab-activity-chip is-active" data-filter="all">All</button>
+        <button type="button" class="peregrine-collab-activity-chip" data-filter="mentions">Mentions</button>
+        <button type="button" class="peregrine-collab-activity-chip" data-filter="all">All</button>
         <button type="button" class="peregrine-collab-activity-chip" data-filter="mine">Mine</button>
-        <button type="button" class="peregrine-collab-activity-chip" data-filter="others">Others</button>
       </div>
       <div class="annotation-comments-content">
         <div class="annotation-comments-list"></div>
@@ -401,6 +684,73 @@ export default function createCommentsPanelController({
     return (thread?.messages || []).some((message) => isMessageByCurrentUser(message));
   }
 
+  function getCurrentUserMentionTokens() {
+    const tokens = new Set();
+
+    const addEmail = (e) => {
+      const v = `${e || ''}`.trim().toLowerCase();
+      if (!v || !v.includes('@')) return;
+      tokens.add(v);
+      tokens.add(v.split('@')[0]);
+    };
+
+    const addName = (n) => {
+      const v = `${n || ''}`.trim().toLowerCase();
+      if (v && v !== 'unknown') tokens.add(v);
+    };
+
+    // Primary: from peregrineConfig (userEmail + username populated from IMS profile)
+    addEmail(window.peregrineConfig?.userEmail);
+    addName(window.peregrineConfig?.username);
+    addName(window.peregrineConfig?.userName);
+
+    // Fallback: find current participant by profileId
+    const currentProfileId = `${window.peregrineConfig?.profileId || ''}`.trim();
+    const participants = annotationState.latestRemoteCollabSnapshot?.collab?.participants;
+    if (currentProfileId && Array.isArray(participants)) {
+      const me = participants.find((p) => `${getParticipantProfileId(p) || ''}`.trim() === currentProfileId);
+      if (me) {
+        addEmail(me?.email ?? me?.emailAddress);
+        addName(getParticipantDisplayName(me, -1));
+      }
+    }
+
+    return tokens;
+  }
+
+  function isTextMentioningCurrentUser(text) {
+    if (!text) return false;
+    const tokens = getCurrentUserMentionTokens();
+    if (!tokens.size) return false;
+    const structuredRe = /@\[([^\]]+)\]\(([^)]*)\)/g;
+    let m;
+    while ((m = structuredRe.exec(text)) !== null) {
+      // Match on email or display name
+      if (tokens.has(m[2].toLowerCase())) return true;
+      if (m[2].includes('@') && tokens.has(m[2].toLowerCase().split('@')[0])) return true;
+      if (tokens.has(m[1].toLowerCase())) return true;
+    }
+    const plainRe = /@([a-zA-Z][a-zA-Z0-9._-]*)/g;
+    while ((m = plainRe.exec(text)) !== null) {
+      if (tokens.has(m[1].toLowerCase())) return true;
+    }
+    return false;
+  }
+
+  function isCurrentUserMentionedWithoutReply(thread) {
+    if (!thread || !Array.isArray(thread.messages)) return false;
+    if (isThreadClosed(thread) || isThreadResolved(thread)) return false;
+    const messages = thread.messages;
+    // Find the index of the last message that mentions the current user
+    let lastMentionIdx = -1;
+    messages.forEach((msg, i) => {
+      if (isTextMentioningCurrentUser(msg.text)) lastMentionIdx = i;
+    });
+    if (lastMentionIdx < 0) return false;
+    // Show dot unless the current user has already replied AFTER that mention
+    return !messages.slice(lastMentionIdx + 1).some((msg) => isMessageByCurrentUser(msg));
+  }
+
   function getCollaborators() {
     const collab = getCollabSnapshot();
     const participants = Array.isArray(collab?.participants) ? collab.participants : [];
@@ -560,11 +910,14 @@ export default function createCommentsPanelController({
   function updateCommentsBadge() {
     const badge = annotationUI.topbarEl?.querySelector('.peregrine-collab-topbar-badge');
     if (!(badge instanceof HTMLElement)) return;
-    const mineCount = annotationState.store.threads
-      .filter((thread) => store.getThreadType(thread) === 'comment')
-      .filter((thread) => isThreadMine(thread)).length;
+    const commentThreads = annotationState.store.threads
+      .filter((thread) => store.getThreadType(thread) === 'comment');
+    const mineCount = commentThreads.filter((thread) => isThreadMine(thread)).length;
     badge.textContent = String(mineCount);
     badge.hidden = mineCount === 0;
+    // Red dot on the Comments button itself
+    const hasMentionAlert = commentThreads.some((t) => isCurrentUserMentionedWithoutReply(t));
+    annotationUI.commentsBtnEl?.classList.toggle('has-mention-alert', hasMentionAlert);
   }
 
   // ── Activity drawer (open/close) ────────────────────────────────────────────
@@ -584,7 +937,14 @@ export default function createCommentsPanelController({
 
   function openCommentsDrawer(filter) {
     if (!annotationUI.panelEl) return;
-    if (filter) annotationState.activityFilter = filter;
+    if (filter) {
+      annotationState.activityFilter = filter;
+    } else if (!annotationState.activityFilter || annotationState.activityFilter === 'all') {
+      const hasMentions = annotationState.store.threads.some(
+        (t) => store.getThreadType(t) === 'comment' && isCurrentUserMentionedWithoutReply(t),
+      );
+      annotationState.activityFilter = hasMentions ? 'mentions' : 'all';
+    }
     annotationUI.panelEl.classList.add('is-open');
     document.body.classList.add('peregrine-collab-drawer-open');
     renderCommentsPanel();
@@ -1628,6 +1988,27 @@ export default function createCommentsPanelController({
     }
     renderReviewerControls();
 
+    const commentThreadsAll = annotationState.store.threads
+      .filter((t) => store.getThreadType(t) === 'comment');
+    const mentionAlertThreads = commentThreadsAll.filter((t) => isCurrentUserMentionedWithoutReply(t));
+
+    if (panelTitle instanceof HTMLElement) {
+      panelTitle.classList.toggle('has-mention-alert', mentionAlertThreads.length > 0);
+    }
+
+    // Red dots on the filter chips
+    annotationUI.panelEl?.querySelectorAll('.peregrine-collab-activity-chip[data-filter]')
+      .forEach((chip) => {
+        const filter = chip.dataset.filter;
+        const hasDot = filter === 'mentions'
+          ? mentionAlertThreads.length > 0
+          : mentionAlertThreads.some((t) => {
+            if (filter === 'all') return true;
+            return filter === 'mine' ? isThreadMine(t) : false;
+          });
+        chip.classList.toggle('has-mention-alert', hasDot);
+      });
+
     if (!isCommentsServiceAvailable()) {
       const empty = document.createElement('div');
       empty.className = 'annotation-comments-empty annotation-comments-empty-warning';
@@ -1643,11 +2024,14 @@ export default function createCommentsPanelController({
     const searchQuery = `${annotationState.searchQuery || ''}`.trim().toLowerCase();
     const searchTokens = searchQuery ? searchQuery.split(/\s+/).filter(Boolean) : [];
     const unifiedItems = buildUnifiedItems().filter((item) => {
-      // Mine / Others apply to comment threads; edits & assets show under "All" only.
       if (activityFilter !== 'all') {
         if (item.kind !== 'comment') return false;
-        const mine = isThreadMine(item.thread);
-        if (activityFilter === 'mine' ? !mine : mine) return false;
+        if (activityFilter === 'mentions') {
+          if (!isCurrentUserMentionedWithoutReply(item.thread)) return false;
+        } else {
+          const mine = isThreadMine(item.thread);
+          if (activityFilter === 'mine' ? !mine : mine) return false;
+        }
       }
       if (searchTokens.length) {
         const haystack = buildThreadHaystack(item);
@@ -1661,10 +2045,10 @@ export default function createCommentsPanelController({
       empty.className = 'annotation-comments-empty';
       if (searchTokens.length) {
         empty.textContent = 'No comments match your search.';
+      } else if (activityFilter === 'mentions') {
+        empty.textContent = 'No unread mentions yet.';
       } else if (activityFilter === 'mine') {
         empty.textContent = 'No comments from you yet. Click an element on the page to add one.';
-      } else if (activityFilter === 'others') {
-        empty.textContent = 'No comments from others yet.';
       } else {
         empty.textContent = 'No annotations yet. Add comments, make inline edits, or replace images to populate this feed.';
       }
@@ -1692,6 +2076,9 @@ export default function createCommentsPanelController({
           ? 'annotation-panel-comment annotation-panel-comment-item'
           : 'annotation-panel-comment annotation-panel-edit-item';
         if (isCommentThread && !isExpanded) card.classList.add('is-collapsed');
+        if (isCommentThread && idx === 0 && isCurrentUserMentionedWithoutReply(thread)) {
+          card.classList.add('has-mention-alert');
+        }
         card.dataset.threadId = thread.id;
         card.dataset.messageId = group.comment.id || '';
         const isActiveMessage = Boolean(annotationState.activeMessageId)
@@ -1831,10 +2218,10 @@ export default function createCommentsPanelController({
             text.append(blockLabel);
           }
           const textBody = document.createElement('span');
-          const linkified = linkifyText(group.comment.text);
+          const rendered = renderCommentText(group.comment.text);
           textBody.innerHTML = isCommentThread
-            ? linkified
-            : linkified.replace(/→/g, ARROW_ICON_SVG);
+            ? rendered
+            : rendered.replace(/→/g, ARROW_ICON_SVG);
           text.append(textBody);
           card.append(text);
         }
@@ -1882,7 +2269,7 @@ export default function createCommentsPanelController({
             }
             const replyText = document.createElement('p');
             replyText.className = 'annotation-panel-reply-text';
-            replyText.innerHTML = linkifyText(reply.text);
+            replyText.innerHTML = renderCommentText(reply.text);
             replyContent.append(replyHead, replyText);
             replyRow.append(replyContent);
           }
@@ -2289,7 +2676,7 @@ export default function createCommentsPanelController({
     const composerKey = getReplyComposerKey(threadId, commentId);
     if (pendingReplyComposerKeys.has(composerKey)) return;
 
-    const value = (rawValue || '').trim();
+    const value = mentionCtrl.expandMentions((rawValue || '').trim());
     if (!value) return;
     const thread = store.getThreadById(threadId);
     if (!thread) return;
@@ -2345,6 +2732,7 @@ export default function createCommentsPanelController({
   }
 
   function removePopup() {
+    mentionCtrl.removeDropdown();
     popupSubmitPending = false;
     if (!annotationUI.popupEl) return;
     annotationUI.popupEl.remove();
@@ -2425,7 +2813,7 @@ export default function createCommentsPanelController({
     const input = annotationUI.popupEl.querySelector('.annotation-reply-input');
     if (!(input instanceof HTMLTextAreaElement)) return;
 
-    const value = input.value.trim();
+    const value = mentionCtrl.expandMentions(input.value.trim());
     if (!value) return;
 
     let didPersistToService = false;
@@ -2479,12 +2867,15 @@ export default function createCommentsPanelController({
     }
 
     if (input) {
+      mentionCtrl.attachToTextarea(input);
       input.addEventListener('input', (event) => {
         const { target } = event;
         if (!(target instanceof HTMLTextAreaElement)) return;
         updatePopupDraft(target.value);
+        mentionCtrl.handleInput(event);
       });
       input.addEventListener('keydown', (event) => {
+        if (mentionCtrl.handleKeydown(event)) return;
         if (event.key !== 'Enter' || event.shiftKey) return;
         event.preventDefault();
         submitPopupMessage();
@@ -2616,6 +3007,7 @@ export default function createCommentsPanelController({
   // ── Floating thread (opens in place next to the pin, not the drawer) ────────
 
   function removeFloatingThread() {
+    mentionCtrl.removeDropdown();
     if (annotationUI.threadEl) {
       annotationUI.threadEl.remove();
       annotationUI.threadEl = null;
@@ -2728,7 +3120,7 @@ export default function createCommentsPanelController({
       }
       const bd = document.createElement('p');
       bd.className = 'peregrine-collab-thread-bd';
-      bd.innerHTML = linkifyText(message.text);
+      bd.innerHTML = renderCommentText(message.text);
       cmt.append(meta, bd);
       bodyEl.append(cmt);
     });
@@ -2748,12 +3140,15 @@ export default function createCommentsPanelController({
       send.className = 'peregrine-collab-thread-send';
       send.textContent = 'Reply';
       send.disabled = true;
-      input.addEventListener('input', () => {
+      mentionCtrl.attachToTextarea(input);
+      input.addEventListener('input', (event) => {
         send.disabled = !input.value.trim();
         input.style.height = 'auto';
         input.style.height = `${Math.min(input.scrollHeight, 120)}px`;
+        mentionCtrl.handleInput(event);
       });
       input.addEventListener('keydown', (event) => {
+        if (mentionCtrl.handleKeydown(event)) return;
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
           if (!send.disabled) submitFloatingReply(threadId, input.value, input, send);
@@ -2831,7 +3226,7 @@ export default function createCommentsPanelController({
       showGlobalSnackbar(ANNOTATION_MESSAGES.commentsUnavailableSnackbar);
       return;
     }
-    const value = (rawValue || '').trim();
+    const value = mentionCtrl.expandMentions((rawValue || '').trim());
     if (!value) return;
     const thread = store.getThreadById(threadId);
     if (!thread) return;
@@ -3134,6 +3529,7 @@ export default function createCommentsPanelController({
       const { target } = event;
       if (target instanceof HTMLInputElement && target.classList.contains('annotation-panel-reply-input')) {
         updatePanelReplyDraft(target.dataset.threadId, target.dataset.commentId, target.value);
+        mentionCtrl.handleInput(event);
         return;
       }
       if (!(target instanceof HTMLTextAreaElement)) return;
@@ -3146,6 +3542,7 @@ export default function createCommentsPanelController({
       if (!isCommentsServiceAvailable()) return;
       const { target } = event;
       if (target instanceof HTMLInputElement && target.classList.contains('annotation-panel-reply-input')) {
+        if (mentionCtrl.handleKeydown(event)) return;
         if (event.key !== 'Enter') return;
         event.preventDefault();
         submitPanelReply(target.dataset.threadId, target.dataset.commentId, target.value);
