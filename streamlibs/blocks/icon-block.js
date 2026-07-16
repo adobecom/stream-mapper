@@ -5,6 +5,10 @@ import {
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
+function isBioBlock(properties) {
+  return properties?.miloTag?.includes('bio') || properties?.bio;
+}
+
 function handleBlockVariants(blockContent, properties) {
   if (properties?.miloTag?.includes('intro')) {
     blockContent.classList.add('intro');
@@ -39,7 +43,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
     handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
   }
   handleAlign(blockContent, properties.align);
-  handleIconSize(blockContent, properties, properties?.miloTag, properties?.miloTag?.includes('bio') ? 'bioDetails' : 'productLockup');
+  handleIconSize(blockContent, properties, properties?.miloTag, isBioBlock(properties) ? 'bioDetails' : 'productLockup');
 }
 
 function handleProductLockup(value, areaEl) {
@@ -75,13 +79,28 @@ function handleAvatar(value, areaEl) {
 
 function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
-  const url = value.image || value.url || value;
+  const { url, altText } = typeof value === 'object' && (value.image || value.url)
+    ? { url: value.image || value.url, altText: value.altText || '' }
+    : resolveImageValue(value);
   if (!url) return;
+
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');
   if (imgEl) {
     imgEl.src = url;
-    if (value.altText) imgEl.alt = value.altText;
+    if (altText) imgEl.alt = altText;
+    return;
+  }
+
+  // Icon Block variant 0 uses <p><a href="...svg"> — no <img> until we inject one
+  const anchorElement = areaEl.querySelector('a');
+  if (anchorElement) {
+    anchorElement.setAttribute('href', url);
+    anchorElement.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = url;
+    if (altText) img.alt = altText;
+    anchorElement.appendChild(img);
   }
 }
 
@@ -97,7 +116,7 @@ export default async function mapBlockContent(
   try {
     if (!mapConfig) {
       let configJson = 'icon-block.json';
-      if (properties?.miloTag?.includes('bio')) {
+      if (isBioBlock(properties)) {
         configJson = 'icon-bio-block.json';
       }
       mappingData = await safeJsonFetch(configJson);
@@ -117,9 +136,15 @@ export default async function mapBlockContent(
             handleLogo(properties.logo, logoArea);
           }
           break;
-        case 'actions':
-          handleActionButtons(blockContent, properties, value, areaEl);
+        case 'actions': {
+          const hasActions = value || properties.action1 || properties.action2 || properties.action3;
+          if (!hasActions) break;
+          const actionArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+          actionArea?.classList.remove('to-remove');
+          if (!value) actionArea.innerHTML = '';
+          handleActionButtons(blockContent, properties, true, actionArea);
           break;
+        }
         case 'bio':
           handleAvatar(value, areaEl);
           break;
