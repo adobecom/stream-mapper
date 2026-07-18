@@ -460,8 +460,8 @@
 
 .ai-toggle-track {
   display: block;
-  width: 32px;
-  height: 18px;
+  width: 26px;
+  height: 14px;
   border-radius: 99px;
   background: #2e2e2e;
   position: relative;
@@ -473,8 +473,8 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -486,7 +486,7 @@
 }
 
 .ai-toggle input:checked + .ai-toggle-track::after {
-  transform: translateX(14px);
+  transform: translateX(12px);
 }
 
 .ai-toggle input:disabled + .ai-toggle-track {
@@ -497,6 +497,53 @@
 .ai-toggle input:disabled ~ .ai-toggle-track {
   cursor: default;
   background-color: #ababab;
+}
+
+.ai-toggle-all {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.ai-toggle-all input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ai-toggle-all-track {
+  display: block;
+  width: 20px;
+  height: 11px;
+  border-radius: 99px;
+  background: #2e2e2e;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.ai-toggle-all-track::after {
+  content: '';
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.ai-toggle-all input:checked + .ai-toggle-all-track {
+  background: var(--sm-color-primary, #3b82f6);
+}
+
+.ai-toggle-all input:checked + .ai-toggle-all-track::after {
+  transform: translateX(9px);
 }
 
 .ai-toggle:has(input:disabled) {

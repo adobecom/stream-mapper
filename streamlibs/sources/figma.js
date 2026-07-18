@@ -574,9 +574,25 @@ async function showBlockMappingReview(blockMapping) {
       <th class="col-snapshot">Preview</th>
       <th>Tag</th>
       <th class="col-name">Name</th>
-      <th class="col-ai">AI Mapping</th>
+      <th class="col-ai">AI Mapping
+        <label class="ai-toggle-all" title="Toggle all">
+          <input type="checkbox" checked />
+          <span class="ai-toggle-all-track"></span>
+        </label>
+      </th>
       <th class="col-actions">Actions</th>
     </tr>`;
+
+    const aiToggleAllInput = thead.querySelector('.ai-toggle-all input');
+    aiToggleAllInput.addEventListener('change', () => {
+      const enabled = aiToggleAllInput.checked;
+      components.forEach((comp) => {
+        if (!comp._deleted && comp.name !== 'NA') {
+          comp.aiMapping = enabled;
+        }
+      });
+      renderRows();
+    });
     table.appendChild(thead);
     const tbody = document.createElement('tbody');
     table.appendChild(tbody);
@@ -634,6 +650,7 @@ async function showBlockMappingReview(blockMapping) {
         variant: match ? getBlockVariant(match) : 0,
         c1lib: false,
         sectionLink,
+        aiMapping: true,
       });
       addUrlInput.value = '';
       addSelectedName = '';
