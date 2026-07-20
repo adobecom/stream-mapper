@@ -34,7 +34,7 @@ function handleLists(listConfig, blockContent, idx) {
   }
 }
 
-function handleVariants(blockContent, properties) {
+function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
 }
 
@@ -71,10 +71,10 @@ function handlePostContent(sectionWrapper, properties) {
   const divRow = document.createElement('div');
   const postLfContainer = document.createElement('div');
   const bodyEl = document.createElement('p');
-  bodyEl.innerHTML = properties.body;
+  bodyEl.innerHTML = properties.body2;
   postLfContainer.appendChild(bodyEl);
-  divText.appendChild(divRow);
   divRow.appendChild(postLfContainer);
+  divText.appendChild(divRow);
   sectionWrapper.append(divText);
 }
 
@@ -85,13 +85,14 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch('long-form-inset.json');
     mappingData.data.forEach((mappingConfig) => {
       const value = properties[mappingConfig.key];
-      // eslint-disable-next-line no-unused-vars
-      const areaEl = handleComponents(blockContent, value, mappingConfig);
+      handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'lists':
-          properties.lists.forEach((listConfig, idx) => {
-            handleLists(listConfig, blockContent, idx);
-          });
+          if (properties.lists) {
+            properties.lists.forEach((listConfig, idx) => {
+              handleLists(listConfig, blockContent, idx);
+            });
+          }
           break;
         case 'background':
           if (value && !value.startsWith('#fff')) {
