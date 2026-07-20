@@ -14,12 +14,18 @@ const SEARCH_MIN_LENGTH = 3;
 const SESSION_TOKEN_KEY = 'peregrine.ims.accessToken';
 
 function getImsHost() {
-  const hostname = window.location.hostname;
+  const { hostname } = window.location;
   return (hostname === 'localhost' || hostname.includes('stage'))
     ? 'ims-na1-stg1.adobelogin.com' : 'ims-na1.adobelogin.com';
 }
 
 let cachedUserProfile = null;
+let activeCollabPollId = null;
+const stopActiveCollabPolling = () => {
+  if (!activeCollabPollId) return;
+  window.clearInterval(activeCollabPollId);
+  activeCollabPollId = null;
+};
 
 async function fetchCurrentUserProfile(token) {
   if (cachedUserProfile) return cachedUserProfile;
@@ -119,6 +125,17 @@ async function assignCollabRoles(collabId, assignments) {
   }
 }
 
+async function searchCollabs(pageUrl) {
+  const token = getToken();
+  const res = await fetch(
+    `${API_ENDPOINT}/me/collabs/search?url=${encodeURIComponent(pageUrl)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(result?.error || `HTTP ${res.status}`);
+  return Array.isArray(result) ? result : (result?.collabs || result?.data || []);
+}
+
 async function fetchAndApplyCollabSnapshot(collabId) {
   const token = getToken();
   if (!collabId || !token) return;
@@ -135,6 +152,7 @@ async function fetchAndApplyCollabSnapshot(collabId) {
 }
 
 async function startAnnotation(createdCollabId = null) {
+  stopActiveCollabPolling();
   const params = new URLSearchParams(window.location.search);
   const token = getToken();
   if (!token) {
@@ -186,24 +204,18 @@ async function startAnnotation(createdCollabId = null) {
   await initiatePreviewer();
   await fetchAndApplyCollabSnapshot(collabId);
 
-  let pollId = null;
   const startPolling = () => {
-    if (pollId || document.visibilityState !== 'visible') return;
-    pollId = window.setInterval(() => {
+    if (activeCollabPollId || document.visibilityState !== 'visible') return;
+    activeCollabPollId = window.setInterval(() => {
       fetchAndApplyCollabSnapshot(collabId);
     }, 20000);
-  };
-  const stopPolling = () => {
-    if (!pollId) return;
-    window.clearInterval(pollId);
-    pollId = null;
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       fetchAndApplyCollabSnapshot(collabId);
       startPolling();
     } else {
-      stopPolling();
+      stopActiveCollabPolling();
     }
   });
   startPolling();
@@ -225,7 +237,7 @@ function injectModalStyles() {
     @keyframes sc-slide-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
     .sc-modal {
       background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
-      width: 100%; max-width: 520px; padding: 32px;
+      width: 100%; max-width: 520px; padding: 32px; position: relative;
       display: flex; flex-direction: column; gap: 20px;
       animation: sc-slide-up 0.3s cubic-bezier(0.22,1,0.36,1) both;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -320,6 +332,87 @@ function injectModalStyles() {
     .sc-btn-submit:hover:not(:disabled) { background: #0d66d0; }
     .sc-btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
     .sc-success-msg { font-size: 14px; color: #059669; font-weight: 600; }
+    .sc-collab-list-wrap { position: relative; }
+    .sc-collab-list {
+      display: flex; flex-direction: column; gap: 6px; max-height: 280px;
+      overflow-y: auto; scrollbar-width: none;
+    }
+    .sc-collab-list::-webkit-scrollbar { display: none; }
+    .sc-list-fade {
+      height: 32px; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; transition: opacity 0.2s;
+    }
+    .sc-list-fade.sc-fade-hidden { opacity: 0; }
+    .sc-modal-header { display: flex; align-items: center; }
+    .sc-close-btn {
+      position: absolute; top: 12px; right: 12px;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: #4b5563; color: #fff;
+      font-size: 18px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit; padding: 0; transition: background 0.15s;
+    }
+    .sc-close-btn:hover { background: #1a1a1a; }
+    .sc-list-status { font-size: 14px; color: #6b7280; text-align: center; padding: 16px 0; margin: 0; }
+    .sc-collab-item {
+      display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 4px 12px;
+      padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; width: 100%;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit; background: #fff; text-align: left;
+    }
+    .sc-collab-item:hover { background: #f0f7ff; border-color: #1473E6; }
+    .sc-collab-item--active {
+      border-color: #1473E6; background: #f0f7ff;
+      box-shadow: inset 3px 0 0 #1473E6;
+    }
+    .sc-collab-item--active .sc-collab-item-name { color: #1473E6; }
+    .sc-collab-item-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+    .sc-collab-right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .sc-collab-item-when { font-size: 12px; color: #6b7280; white-space: nowrap; }
+    .sc-collab-owner-tip {
+      position: relative; font-size: 12px; font-weight: 500; color: #374151; white-space: nowrap;
+    }
+    .sc-collab-owner-tip::after {
+      content: attr(data-tooltip); position: absolute; right: 0; top: 100%; margin-top: 4px;
+      background: #1a1a1a; color: #fff; font-size: 11px; line-height: 1.6;
+      padding: 6px 10px; border-radius: 6px; white-space: pre; z-index: 20;
+      opacity: 0; pointer-events: none; transition: opacity 0.15s;
+    }
+    .sc-collab-owner-tip:hover::after { opacity: 1; }
+    .sc-collab-participants {
+      display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
+      grid-column: 1 / -1; scrollbar-width: thin;
+    }
+    .sc-collab-participants::-webkit-scrollbar { height: 3px; }
+    .sc-collab-participants::-webkit-scrollbar-track { background: transparent; }
+    .sc-collab-participants::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+    .sc-participant-pill {
+      font-size: 11px; color: #374151; background: #f3f4f6; border: 1px solid #e5e7eb;
+      border-radius: 999px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
+    }
+    @keyframes sc-spin { to { transform: rotate(360deg); } }
+    .sc-spinner {
+      width: 24px; height: 24px; border: 3px solid #e5e7eb;
+      border-top-color: #1473E6; border-radius: 50%;
+      animation: sc-spin 0.7s linear infinite;
+    }
+    .sc-list-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 0; }
+    .sc-scroll-chevron {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      pointer-events: auto; cursor: pointer; margin-bottom: 4px;
+    }
+    .sc-scroll-chevron::before {
+      content: ''; display: block; width: 12px; height: 12px;
+      border-right: 3px solid #6b7280; border-bottom: 3px solid #6b7280;
+      transform: rotate(45deg) translateY(-3px);
+    }
+    .sc-btn-back {
+      display: inline-flex; align-items: center; gap: 4px; border: none;
+      background: transparent; color: #1473E6; font-size: 13px; font-weight: 600;
+      cursor: pointer; padding: 0; font-family: inherit;
+    }
+    .sc-btn-back:hover { text-decoration: underline; }
   `;
   document.head.appendChild(style);
 }
@@ -443,27 +536,27 @@ function showCollabModal() {
     modal.className = 'sc-modal';
     overlay.appendChild(modal);
 
+    const modalHeader = document.createElement('div');
+    modalHeader.className = 'sc-modal-header';
     const heading = document.createElement('h2');
-    heading.textContent = 'Collab';
-    modal.appendChild(heading);
-
-    // ── Tabs ──
-    const tabs = document.createElement('div');
-    tabs.className = 'sc-tabs';
-    const startTab = document.createElement('button');
-    startTab.type = 'button';
-    startTab.className = 'sc-tab sc-tab--active';
-    startTab.textContent = 'Start a Collab';
-    const openTab = document.createElement('button');
-    openTab.type = 'button';
-    openTab.className = 'sc-tab';
-    openTab.textContent = 'Open a Collab';
-    tabs.append(startTab, openTab);
-    modal.appendChild(tabs);
+    heading.textContent = 'Collaboration';
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'sc-close-btn';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.textContent = '×';
+    modalHeader.append(heading);
+    modal.append(closeBtn, modalHeader);
 
     // ── Start Collab tab content ──
     const startContent = document.createElement('div');
-    startContent.className = 'sc-tab-content sc-tab-content--active';
+    startContent.className = 'sc-tab-content';
+
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'sc-btn-back';
+    backBtn.textContent = '← Back to list';
+    startContent.appendChild(backBtn);
 
     // Title field
     const titleField = document.createElement('div');
@@ -538,38 +631,41 @@ function showCollabModal() {
 
     const startActions = document.createElement('div');
     startActions.className = 'sc-actions';
-    const startCancelBtn = document.createElement('button');
-    startCancelBtn.type = 'button';
-    startCancelBtn.className = 'sc-btn-cancel';
-    startCancelBtn.textContent = 'Cancel';
     const startSubmitBtn = document.createElement('button');
     startSubmitBtn.type = 'button';
     startSubmitBtn.className = 'sc-btn-submit';
     startSubmitBtn.textContent = 'Create Collab';
-    startActions.append(startCancelBtn, startSubmitBtn);
+    startActions.appendChild(startSubmitBtn);
     startContent.appendChild(startActions);
 
     modal.appendChild(startContent);
 
-    // ── Open Collab tab content ──
+    // ── List Collab tab content ──
     const openContent = document.createElement('div');
-    openContent.className = 'sc-tab-content';
+    openContent.className = 'sc-tab-content sc-tab-content--active';
 
-    const openField = document.createElement('div');
-    openField.className = 'sc-field';
-    const openLabel = document.createElement('label');
-    openLabel.className = 'sc-label';
-    openLabel.innerHTML = 'Collab ID <span class="sc-required">*</span>';
-    const openInput = document.createElement('input');
-    openInput.type = 'text';
-    openInput.className = 'sc-input';
-    openInput.placeholder = 'Paste collab ID here';
-    const openError = document.createElement('span');
-    openError.className = 'sc-error';
-    openError.style.display = 'none';
-    openError.textContent = 'Collab ID is required.';
-    openField.append(openLabel, openInput, openError);
-    openContent.appendChild(openField);
+    const listWrap = document.createElement('div');
+    listWrap.className = 'sc-collab-list-wrap';
+    const listContainer = document.createElement('div');
+    listContainer.className = 'sc-collab-list';
+    let listStatus = document.createElement('div');
+    listStatus.className = 'sc-list-loading';
+    const spinner = document.createElement('div');
+    spinner.className = 'sc-spinner';
+    const spinnerText = document.createElement('p');
+    spinnerText.className = 'sc-list-status';
+    spinnerText.textContent = 'Loading collabs...';
+    listStatus.append(spinner, spinnerText);
+    listContainer.appendChild(listStatus);
+    listWrap.appendChild(listContainer);
+    openContent.appendChild(listWrap);
+
+    const listFade = document.createElement('div');
+    listFade.className = 'sc-list-fade';
+    const scrollChevron = document.createElement('div');
+    scrollChevron.className = 'sc-scroll-chevron';
+    listFade.appendChild(scrollChevron);
+    openContent.appendChild(listFade);
 
     const openFormError = document.createElement('p');
     openFormError.className = 'sc-error';
@@ -578,29 +674,14 @@ function showCollabModal() {
 
     const openActions = document.createElement('div');
     openActions.className = 'sc-actions';
-    const openCancelBtn = document.createElement('button');
-    openCancelBtn.type = 'button';
-    openCancelBtn.className = 'sc-btn-cancel';
-    openCancelBtn.textContent = 'Cancel';
-    const openSubmitBtn = document.createElement('button');
-    openSubmitBtn.type = 'button';
-    openSubmitBtn.className = 'sc-btn-submit';
-    openSubmitBtn.textContent = 'Open Collab';
-    openActions.append(openCancelBtn, openSubmitBtn);
+    const createNewBtn = document.createElement('button');
+    createNewBtn.type = 'button';
+    createNewBtn.className = 'sc-btn-submit';
+    createNewBtn.textContent = '+ Create new collab';
+    openActions.appendChild(createNewBtn);
     openContent.appendChild(openActions);
 
     modal.appendChild(openContent);
-
-    // ── Tab switching ──
-    function switchTab(activeTab) {
-      const isStart = activeTab === 'start';
-      startTab.classList.toggle('sc-tab--active', isStart);
-      openTab.classList.toggle('sc-tab--active', !isStart);
-      startContent.classList.toggle('sc-tab-content--active', isStart);
-      openContent.classList.toggle('sc-tab-content--active', !isStart);
-    }
-    startTab.addEventListener('click', () => switchTab('start'));
-    openTab.addEventListener('click', () => switchTab('open'));
 
     // ── Close helper ──
     function close(result) {
@@ -608,9 +689,153 @@ function showCollabModal() {
       resolve(result);
     }
 
-    startCancelBtn.addEventListener('click', () => close(null));
-    openCancelBtn.addEventListener('click', () => close(null));
+    // ── View switching ──
+    function switchTab(activeTab) {
+      const isStart = activeTab === 'start';
+      startContent.classList.toggle('sc-tab-content--active', isStart);
+      openContent.classList.toggle('sc-tab-content--active', !isStart);
+    }
+
+    // ── List load ──
+    let listLoaded = false;
+    function loadCollabList() {
+      if (listLoaded) return;
+      listLoaded = true;
+      const { host, pathname } = window.location;
+      const repo = host.split('--')[1] || '';
+      const daPageUrl = `adobecom/${repo}${pathname}`;
+      const activeCollabId = new URLSearchParams(window.location.search).get('peregrine-collab-id') || '';
+      searchCollabs(daPageUrl).then((collabs) => {
+        listStatus.remove();
+        if (!collabs.length) {
+          const empty = document.createElement('p');
+          empty.className = 'sc-list-status';
+          empty.textContent = 'No collabs found for this page.';
+          listContainer.appendChild(empty);
+          return;
+        }
+        collabs.forEach((collab) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'sc-collab-item';
+
+          const name = document.createElement('span');
+          name.className = 'sc-collab-item-name';
+          name.textContent = collab.title || collab.name || 'Untitled';
+
+          const dateStr = collab.createdAt ? new Date(collab.createdAt).toLocaleString() : '';
+          const ownerName = collab.owner?.name || collab.owner?.email || '';
+
+          const rightCol = document.createElement('div');
+          rightCol.className = 'sc-collab-right-col';
+
+          const whenEl = document.createElement('span');
+          whenEl.className = 'sc-collab-item-when';
+          whenEl.textContent = dateStr;
+
+          const ownerTip = document.createElement('span');
+          ownerTip.className = 'sc-collab-owner-tip';
+          ownerTip.textContent = ownerName;
+          const tooltipLines = [];
+          if (collab.owner?.name) tooltipLines.push(collab.owner.name);
+          if (collab.owner?.email) tooltipLines.push(collab.owner.email);
+          ownerTip.dataset.tooltip = tooltipLines.join('\n');
+
+          rightCol.append(whenEl, ownerTip);
+          item.append(name, rightCol);
+          const isActive = activeCollabId
+            && (collab.id === activeCollabId || collab.collabId === activeCollabId);
+          if (isActive) {
+            item.classList.add('sc-collab-item--active');
+          }
+
+          const seen = new Set();
+          const participants = (collab.participants || []).filter((p) => {
+            if (p.role === 'owner') return false;
+            const key = String(p.id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          if (participants.length) {
+            const participantsEl = document.createElement('div');
+            participantsEl.className = 'sc-collab-participants';
+            participants.forEach((p) => {
+              const pill = document.createElement('span');
+              pill.className = 'sc-participant-pill';
+              pill.textContent = p.name || p.email || String(p.id);
+              participantsEl.appendChild(pill);
+            });
+            item.appendChild(participantsEl);
+          }
+
+          item.addEventListener('click', () => {
+            close({ action: 'open', collabId: collab.id || collab.collabId });
+          });
+          listContainer.appendChild(item);
+        });
+        if (listContainer.scrollHeight <= listContainer.clientHeight) {
+          listFade.classList.add('sc-fade-hidden');
+        }
+      }).catch((err) => {
+        listStatus.remove();
+        openFormError.textContent = err?.message || 'Failed to load collabs.';
+        openFormError.style.display = 'block';
+      });
+    }
+
+    function resetAndReloadList() {
+      listContainer.innerHTML = '';
+      listStatus = document.createElement('div');
+      listStatus.className = 'sc-list-loading';
+      const newSpinner = document.createElement('div');
+      newSpinner.className = 'sc-spinner';
+      const newSpinnerText = document.createElement('p');
+      newSpinnerText.className = 'sc-list-status';
+      newSpinnerText.textContent = 'Loading collabs...';
+      listStatus.append(newSpinner, newSpinnerText);
+      listContainer.appendChild(listStatus);
+      listFade.classList.remove('sc-fade-hidden');
+      listLoaded = false;
+      loadCollabList();
+    }
+
+    listContainer.addEventListener('scroll', () => {
+      const atBottom = listContainer.scrollHeight - listContainer.scrollTop
+        <= listContainer.clientHeight + 1;
+      listFade.classList.toggle('sc-fade-hidden', atBottom);
+    });
+
+    let holdTimer = null;
+    let holdInterval = null;
+    const clearHold = () => {
+      clearTimeout(holdTimer);
+      clearInterval(holdInterval);
+      holdTimer = null;
+      holdInterval = null;
+    };
+    scrollChevron.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      listContainer.scrollBy({ top: 80, behavior: 'smooth' });
+      holdTimer = setTimeout(() => {
+        holdInterval = setInterval(() => { listContainer.scrollBy({ top: 80 }); }, 100);
+      }, 400);
+    });
+    scrollChevron.addEventListener('mouseup', clearHold);
+    scrollChevron.addEventListener('mouseleave', clearHold);
+
+    closeBtn.addEventListener('click', () => close(null));
+    createNewBtn.addEventListener('click', () => {
+      switchTab('start');
+      fetchCurrentUserProfile(getToken()).then((profile) => {
+        if (profile?.email) ownerField.addPinned(profile.email, profile.name || profile.email);
+      });
+    });
+    backBtn.addEventListener('click', () => switchTab('open'));
+
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+
+    loadCollabList();
 
     // ── Start Collab submit ──
     let createdCollabId = null;
@@ -669,6 +894,8 @@ function showCollabModal() {
         resultArea.style.display = 'flex';
         startSubmitBtn.textContent = 'Open Collab';
         startSubmitBtn.disabled = false;
+        createNewBtn.remove();
+        resetAndReloadList();
       } catch (err) {
         console.error('[milo-collab-init] Failed to start collab:', err);
         startFormError.textContent = err?.message || 'Failed to start collab. Please try again.';
@@ -678,22 +905,7 @@ function showCollabModal() {
       }
     });
 
-    // ── Open Collab submit ──
-    openSubmitBtn.addEventListener('click', () => {
-      openError.style.display = 'none';
-      openFormError.style.display = 'none';
-      const id = openInput.value.trim();
-      if (!id) {
-        openInput.classList.add('sc-input--error');
-        openError.style.display = 'block';
-        return;
-      }
-      openInput.classList.remove('sc-input--error');
-      close({ action: 'open', collabId: id });
-    });
-
     document.body.appendChild(overlay);
-    titleInput.focus();
   });
 }
 
@@ -721,8 +933,23 @@ function showCollabModal() {
 // }());
 
 let initInProgress = false;
+let collabListListenerAdded = false;
+
 // eslint-disable-next-line import/prefer-default-export
 export async function initializePeregrineAnnotation() {
+  if (!collabListListenerAdded) {
+    collabListListenerAdded = true;
+    document.addEventListener('peregrine:show-collab-list', async () => {
+      const result = await showCollabModal();
+      if (result?.action === 'open') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('peregrine-collab-id', result.collabId);
+        window.history.replaceState(null, '', url.toString());
+        await startAnnotation(result.collabId);
+      }
+    });
+  }
+
   if (initInProgress) return;
   initInProgress = true;
 
@@ -734,21 +961,31 @@ export async function initializePeregrineAnnotation() {
 
   const params = new URLSearchParams(window.location.search);
 
-  const collabId = params.get('miloCollabId') || params.get('peregrine-collab-id');
+  const collabId = params.get('peregrine-collab-id');
+
   if (collabId) {
     const started = await startAnnotation(collabId);
     if (!started) initInProgress = false;
     return;
   }
 
-  const result = await showCollabModal();
-  if (!result) {
-    initInProgress = false;
+  if (params.has('peregrine-collab-id')) {
+    const result = await showCollabModal();
+    if (!result) {
+      initInProgress = false;
+      return;
+    }
+    if (result.action === 'open') {
+      const selectedUrl = new URL(window.location.href);
+      selectedUrl.searchParams.set('peregrine-collab-id', result.collabId);
+      window.history.replaceState(null, '', selectedUrl.toString());
+      const started = await startAnnotation(result.collabId);
+      if (!started) initInProgress = false;
+    }
     return;
   }
 
-  if (result.action === 'open') {
-    const started = await startAnnotation(result.collabId);
-    if (!started) initInProgress = false;
-  }
+  // eslint-disable-next-line no-alert
+  alert('Collab Not enabled');
+  initInProgress = false;
 }

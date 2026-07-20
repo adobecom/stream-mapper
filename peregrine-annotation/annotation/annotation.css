@@ -85,6 +85,24 @@ body.annotation-mode main::-webkit-scrollbar {
   background: linear-gradient(135deg, var(--annotation-accent), #7b6ff0);
 }
 
+.peregrine-collab-topbar-title-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  min-width: 0;
+  font-family: inherit;
+  color: inherit;
+}
+
+.peregrine-collab-topbar-title-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .peregrine-collab-topbar-title {
   font-size: 15px;
   font-weight: 700;
@@ -93,6 +111,13 @@ body.annotation-mode main::-webkit-scrollbar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.peregrine-collab-topbar-title-chevron {
+  font-size: 14px;
+  opacity: 0.75;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .peregrine-collab-topbar-spacer {

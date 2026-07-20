@@ -831,7 +831,10 @@ export default function createCommentsPanelController({
     bar.innerHTML = `
       <div class="peregrine-collab-topbar-brand">
         <span class="peregrine-collab-topbar-glyph" aria-hidden="true">✦</span>
-        <span class="peregrine-collab-topbar-title" title="">Workspace</span>
+        <button type="button" class="peregrine-collab-topbar-title-btn" aria-label="Switch collab" title="Switch collab">
+          <span class="peregrine-collab-topbar-title" title="">Workspace</span>
+          <span class="peregrine-collab-topbar-title-chevron" aria-hidden="true">▾</span>
+        </button>
       </div>
       <div class="peregrine-collab-topbar-spacer"></div>
       <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
@@ -850,6 +853,7 @@ export default function createCommentsPanelController({
     annotationUI.workspaceTitleEl = bar.querySelector('.peregrine-collab-topbar-title');
     annotationUI.presenceEl = bar.querySelector('.peregrine-collab-topbar-presence');
     annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
+    annotationUI.titleBtnEl = bar.querySelector('.peregrine-collab-topbar-title-btn');
     annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
 
     setMarkupsHidden(false);
@@ -861,6 +865,10 @@ export default function createCommentsPanelController({
     annotationUI.commentsBtnEl.addEventListener('click', (event) => {
       event.stopPropagation();
       toggleCommentsDrawer('all');
+    });
+
+    annotationUI.titleBtnEl.addEventListener('click', () => {
+      document.dispatchEvent(new CustomEvent('peregrine:show-collab-list'));
     });
 
     renderWorkspaceTitle();
