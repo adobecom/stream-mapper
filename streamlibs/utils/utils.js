@@ -51,6 +51,7 @@ export function ensureStreamMapperForStandalone(overrides = {}) {
     figmaMappingUrl: '/api/fig-comps',
     figmaBlockContentUrl: '/api/fig-comp-details',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
+    blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
     figmaAuthToken: '',
     daToken: '',
     ...existing,
