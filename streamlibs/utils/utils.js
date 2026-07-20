@@ -138,6 +138,7 @@ export const getFirstType = (text) => {
 
 export function getIconSize(value) {
   const sizeValue = value?.toLowerCase();
+  if (!sizeValue) return 'm';
   let size = 'm';
   if (sizeValue.includes('s')) size = 's';
   if (sizeValue.includes('m')) size = 'm';

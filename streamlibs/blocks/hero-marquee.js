@@ -77,7 +77,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   handleMinHeight(blockContent, properties);
   if (properties?.layout === 'centered') blockContent.classList.add('center');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.miloTag.includes('cover')) blockContent.classList.add('media-cover');
+  if (properties?.miloTag?.includes('cover')) blockContent.classList.add('media-cover');
 }
 
 function blockBackground(value, areaEl, properties) {
@@ -90,9 +90,12 @@ function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
   const url = (typeof value === 'object' && value.url) ? value.url : value;
   const altText = (typeof value === 'object' && value.altText) ? value.altText : '';
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url || LOGOS.placeholder; });
+  const isImageUrl = typeof url === 'string' && (/^(https?:)?\/\//.test(url) || url.startsWith('data:') || url.startsWith('/'));
+  if (!isImageUrl) return areaEl.classList.add('to-remove');
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');
-  imgEl.src = url || LOGOS.placeholder;
+  if (!imgEl) return;
+  imgEl.src = url;
   if (altText) imgEl.alt = altText;
 }
 
@@ -131,13 +134,15 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           break;
         case 'actions': {
           const actionEL = blockContent?.querySelector(mappingConfig?.selector);
-          actionEL.innerHTML = '';
-          handleActionButtons(
-            blockContent,
-            properties,
-            value,
-            actionEL,
-          );
+          if (actionEL) {
+            actionEL.innerHTML = '';
+            handleActionButtons(
+              blockContent,
+              properties,
+              value,
+              actionEL,
+            );
+          }
           break;
         }
         case 'checklistItems':
@@ -155,9 +160,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
-    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(error);
+  } finally {
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   }
 }

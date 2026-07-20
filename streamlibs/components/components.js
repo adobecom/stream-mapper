@@ -15,6 +15,7 @@ export function resolveImageValue(value) {
 
 export function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
+  if (!textEl) return null;
   if (!value) return textEl.classList.add('to-remove');
   textEl.innerHTML = '';
   const lines = value.split('\n');
@@ -30,17 +31,22 @@ export function handleTextComponent({ el, value, selector }) {
 
 export function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
-  if (!value) return picEl.classList.add('to-remove');
+  if (!picEl) return null;
   const { url, altText } = resolveImageValue(value);
+  const isImageUrl = /^(https?:)?\/\//.test(url) || url.startsWith('data:') || url.startsWith('/');
+  if (!isImageUrl) return picEl.classList.add('to-remove');
   picEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = picEl.querySelector('img');
-  imgEl.src = url;
-  if (altText) imgEl.alt = altText;
+  if (imgEl) {
+    imgEl.src = url;
+    if (altText) imgEl.alt = altText;
+  }
   return picEl;
 }
 
 function handleContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
+  if (!containerEl) return null;
   if (!value || (Array.isArray(value) && value.length < 1)) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
   return containerEl;
@@ -48,6 +54,7 @@ function handleContainerComponent({ el, value, selector }) {
 
 function handleLogoContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
+  if (!containerEl) return null;
   if (!value) return containerEl.classList.add('to-remove');
   return containerEl;
 }
