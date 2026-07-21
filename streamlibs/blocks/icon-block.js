@@ -5,6 +5,10 @@ import {
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
+// Logo values reach <a href> and <img src>: allow only http(s) or same-origin, which
+// rejects javascript:, protocol-relative //host, and Figma refs like "1:209".
+const SAFE_URL = /^(https?:\/\/|\/(?!\/))/;
+
 function isBioBlock(properties) {
   return properties?.miloTag?.includes('bio') || properties?.bio;
 }
@@ -26,7 +30,9 @@ function handleAlign(blockContent, value) {
 
 function handleIconSize(blockContent, properties, tag, sizeKey) {
   let size = '';
-  const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim();
+  // Optional: bio blocks and detached lockups can arrive without a size-bearing name.
+  const sizeName = properties?.[sizeKey]?.name;
+  const sizeValue = typeof sizeName === 'string' ? sizeName.toLowerCase().trim() : '';
   if (sizeValue.includes('m')) size = 'm';
   if (sizeValue.includes('l')) size = 'm';
   if (sizeValue.includes('xl')) size = 'l';
@@ -51,7 +57,9 @@ function handleProductLockup(value, areaEl) {
 
   const anchorElement = areaEl.querySelector('a');
   const productName = value?.productTile?.name;
-  const productLogo = LOGOS[productName];
+  const { image } = value;
+  const overrideImage = typeof image === 'string' && SAFE_URL.test(image) ? image : '';
+  const productLogo = overrideImage || LOGOS[productName];
 
   if (anchorElement && productLogo) {
     anchorElement.setAttribute('href', productLogo);
@@ -79,10 +87,11 @@ function handleAvatar(value, areaEl) {
 
 function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
-  const { url, altText } = typeof value === 'object' && (value.image || value.url)
-    ? { url: value.image || value.url, altText: value.altText || '' }
+  const asset = [value.image, value.imageRef].find((v) => typeof v === 'string' && v);
+  const { url, altText } = asset
+    ? resolveImageValue({ url: asset, altText: value.altText })
     : resolveImageValue(value);
-  if (!url) return;
+  if (!SAFE_URL.test(url)) return;
 
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');

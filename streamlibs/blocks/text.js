@@ -29,7 +29,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
   try {
     const mappingData = await safeJsonFetch('text.json');
     mappingData.data.forEach((mappingConfig) => {
-      const value = properties[mappingConfig.key];
+      const raw = properties[mappingConfig.key];
+      const value = typeof raw?.imageRef === 'string'
+        ? { url: raw.imageRef, altText: raw.altText || '' }
+        : raw;
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'background':
