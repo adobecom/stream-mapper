@@ -6,7 +6,11 @@ import {
   resetPreviewHtmlInStore,
   resetEditChangesInStore,
 } from '../store/store.js';
-import { annotationOperationOnHostPage, applyRemoteCollabSnapshot } from '../annotation.js';
+import {
+  annotationOperationOnHostPage,
+  applyRemoteCollabSnapshot,
+  refreshTopbarUser,
+} from '../annotation.js';
 
 const API_ENDPOINT = 'http://localhost:8081/api';
 const SEARCH_DEBOUNCE_MS = 250;
@@ -36,9 +40,12 @@ async function fetchCurrentUserProfile(token) {
     });
     if (!res.ok) return null;
     const p = await res.json();
+    const firstName = `${p?.first_name || ''}`.trim();
+    const lastName = `${p?.last_name || ''}`.trim();
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
     cachedUserProfile = {
       email: `${p?.email || ''}`.trim().toLowerCase(),
-      name: `${p?.displayName || p?.first_name || ''}`.trim(),
+      name: `${p?.displayName || fullName || ''}`.trim(),
     };
     return cachedUserProfile;
   } catch {
@@ -182,12 +189,14 @@ async function startAnnotation(createdCollabId = null) {
     token,
     userEmail: userProfile?.email || '',
     userName: userProfile?.name || '',
-    username: userProfile?.name || userProfile?.email || 'Unknown',
+    username: userProfile?.name || userProfile?.email || '',
     profileId: '3',
     collabId,
     reviewId: params.get('miloCollabId') || params.get('peregrine-collab-id'),
     collabRole: 'owner',
   };
+
+  refreshTopbarUser();
 
   resetTargetHtmlInStore();
   resetPreviewHtmlInStore();

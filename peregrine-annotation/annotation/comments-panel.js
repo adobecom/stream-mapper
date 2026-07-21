@@ -837,6 +837,7 @@ export default function createCommentsPanelController({
         </button>
       </div>
       <div class="peregrine-collab-topbar-spacer"></div>
+      <span class="peregrine-collab-topbar-user"></span>
       <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
       <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-comments">
         <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
@@ -855,6 +856,7 @@ export default function createCommentsPanelController({
     annotationUI.commentsBtnEl = bar.querySelector('.peregrine-collab-topbar-comments');
     annotationUI.titleBtnEl = bar.querySelector('.peregrine-collab-topbar-title-btn');
     annotationUI.visibilityToggleEl = bar.querySelector('.peregrine-collab-topbar-visibility');
+    annotationUI.userChipEl = bar.querySelector('.peregrine-collab-topbar-user');
 
     setMarkupsHidden(false);
 
@@ -877,11 +879,24 @@ export default function createCommentsPanelController({
     applyDisableEditsState();
   }
 
+  function refreshTopbarUser() {
+    const chip = annotationUI.userChipEl
+      || document.querySelector('.peregrine-collab-topbar-user');
+    if (!(chip instanceof HTMLElement)) return;
+    const name = window.peregrineConfig?.username || window.peregrineConfig?.userName || '';
+    const email = window.peregrineConfig?.userEmail || '';
+    const display = name || email;
+    chip.hidden = !display;
+    chip.textContent = display;
+    chip.title = email || '';
+  }
+
   function renderWorkspaceTitle() {
     if (!(annotationUI.workspaceTitleEl instanceof HTMLElement)) return;
     const title = getWorkspaceTitle();
     annotationUI.workspaceTitleEl.textContent = title;
     annotationUI.workspaceTitleEl.title = title;
+    refreshTopbarUser();
   }
 
   function renderPresence() {
@@ -3692,6 +3707,7 @@ export default function createCommentsPanelController({
     applyPendingRemoteEditsSnapshot,
     applyRemoteCollabSnapshot,
     markSelfSavedEditsSnapshot,
+    refreshTopbarUser,
     removePopup,
     renderCommentsPanel,
     renderThreadMarkers,

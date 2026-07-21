@@ -225,6 +225,10 @@ export function applyRemoteCollabSnapshot(snapshot) {
   commentsPanel.applyRemoteCollabSnapshot(snapshot);
 }
 
+export function refreshTopbarUser() {
+  commentsPanel.refreshTopbarUser();
+}
+
 export function preparePendingRemoteEditsRefresh() {
   return commentsPanel.applyPendingRemoteEditsSnapshot();
 }
