@@ -22,15 +22,51 @@ function handleNumberedList(items, areaEl) {
   areaEl.appendChild(fragment);
 }
 
+function getEnabledListItems(items) {
+  if (!Array.isArray(items)) return items;
+  return items.filter(
+    (item) => item?.enabled !== false && String(item?.text ?? '').trim(),
+  );
+}
+
+function isImageFirstLayout(layout) {
+  return getFirstType(layout) === 'image';
+}
+
 function handleLayout(blockContent, properties) {
-  if (getFirstType(properties?.layout) === 'image') {
+  if (isImageFirstLayout(properties?.layout)) {
     blockContent?.classList.add('media-first');
   }
 }
 
+function hasMediaContent(properties) {
+  return Boolean(properties?.media || properties?.mediaDetails);
+}
+
+function isMediaVariant(properties) {
+  if (properties?.miloTag?.includes('media')) return true;
+  if (hasMediaContent(properties)) return true;
+  return isImageFirstLayout(properties?.layout);
+}
+
+function getMappingValue(properties, key) {
+  if (key === 'numberedList') {
+    return getEnabledListItems(properties?.numberedList ?? properties?.numberedListItems);
+  }
+  if (key === 'miniImage') {
+    return properties?.miniImage || properties?.media;
+  }
+  if (key === 'media') {
+    return properties?.media || properties?.miniImage;
+  }
+  return properties?.[key];
+}
+
 function handleVariants(sectionWrapper, blockContent, properties) {
   blockContent?.classList.add('seo');
-  if (properties?.miloTag?.includes('media')) blockContent?.classList.add('large-media');
+  if (isMediaVariant(properties)) {
+    blockContent?.classList.add('large-image');
+  }
   handleLayout(blockContent, properties);
 }
 
@@ -57,11 +93,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
 
   try {
     const mappingData = await safeJsonFetch('how-to.json');
-    let configData = mappingData.mini;
-    if (properties?.miloTag?.includes('media')) configData = mappingData.media;
+    const configData = isMediaVariant(properties) ? mappingData.media : mappingData.mini;
 
     configData.data.forEach((mappingConfig) => {
-      const value = properties[mappingConfig.key];
+      const value = getMappingValue(properties, mappingConfig.key);
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'numberedList':
