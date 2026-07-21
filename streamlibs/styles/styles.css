@@ -1016,4 +1016,14 @@ main > .section,
 .fragment > .section {
   min-height: 100px;
 }
+
+/* how-to: media-first layout (image left) — mapper adds .media-first from layout VARIANT */
+@media screen and (min-width: 600px) {
+  .how-to.large-image.media-first .foreground,
+  .how-to.large-image.media-first .foreground.has-image {
+    grid-template-areas:
+      "heading heading"
+      "image list";
+  }
+}
   
