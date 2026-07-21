@@ -34,8 +34,8 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch('card-horizontal.json');
     properties.cards.forEach((card) => {
       const blockTemplate = blockContent.cloneNode(true);
-      if (properties?.cardType?.name.toLowerCase().includes('tile')) {
-        blockContent.classList.add('tile');
+      if (properties?.cardType?.name?.toLowerCase().includes('tile')) {
+        blockTemplate.classList.add('tile');
       }
       sectionWrapper.appendChild(blockTemplate);
       mappingData.data.forEach((mappingConfig) => {
