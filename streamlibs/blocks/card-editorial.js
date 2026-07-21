@@ -20,6 +20,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
 }
 
 function handleProductLockup(value, areaEl) {
+  if (!value || !areaEl) return;
   const tileName = value?.productTile?.name || 'placeholder';
   const a = document.createElement('a');
   a.href = LOGOS[tileName] || LOGOS.placeholder;
@@ -30,12 +31,11 @@ function handleProductLockup(value, areaEl) {
 }
 
 function handleCardProductLockups(card, areaEl) {
+  if (!areaEl || !card.productLockups?.length) return;
   areaEl.innerHTML = '';
-  const productLockup1 = card.productLockups[0];
-  handleProductLockup(productLockup1, areaEl);
+  handleProductLockup(card.productLockups[0], areaEl);
   if (!card.hasMultipleProductLockups) return;
-  const productLockup2 = card.productLockups[1];
-  handleProductLockup(productLockup2, areaEl);
+  handleProductLockup(card.productLockups[1], areaEl);
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
@@ -83,7 +83,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     blockContent.classList.add('to-remove');
     sectionWrapper.querySelectorAll('.to-remove').forEach((el) => el.remove());
-    handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag.toLowerCase(), properties.cards?.length);
+    handleUpsWithSectionMetadata(sectionWrapper, blockContent, properties.miloTag?.toLowerCase(), properties.cards?.length);
     if (properties.background) handleBackgroundWithSectionMetadata(sectionWrapper, blockContent, properties.background);
     handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
