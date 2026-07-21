@@ -120,16 +120,9 @@ export function handleComponents(el, value, mappingConfig) {
 export function handleSpacer(el, spacer, position) {
   if (!spacer) return;
   const spacerName = spacer.toLowerCase().trim();
-  let spacerClass = '';
-  if (spacerName.includes(' m ')) spacerClass = 'm';
-  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
-  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
-  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l')) spacerClass = 'l';
-  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
-  else if (spacerName.includes(' s ')) spacerClass = 's';
-  if (!spacerClass) return;
-  el.classList.add(`${spacerClass}-spacing-${position}`);
+  const match = spacerName.match(/(xxxl|xxl|xl|xs|m|l|s)(?:\s|$)/);
+  if (!match) return;
+  el.classList.add(`${match[1]}-spacing-${position}`);
 }
 
 export function handleActionButtons(el, configData, value, areaEl) {
@@ -273,19 +266,12 @@ export function handleUpsWithSectionMetadata(secEl, blockEl, value, count) {
 
 export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
   if (!spacer) return;
-  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   const spacerName = spacer.toLowerCase().trim();
-  let spacerClass = '';
-  if (spacerName.includes(' m')) spacerClass = 'm';
-  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
-  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
-  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l ')) spacerClass = 'l';
-  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
-  else if (spacerName.includes(' s ')) spacerClass = 's';
-  if (!spacerClass) return;
+  const match = spacerName.match(/(xxxl|xxl|xl|xs|m|l|s)(?:\s|$)/);
+  if (!match) return;
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
-  styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
+  styleLoc.innerHTML += `${match[1]}-spacing-${position}`;
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {

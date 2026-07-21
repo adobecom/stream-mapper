@@ -166,16 +166,19 @@
 
 .stream-img-model-select:focus { border-color: #1d4ed8; }
 
-main div.fragment {
+.editor-mode main div.fragment {
     position: relative;
     pointer-events: none;
 }
 
-main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div {
+.annotation-inline-edit-mode main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div,
+.annotation-asset-select-mode main div.fragment:not([data-path$="fragments/stream-block-placeholder"]) div {
     filter: blur(2px);
 }
 
-main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before {
+
+.annotation-inline-edit-mode main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before,
+.annotation-asset-select-mode main div.fragment:not([data-path$="fragments/stream-block-placeholder"])::before {
     content: 'Fragment edit blocked';
     position: absolute;
     inset: 0;

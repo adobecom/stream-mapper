@@ -1,6 +1,6 @@
 import {
   handleComponents,
-  handleSpacer,
+  handleSpacerWithSectionMetadata,
   handleGridLayout,
   handleBackgroundWithSectionMetadata,
   resolveImageValue,
@@ -20,22 +20,24 @@ function handleLayout(layout, blockEl) {
   }
 }
 
-function handleVariants(blockContent, properties) {
+function handleVariants(sectionWrapper, blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.borders) blockContent.classList.add('borders');
-  if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
-  if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
+  if (properties?.topSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.topSpacer.name, 'top');
+  if (properties?.bottomSpacer) handleSpacerWithSectionMetadata(sectionWrapper, blockContent, properties.bottomSpacer.name, 'bottom');
   if (properties?.desktopLayout) handleGridLayout(properties.desktopLayout, blockContent, 'desktop');
   if (properties?.layout) handleLayout(properties.layout, blockContent);
 }
 
 function handleAvatar(value, areaEl) {
-  if (!value) return;
+  if (!value || !areaEl) return;
   const { url, altText } = resolveImageValue(value);
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');
-  imgEl.src = url;
-  if (altText) imgEl.alt = altText;
+  if (imgEl) {
+    imgEl.src = url;
+    if (altText) imgEl.alt = altText;
+  }
 }
 
 export default async function mapBlockContent(sectionWrapper, blockContent, figContent) {
@@ -58,7 +60,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
       }
     });
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
-    handleVariants(blockContent, properties);
+    handleVariants(sectionWrapper, blockContent, properties);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.log(error);

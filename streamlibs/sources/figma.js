@@ -581,7 +581,7 @@ async function showBlockMappingReview(blockMapping) {
       <th class="col-name">Name</th>
       <th class="col-ai">AI Mapping
         <label class="ai-toggle-all" title="Toggle all">
-          <input type="checkbox" checked />
+          <input type="checkbox" />
           <span class="ai-toggle-all-track"></span>
         </label>
       </th>
