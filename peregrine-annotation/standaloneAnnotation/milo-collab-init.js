@@ -17,25 +17,22 @@ const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 3;
 const SESSION_TOKEN_KEY = 'peregrine.ims.accessToken';
 
-function getImsHost() {
-  const { hostname } = window.location;
-  return (hostname === 'localhost' || hostname.includes('stage'))
-    ? 'ims-na1-stg1.adobelogin.com' : 'ims-na1.adobelogin.com';
+function getImsHostFromToken(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload?.as?.includes('ims-na1-stg1')) return 'ims-na1-stg1.adobelogin.com';
+  } catch { /* fall through */ }
+  return 'ims-na1.adobelogin.com';
 }
 
 let cachedUserProfile = null;
 let activeCollabPollId = null;
-const stopActiveCollabPolling = () => {
-  if (!activeCollabPollId) return;
-  window.clearInterval(activeCollabPollId);
-  activeCollabPollId = null;
-};
 
 async function fetchCurrentUserProfile(token) {
   if (cachedUserProfile) return cachedUserProfile;
   if (!token) return null;
   try {
-    const res = await fetch(`https://${getImsHost()}/ims/profile/v1`, {
+    const res = await fetch(`https://${getImsHostFromToken(token)}/ims/profile/v1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
@@ -52,6 +49,11 @@ async function fetchCurrentUserProfile(token) {
     return null;
   }
 }
+const stopActiveCollabPolling = () => {
+  if (!activeCollabPollId) return;
+  window.clearInterval(activeCollabPollId);
+  activeCollabPollId = null;
+};
 
 function getMapperEnv() {
   return 'dev';
@@ -196,8 +198,6 @@ async function startAnnotation(createdCollabId = null) {
     collabRole: 'owner',
   };
 
-  refreshTopbarUser();
-
   resetTargetHtmlInStore();
   resetPreviewHtmlInStore();
   resetEditChangesInStore();
@@ -212,6 +212,7 @@ async function startAnnotation(createdCollabId = null) {
   }
   await initiatePreviewer();
   await fetchAndApplyCollabSnapshot(collabId);
+  refreshTopbarUser();
 
   const startPolling = () => {
     if (activeCollabPollId || document.visibilityState !== 'visible') return;

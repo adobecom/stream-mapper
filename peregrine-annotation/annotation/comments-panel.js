@@ -837,7 +837,6 @@ export default function createCommentsPanelController({
         </button>
       </div>
       <div class="peregrine-collab-topbar-spacer"></div>
-      <span class="peregrine-collab-topbar-user"></span>
       <div class="peregrine-collab-topbar-presence" aria-label="Collaborators"></div>
       <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-comments">
         <span class="peregrine-collab-topbar-btn-icon" aria-hidden="true">
@@ -847,6 +846,7 @@ export default function createCommentsPanelController({
         <span class="peregrine-collab-topbar-badge" hidden>0</span>
       </button>
       <button type="button" class="peregrine-collab-topbar-btn peregrine-collab-topbar-visibility" aria-pressed="false" aria-label="Hide all markups" title="Hide all markups"></button>
+      <span class="peregrine-collab-topbar-user"></span>
     `;
     document.body.appendChild(bar);
 
