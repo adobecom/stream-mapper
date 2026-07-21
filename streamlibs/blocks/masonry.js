@@ -94,6 +94,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     properties.masonryArrangement = [];
     properties.bricks.forEach((brick) => {
       if (!brick.brickType || !brick.spanLayout) return;
+      if (!brick.productLockup) brick.productLockup = {};
+      if (!Array.isArray(brick.appList)) brick.appList = [];
+      if (!Array.isArray(brick.itemList)) brick.itemList = [];
       const blockTemplate = blockContent.cloneNode(true);
       if (brick.colorTheme) blockTemplate.classList.add(brick.colorTheme);
       properties.masonryArrangement.push(brick.spanLayout.toLowerCase());
