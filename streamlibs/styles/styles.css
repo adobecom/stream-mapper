@@ -1026,4 +1026,35 @@ main > .section,
       "image list";
   }
 }
-  
+
+/* Header-less tables only: row-1 is body data, not column titles (hasHeader=false) */
+.table.no-column-header .row-1.row-heading .col-heading {
+  flex-direction: row;
+  align-items: center;
+}
+
+.table.left.no-column-header .row-1.row-heading .col-heading {
+  text-align: start;
+  justify-content: flex-start;
+}
+
+.table.no-column-header .row-1.row-heading .col-heading.col-1 .tracking-header {
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-lh);
+  padding: 0;
+}
+
+.table.no-column-header .row-1.row-heading .col-heading .heading-button {
+  display: none;
+}
+
+.table.no-column-header .row-1.row-heading .col-heading:not(.col-1),
+.table.no-column-header .row-1.row-heading .col-heading:not(.col-1) .tracking-header {
+  font-weight: 400;
+  font-size: var(--type-body-s-size);
+  line-height: var(--type-body-s-lh);
+}
+
+.table.no-column-header .row-1.row-heading .col-heading:not(.col-1) .tracking-header {
+  padding: 0;
+}

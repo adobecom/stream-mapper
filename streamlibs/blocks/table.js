@@ -9,6 +9,11 @@ function handleVariants(blockContent, properties) {
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
   if (properties?.topSpacer) handleSpacer(blockContent, properties.topSpacer.name, 'top');
   if (properties?.bottomSpacer) handleSpacer(blockContent, properties.bottomSpacer.name, 'bottom');
+  // Header-less tables: Milo init promotes row-1 to .row-heading (bold column headers).
+  // Flag the block so preview CSS can style row-1 data columns as body text.
+  if (!properties?.hasHeader) {
+    blockContent.classList.add('left', 'no-column-header');
+  }
 }
 
 function createHeaderColumn(columnHeading, offerCell, columnTemplate) {
