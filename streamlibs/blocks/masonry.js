@@ -74,15 +74,43 @@ function handleAppList(appList, appListEl) {
   });
 }
 
-function handleItemList(itemList, itemListEl) {
+function resolveItemIconUrl(icon) {
+  if (!icon) return '';
+  if (typeof icon === 'string') {
+    if (/^(https?:)?\/\//.test(icon) || icon.startsWith('data:')) return icon;
+    return LOGOS[icon] || SVG_ICONS[icon] || '';
+  }
+  if (typeof icon === 'object') {
+    const ref = icon.imageRef || icon.url;
+    if (ref && (/^(https?:)?\/\//.test(ref) || ref.startsWith('data:'))) return ref;
+    if (icon.name) return LOGOS[icon.name] || SVG_ICONS[icon.name] || '';
+  }
+  return '';
+}
+
+function createIconPicture(src, alt = '') {
+  const picture = document.createElement('picture');
+  const img = document.createElement('img');
+  img.loading = 'lazy';
+  img.alt = alt;
+  img.src = src;
+  picture.appendChild(img);
+  return picture;
+}
+
+function handleItemList(itemList, itemListEl, blockTemplate) {
+  itemListEl.classList.add('icon-stack-area', 'body-s');
+  blockTemplate?.classList.add('icon-stack');
   itemList.forEach((item) => {
     const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.href = SVG_ICONS.placeholder;
-    a.innerText = a.href;
-    li.append(a);
-    if (item.text) li.innerHTML += item.text;
-    itemListEl.append(li);
+    li.appendChild(createIconPicture(resolveItemIconUrl(item?.icon)));
+    if (item.text) {
+      const textEl = document.createElement('span');
+      textEl.className = 'list-text';
+      textEl.textContent = item.text;
+      li.appendChild(textEl);
+    }
+    itemListEl.appendChild(li);
   });
 }
 
@@ -136,7 +164,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             const itemListEl = blockTemplate.querySelector(mappingConfig.selector);
             if (brick.itemList.length) {
               itemListEl.innerHTML = '';
-              handleItemList(brick.itemList, itemListEl);
+              handleItemList(brick.itemList, itemListEl, blockTemplate);
             } else itemListEl.classList.add('to-remove');
           }
             break;
