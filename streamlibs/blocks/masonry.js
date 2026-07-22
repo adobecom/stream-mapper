@@ -74,18 +74,27 @@ function handleAppList(appList, appListEl) {
   });
 }
 
+function isLoadableItemIconUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('data:')) return true;
+  if (!/^https?:\/\//.test(url)) return false;
+  if (url.includes('...') || /figma-\d+:/.test(url)) return false;
+  return true;
+}
+
 function resolveItemIconUrl(icon) {
-  if (!icon) return '';
-  if (typeof icon === 'string') {
-    if (/^(https?:)?\/\//.test(icon) || icon.startsWith('data:')) return icon;
-    return LOGOS[icon] || SVG_ICONS[icon] || '';
-  }
-  if (typeof icon === 'object') {
+  let candidate = '';
+  if (!icon) {
+    candidate = '';
+  } else if (typeof icon === 'string') {
+    if (/^(https?:)?\/\//.test(icon) || icon.startsWith('data:')) candidate = icon;
+    else candidate = LOGOS[icon] || SVG_ICONS[icon] || '';
+  } else if (typeof icon === 'object') {
     const ref = icon.imageRef || icon.url;
-    if (ref && (/^(https?:)?\/\//.test(ref) || ref.startsWith('data:'))) return ref;
-    if (icon.name) return LOGOS[icon.name] || SVG_ICONS[icon.name] || '';
+    if (ref && (/^(https?:)?\/\//.test(ref) || ref.startsWith('data:'))) candidate = ref;
+    else if (icon.name) candidate = LOGOS[icon.name] || SVG_ICONS[icon.name] || '';
   }
-  return '';
+  return isLoadableItemIconUrl(candidate) ? candidate : SVG_ICONS.placeholder;
 }
 
 function createIconPicture(src, alt = '') {
