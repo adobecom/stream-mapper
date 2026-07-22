@@ -324,10 +324,8 @@ function getBlockVariant(match) {
 }
 
 function findSupportedBlock(comp, supportedBlocks) {
-  return supportedBlocks.find(
-    (b) => getBlockProp(b, 'name', 'Name') === comp.name
-      || getBlockProp(b, 'id', 'Id', 'ID') === comp.id,
-  );
+  return supportedBlocks.find((b) => getBlockProp(b, 'name', 'Name') === comp.name)
+    || supportedBlocks.find((b) => getBlockProp(b, 'id', 'Id', 'ID') === comp.id);
 }
 
 // eslint-disable-next-line object-curly-newline
