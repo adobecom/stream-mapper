@@ -77,6 +77,16 @@ function handleAvatar(value, areaEl) {
   if (altText) imgEl.alt = altText;
 }
 
+function createLogoSlot(lockupArea) {
+  const logoArea = lockupArea.cloneNode(true);
+  logoArea.classList.add('icon-area');
+  logoArea.querySelectorAll('img').forEach((img) => {
+    img.removeAttribute('width');
+    img.removeAttribute('height');
+  });
+  return logoArea;
+}
+
 function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
   const { url, altText } = typeof value === 'object' && (value.image || value.url)
@@ -101,7 +111,19 @@ function handleLogo(value, areaEl) {
     img.src = url;
     if (altText) img.alt = altText;
     anchorElement.appendChild(img);
+    return;
   }
+
+  // Dual-icon layout: second <p> may be empty — inject picture/img
+  const pic = document.createElement('picture');
+  const source = document.createElement('source');
+  source.srcset = url;
+  const img = document.createElement('img');
+  img.src = url;
+  if (altText) img.alt = altText;
+  pic.append(source, img);
+  areaEl.classList.add('icon-area');
+  areaEl.append(pic);
 }
 
 export default async function mapBlockContent(
@@ -129,7 +151,14 @@ export default async function mapBlockContent(
       switch (mappingConfig.key) {
         case 'productLockup':
           if (value) {
-            handleProductLockup(value, areaEl);
+            const lockupArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+            lockupArea?.classList.add('icon-area');
+            handleProductLockup(value, lockupArea);
+            if (properties.logo && lockupArea?.parentElement) {
+              const logoArea = createLogoSlot(lockupArea);
+              lockupArea.parentElement.insertBefore(logoArea, lockupArea.nextSibling);
+              handleLogo(properties.logo, logoArea);
+            }
           } else if (properties.logo) {
             const logoArea = areaEl || blockContent.querySelector(mappingConfig.selector);
             logoArea?.classList.remove('to-remove');
