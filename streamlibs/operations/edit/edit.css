@@ -221,6 +221,7 @@ div[data-source="figma"].do-not-drag {
   background-repeat: no-repeat;
   background-position: center;
   background-size: 36px 36px;
+  pointer-events: none;
 }
 
 .da-section-delete {

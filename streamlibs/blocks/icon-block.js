@@ -5,6 +5,14 @@ import {
 import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 
+// Logo values reach <a href> and <img src>: allow only http(s) or same-origin, which
+// rejects javascript:, protocol-relative //host, and Figma refs like "1:209".
+const SAFE_URL = /^(https?:\/\/|\/(?!\/))/;
+
+function isBioBlock(properties) {
+  return properties?.miloTag?.includes('bio') || properties?.bio;
+}
+
 function handleBlockVariants(blockContent, properties) {
   if (properties?.miloTag?.includes('intro')) {
     blockContent.classList.add('intro');
@@ -22,7 +30,9 @@ function handleAlign(blockContent, value) {
 
 function handleIconSize(blockContent, properties, tag, sizeKey) {
   let size = '';
-  const sizeValue = properties?.[sizeKey]?.name?.toLowerCase().trim();
+  // Optional: bio blocks and detached lockups can arrive without a size-bearing name.
+  const sizeName = properties?.[sizeKey]?.name;
+  const sizeValue = typeof sizeName === 'string' ? sizeName.toLowerCase().trim() : '';
   if (sizeValue.includes('m')) size = 'm';
   if (sizeValue.includes('l')) size = 'm';
   if (sizeValue.includes('xl')) size = 'l';
@@ -39,7 +49,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
     handleAccentBar(sectionWrapper, blockContent, properties.accentBar.name);
   }
   handleAlign(blockContent, properties.align);
-  handleIconSize(blockContent, properties, properties?.miloTag, properties?.miloTag?.includes('bio') ? 'bioDetails' : 'productLockup');
+  handleIconSize(blockContent, properties, properties?.miloTag, isBioBlock(properties) ? 'bioDetails' : 'productLockup');
 }
 
 function handleProductLockup(value, areaEl) {
@@ -47,7 +57,9 @@ function handleProductLockup(value, areaEl) {
 
   const anchorElement = areaEl.querySelector('a');
   const productName = value?.productTile?.name;
-  const productLogo = LOGOS[productName];
+  const { image } = value;
+  const overrideImage = typeof image === 'string' && SAFE_URL.test(image) ? image : '';
+  const productLogo = overrideImage || LOGOS[productName];
 
   if (anchorElement && productLogo) {
     anchorElement.setAttribute('href', productLogo);
@@ -73,6 +85,59 @@ function handleAvatar(value, areaEl) {
   if (altText) imgEl.alt = altText;
 }
 
+function createLogoSlot(lockupArea) {
+  const logoArea = lockupArea.cloneNode(true);
+  logoArea.classList.add('icon-area');
+  logoArea.querySelectorAll('img').forEach((img) => {
+    img.removeAttribute('width');
+    img.removeAttribute('height');
+  });
+  return logoArea;
+}
+
+function resolveLogoImage(value) {
+  if (!value) return null;
+  const asset = [value.image, value.imageRef].find((v) => typeof v === 'string' && v);
+  const { url, altText } = asset
+    ? resolveImageValue({ url: asset, altText: value.altText })
+    : resolveImageValue(value);
+  return SAFE_URL.test(url) ? { url, altText } : null;
+}
+
+function handleLogo({ url, altText }, areaEl) {
+  if (!areaEl) return;
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
+  const imgEl = areaEl.querySelector('img');
+  if (imgEl) {
+    imgEl.src = url;
+    if (altText) imgEl.alt = altText;
+    return;
+  }
+
+  // Icon Block variant 0 uses <p><a href="...svg"> — no <img> until we inject one
+  const anchorElement = areaEl.querySelector('a');
+  if (anchorElement) {
+    anchorElement.setAttribute('href', url);
+    anchorElement.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = url;
+    if (altText) img.alt = altText;
+    anchorElement.appendChild(img);
+    return;
+  }
+
+  // Dual-icon layout: second <p> may be empty — inject picture/img
+  const pic = document.createElement('picture');
+  const source = document.createElement('source');
+  source.srcset = url;
+  const img = document.createElement('img');
+  img.src = url;
+  if (altText) img.alt = altText;
+  pic.append(source, img);
+  areaEl.classList.add('icon-area');
+  areaEl.append(pic);
+}
+
 export default async function mapBlockContent(
   sectionWrapper,
   blockContent,
@@ -85,7 +150,7 @@ export default async function mapBlockContent(
   try {
     if (!mapConfig) {
       let configJson = 'icon-block.json';
-      if (properties?.miloTag?.includes('bio')) {
+      if (isBioBlock(properties)) {
         configJson = 'icon-bio-block.json';
       }
       mappingData = await safeJsonFetch(configJson);
@@ -96,12 +161,34 @@ export default async function mapBlockContent(
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
-        case 'productLockup':
-          handleProductLockup(value, areaEl);
+        case 'productLockup': {
+          const logoImage = resolveLogoImage(properties.logo);
+          if (value) {
+            const lockupArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+            lockupArea?.classList.add('icon-area');
+            handleProductLockup(value, lockupArea);
+            if (logoImage && lockupArea?.parentElement) {
+              const logoArea = createLogoSlot(lockupArea);
+              lockupArea.parentElement.insertBefore(logoArea, lockupArea.nextSibling);
+              handleLogo(logoImage, logoArea);
+            }
+          } else if (logoImage) {
+            const logoArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+            logoArea?.classList.remove('to-remove');
+            handleLogo(logoImage, logoArea);
+          }
           break;
-        case 'actions':
-          handleActionButtons(blockContent, properties, value, areaEl);
+        }
+        case 'actions': {
+          const hasActions = value || properties.action1
+            || properties.action2 || properties.action3;
+          if (!hasActions) break;
+          const actionArea = areaEl || blockContent.querySelector(mappingConfig.selector);
+          actionArea?.classList.remove('to-remove');
+          if (!value) actionArea.innerHTML = '';
+          handleActionButtons(blockContent, properties, true, actionArea);
           break;
+        }
         case 'bio':
           handleAvatar(value, areaEl);
           break;
