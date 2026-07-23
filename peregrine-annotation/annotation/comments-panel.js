@@ -919,15 +919,10 @@ export default function createCommentsPanelController({
       more.style.width = '28px';
       more.style.height = '28px';
       more.textContent = `+${people.length - MAX_VISIBLE}`;
+      more.dataset.tooltip = people.slice(MAX_VISIBLE).map((p) => p.name).join('\n');
       annotationUI.presenceEl.appendChild(more);
     }
 
-    // DEMO ONLY: extra placeholder collaborator. Remove before shipping.
-    const demoAvatar = buildAvatarEl('User', 'demo-user', {
-      size: 28,
-      className: 'peregrine-collab-presence-avatar',
-    });
-    annotationUI.presenceEl.appendChild(demoAvatar);
   }
 
   function updateCommentsBadge() {

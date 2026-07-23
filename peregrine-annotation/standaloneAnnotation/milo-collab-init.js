@@ -49,6 +49,20 @@ async function fetchCurrentUserProfile(token) {
     return null;
   }
 }
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return 'Yesterday';
+  if (days < 30) return `${days} days ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
 const stopActiveCollabPolling = () => {
   if (!activeCollabPollId) return;
   window.clearInterval(activeCollabPollId);
@@ -218,7 +232,7 @@ async function startAnnotation(createdCollabId = null) {
     if (activeCollabPollId || document.visibilityState !== 'visible') return;
     activeCollabPollId = window.setInterval(() => {
       fetchAndApplyCollabSnapshot(collabId);
-    }, 20000);
+    }, 10000);
   };
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -248,7 +262,7 @@ function injectModalStyles() {
     .sc-modal {
       background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
       width: 100%; max-width: 520px; padding: 32px; position: relative;
-      display: flex; flex-direction: column; gap: 20px;
+      display: flex; flex-direction: column; gap: 8px;
       animation: sc-slide-up 0.3s cubic-bezier(0.22,1,0.36,1) both;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
@@ -327,7 +341,7 @@ function injectModalStyles() {
       font-family: inherit; white-space: nowrap; transition: background 0.15s;
     }
     .sc-copy-btn:hover { background: #0d66d0; }
-    .sc-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+    .sc-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
     .sc-btn-cancel {
       padding: 10px 24px; background: #fff; color: #374151; border: 1px solid #d1d5db;
       border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
@@ -342,61 +356,51 @@ function injectModalStyles() {
     .sc-btn-submit:hover:not(:disabled) { background: #0d66d0; }
     .sc-btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
     .sc-success-msg { font-size: 14px; color: #059669; font-weight: 600; }
-    .sc-collab-list-wrap { position: relative; }
+    .sc-collab-list-wrap { position: relative; overflow: hidden; }
     .sc-collab-list {
-      display: flex; flex-direction: column; gap: 6px; max-height: 280px;
-      overflow-y: auto; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 4px; max-height: 280px;
+      overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ccc transparent;
+      padding: 4px 4px 24px;
     }
-    .sc-collab-list::-webkit-scrollbar { display: none; }
+    .sc-collab-list::-webkit-scrollbar { width: 5px; }
+    .sc-collab-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
     .sc-list-fade {
-      height: 32px; position: relative;
-      display: flex; align-items: center; justify-content: center;
+      position: absolute; bottom: 0; left: 0; right: 0; height: 36px;
+      background: linear-gradient(transparent, #fff);
       pointer-events: none; transition: opacity 0.2s;
     }
     .sc-list-fade.sc-fade-hidden { opacity: 0; }
-    .sc-modal-header { display: flex; align-items: center; }
+    .sc-modal-header { display: flex; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #f0f0f0; }
     .sc-close-btn {
-      position: absolute; top: 12px; right: 12px;
-      width: 32px; height: 32px; border-radius: 50%;
-      border: none; background: #4b5563; color: #fff;
+      margin-left: auto; flex-shrink: 0;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: #eee; color: #555;
       font-size: 18px; line-height: 1; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       font-family: inherit; padding: 0; transition: background 0.15s;
     }
-    .sc-close-btn:hover { background: #1a1a1a; }
+    .sc-close-btn:hover { background: #ddd; color: #111; }
     .sc-list-status { font-size: 14px; color: #6b7280; text-align: center; padding: 16px 0; margin: 0; }
     .sc-collab-item {
-      display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 4px 12px;
-      padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; width: 100%;
-      cursor: pointer; transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-      font-family: inherit; background: #fff; text-align: left;
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 12px; border: none; border-radius: 10px; width: 100%;
+      cursor: pointer; transition: background 0.15s;
+      font-family: inherit; background: transparent; text-align: left;
     }
-    .sc-collab-item:hover { background: #f0f7ff; border-color: #1473E6; }
-    .sc-collab-item--active {
-      border-color: #1473E6; background: #f0f7ff;
-      box-shadow: inset 3px 0 0 #1473E6;
-    }
+    .sc-collab-item:hover { background: #f5f5f5; }
+    .sc-collab-item--active { background: #eef4ff; }
     .sc-collab-item--active .sc-collab-item-name { color: #1473E6; }
     .sc-collab-item-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
-    .sc-collab-right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .sc-collab-item-left { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .sc-collab-right-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
     .sc-collab-item-when { font-size: 12px; color: #6b7280; white-space: nowrap; }
-    .sc-collab-owner-tip {
-      position: relative; font-size: 12px; font-weight: 500; color: #374151; white-space: nowrap;
+    .sc-collab-pills {
+      display: flex; flex-wrap: wrap; gap: 4px;
     }
-    .sc-collab-owner-tip::after {
-      content: attr(data-tooltip); position: absolute; right: 0; top: 100%; margin-top: 4px;
-      background: #1a1a1a; color: #fff; font-size: 11px; line-height: 1.6;
-      padding: 6px 10px; border-radius: 6px; white-space: pre; z-index: 20;
-      opacity: 0; pointer-events: none; transition: opacity 0.15s;
+    .sc-owner-pill {
+      font-size: 11px; font-weight: 500; color: #5b21b6; background: #ede9fe;
+      border-radius: 999px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
     }
-    .sc-collab-owner-tip:hover::after { opacity: 1; }
-    .sc-collab-participants {
-      display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px;
-      grid-column: 1 / -1; scrollbar-width: thin;
-    }
-    .sc-collab-participants::-webkit-scrollbar { height: 3px; }
-    .sc-collab-participants::-webkit-scrollbar-track { background: transparent; }
-    .sc-collab-participants::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
     .sc-participant-pill {
       font-size: 11px; color: #374151; background: #f3f4f6; border: 1px solid #e5e7eb;
       border-radius: 999px; padding: 2px 8px; white-space: nowrap; flex-shrink: 0;
@@ -408,15 +412,7 @@ function injectModalStyles() {
       animation: sc-spin 0.7s linear infinite;
     }
     .sc-list-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 0; }
-    .sc-scroll-chevron {
-      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-      pointer-events: auto; cursor: pointer; margin-bottom: 4px;
-    }
-    .sc-scroll-chevron::before {
-      content: ''; display: block; width: 12px; height: 12px;
-      border-right: 3px solid #6b7280; border-bottom: 3px solid #6b7280;
-      transform: rotate(45deg) translateY(-3px);
-    }
+    .sc-scroll-chevron { display: none; }
     .sc-btn-back {
       display: inline-flex; align-items: center; gap: 4px; border: none;
       background: transparent; color: #1473E6; font-size: 13px; font-weight: 600;
@@ -555,8 +551,8 @@ function showCollabModal() {
     closeBtn.className = 'sc-close-btn';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.textContent = '×';
-    modalHeader.append(heading);
-    modal.append(closeBtn, modalHeader);
+    modalHeader.append(heading, closeBtn);
+    modal.append(modalHeader);
 
     // ── Start Collab tab content ──
     const startContent = document.createElement('div');
@@ -667,15 +663,14 @@ function showCollabModal() {
     spinnerText.textContent = 'Loading collabs...';
     listStatus.append(spinner, spinnerText);
     listContainer.appendChild(listStatus);
-    listWrap.appendChild(listContainer);
-    openContent.appendChild(listWrap);
-
     const listFade = document.createElement('div');
     listFade.className = 'sc-list-fade';
     const scrollChevron = document.createElement('div');
     scrollChevron.className = 'sc-scroll-chevron';
     listFade.appendChild(scrollChevron);
-    openContent.appendChild(listFade);
+    listWrap.appendChild(listContainer);
+    listWrap.appendChild(listFade);
+    openContent.appendChild(listWrap);
 
     const openFormError = document.createElement('p');
     openFormError.className = 'sc-error';
@@ -729,54 +724,52 @@ function showCollabModal() {
           item.type = 'button';
           item.className = 'sc-collab-item';
 
+          const leftCol = document.createElement('div');
+          leftCol.className = 'sc-collab-item-left';
+
           const name = document.createElement('span');
           name.className = 'sc-collab-item-name';
           name.textContent = collab.title || collab.name || 'Untitled';
 
-          const dateStr = collab.createdAt ? new Date(collab.createdAt).toLocaleString() : '';
+          const pillsEl = document.createElement('div');
+          pillsEl.className = 'sc-collab-pills';
+
           const ownerName = collab.owner?.name || collab.owner?.email || '';
+          if (ownerName) {
+            const ownerPill = document.createElement('span');
+            ownerPill.className = 'sc-owner-pill';
+            ownerPill.textContent = ownerName;
+            pillsEl.appendChild(ownerPill);
+          }
+
+          const seen = new Set();
+          (collab.participants || []).forEach((p) => {
+            if (p.role === 'owner') return;
+            const key = String(p.id);
+            if (seen.has(key)) return;
+            seen.add(key);
+            const pill = document.createElement('span');
+            pill.className = 'sc-participant-pill';
+            pill.textContent = p.name || p.email || String(p.id);
+            pillsEl.appendChild(pill);
+          });
+
+          leftCol.append(name, pillsEl);
 
           const rightCol = document.createElement('div');
           rightCol.className = 'sc-collab-right-col';
 
           const whenEl = document.createElement('span');
           whenEl.className = 'sc-collab-item-when';
-          whenEl.textContent = dateStr;
+          whenEl.textContent = relativeTime(collab.createdAt);
 
-          const ownerTip = document.createElement('span');
-          ownerTip.className = 'sc-collab-owner-tip';
-          ownerTip.textContent = ownerName;
-          const tooltipLines = [];
-          if (collab.owner?.name) tooltipLines.push(collab.owner.name);
-          if (collab.owner?.email) tooltipLines.push(collab.owner.email);
-          ownerTip.dataset.tooltip = tooltipLines.join('\n');
+          rightCol.appendChild(whenEl);
+          item.append(leftCol, rightCol);
 
-          rightCol.append(whenEl, ownerTip);
-          item.append(name, rightCol);
           const isActive = activeCollabId
             && (collab.id === activeCollabId || collab.collabId === activeCollabId);
           if (isActive) {
             item.classList.add('sc-collab-item--active');
-          }
-
-          const seen = new Set();
-          const participants = (collab.participants || []).filter((p) => {
-            if (p.role === 'owner') return false;
-            const key = String(p.id);
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          });
-          if (participants.length) {
-            const participantsEl = document.createElement('div');
-            participantsEl.className = 'sc-collab-participants';
-            participants.forEach((p) => {
-              const pill = document.createElement('span');
-              pill.className = 'sc-participant-pill';
-              pill.textContent = p.name || p.email || String(p.id);
-              participantsEl.appendChild(pill);
-            });
-            item.appendChild(participantsEl);
           }
 
           item.addEventListener('click', () => {
