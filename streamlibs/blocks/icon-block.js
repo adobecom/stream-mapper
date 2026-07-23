@@ -95,14 +95,17 @@ function createLogoSlot(lockupArea) {
   return logoArea;
 }
 
-function handleLogo(value, areaEl) {
-  if (!areaEl || !value) return;
+function resolveLogoImage(value) {
+  if (!value) return null;
   const asset = [value.image, value.imageRef].find((v) => typeof v === 'string' && v);
   const { url, altText } = asset
     ? resolveImageValue({ url: asset, altText: value.altText })
     : resolveImageValue(value);
-  if (!SAFE_URL.test(url)) return;
+  return SAFE_URL.test(url) ? { url, altText } : null;
+}
 
+function handleLogo({ url, altText }, areaEl) {
+  if (!areaEl) return;
   areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');
   if (imgEl) {
@@ -158,24 +161,27 @@ export default async function mapBlockContent(
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
-        case 'productLockup':
+        case 'productLockup': {
+          const logoImage = resolveLogoImage(properties.logo);
           if (value) {
             const lockupArea = areaEl || blockContent.querySelector(mappingConfig.selector);
             lockupArea?.classList.add('icon-area');
             handleProductLockup(value, lockupArea);
-            if (properties.logo && lockupArea?.parentElement) {
+            if (logoImage && lockupArea?.parentElement) {
               const logoArea = createLogoSlot(lockupArea);
               lockupArea.parentElement.insertBefore(logoArea, lockupArea.nextSibling);
-              handleLogo(properties.logo, logoArea);
+              handleLogo(logoImage, logoArea);
             }
-          } else if (properties.logo) {
+          } else if (logoImage) {
             const logoArea = areaEl || blockContent.querySelector(mappingConfig.selector);
             logoArea?.classList.remove('to-remove');
-            handleLogo(properties.logo, logoArea);
+            handleLogo(logoImage, logoArea);
           }
           break;
+        }
         case 'actions': {
-          const hasActions = value || properties.action1 || properties.action2 || properties.action3;
+          const hasActions = value || properties.action1
+            || properties.action2 || properties.action3;
           if (!hasActions) break;
           const actionArea = areaEl || blockContent.querySelector(mappingConfig.selector);
           actionArea?.classList.remove('to-remove');
