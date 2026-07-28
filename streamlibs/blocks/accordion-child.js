@@ -26,8 +26,17 @@ export default async function mapAccordionChildContent(
   const properties = figContent?.details?.properties;
   if (!properties) return;
 
-  try {
-    mapConfig?.data?.forEach((mappingConfig) => {
+  if (!mapConfig?.data?.length) {
+    // eslint-disable-next-line no-console
+    console.error(
+      'Error mapping accordion child block: missing/malformed mapConfig — item left as unmapped template content',
+      { heading: properties?.heading, miloTag: properties?.miloTag },
+    );
+    return;
+  }
+
+  mapConfig.data.forEach((mappingConfig) => {
+    try {
       const value = properties[mappingConfig.key];
       const areaEl = handleComponents(childContent, value, mappingConfig);
 
@@ -44,10 +53,15 @@ export default async function mapAccordionChildContent(
         default:
           break;
       }
-    });
+    } catch (error) {
+      console.error(`Error mapping accordion child field "${mappingConfig.key}":`, error);
+    }
+  });
+
+  try {
     blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error mapping accordion child block:', error);
+    console.error('Error cleaning up accordion child block:', error);
   }
 }
