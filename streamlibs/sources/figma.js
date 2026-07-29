@@ -203,10 +203,6 @@ async function processBlock(block, figmaUrl, onDetailResponse = () => {}) {
   let blockContent = getHtml(doc, block.miloId, block.variant);
   const props = figContent.details.properties;
   props.miloTag = block.tag;
-  if (block.aiMapping && block.id === 'hero-marquee' && props.bgImage
-    && typeof props.background === 'string' && /^https?:\/\//.test(props.background)) {
-    props.miloTag = 'hero-mq';
-  }
   blockContent = await mapFigmaContent(blockContent, block, figContent);
   block.blockDomEl = blockContent;
   return blockContent || '';
