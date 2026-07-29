@@ -106,6 +106,14 @@ export default async function mapBlockContent(
           break;
         case 'background':
           handleBackground(value, areaEl);
+          if (value === false && properties?.colorTheme === 'dark') {
+            if (areaEl) {
+              areaEl.classList.remove('to-remove');
+              handleBackground('#000000', areaEl);
+            } else {
+              sectionWrapper.style.background = '#000000';
+            }
+          }
           break;
         case 'productLockup':
           if (areaEl) {
