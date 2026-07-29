@@ -6,6 +6,9 @@ import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { divSwap, getFirstType, getIconSize } from '../utils/utils.js';
 
+// prefer the explicit isCover flag; fall back to the tag when it is missing/untagged
+const isCoverHero = (properties) => properties?.isCover ?? properties?.miloTag?.includes('cover');
+
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
     divSwap(blockContent, ':scope > div:nth-child(2) > div:first-child', ':scope > div:nth-child(2) > div:last-child');
@@ -77,13 +80,28 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   handleMinHeight(blockContent, properties);
   if (properties?.layout === 'centered') blockContent.classList.add('center');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.miloTag?.includes('cover')) blockContent.classList.add('media-cover');
+  if (isCoverHero(properties)) blockContent.classList.add('media-cover');
+}
+
+const THEME_BACKGROUNDS = { dark: '#000000', light: '#FFFFFF' };
+const CONFLICTING_COLORS = {
+  dark: ['#fff', '#ffffff', 'white'],
+  light: ['#000', '#000000', 'black'],
+};
+
+function getThemeSafeBackground(value, colorTheme) {
+  const theme = colorTheme?.toLowerCase().trim();
+  if (!THEME_BACKGROUNDS[theme]) return value;
+  const authored = (typeof value === 'string' ? value : value?.url) || '';
+  const color = authored.toLowerCase().trim();
+  // nothing authored: only a dark theme needs a fallback, light sits fine on the page
+  if (!color) return theme === 'dark' ? THEME_BACKGROUNDS.dark : value;
+  return CONFLICTING_COLORS[theme].includes(color) ? THEME_BACKGROUNDS[theme] : value;
 }
 
 function blockBackground(value, areaEl, properties) {
-  if (!properties?.miloTag?.includes('cover')) {
-    handleBackground(value, areaEl);
-  }
+  if (!areaEl || isCoverHero(properties)) return;
+  handleBackground(value, areaEl);
 }
 
 function handleLogo(value, areaEl) {
@@ -115,9 +133,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
 
   try {
     const mappingData = await safeJsonFetch('hero-marquee.json');
-    const configData = properties?.miloTag?.includes('cover') ? mappingData.split : mappingData.standard;
+    const isCover = isCoverHero(properties);
+    const configData = isCover ? mappingData.split : mappingData.standard;
     configData.data.forEach((mappingConfig) => {
-      const value = properties[mappingConfig.key];
+      // only the standard layout paints the block itself, the split one gets a cover image
+      const value = !isCover && mappingConfig.key === 'background'
+        ? getThemeSafeBackground(properties.background, properties.colorTheme)
+        : properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'productLockups':
