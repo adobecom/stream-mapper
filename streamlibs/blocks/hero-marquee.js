@@ -6,6 +6,9 @@ import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { divSwap, getFirstType, getIconSize } from '../utils/utils.js';
 
+// prefer the explicit isCover flag; fall back to the tag when it is missing/untagged
+const isCoverHero = (properties) => properties?.isCover ?? properties?.miloTag?.includes('cover');
+
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
     divSwap(blockContent, ':scope > div:nth-child(2) > div:first-child', ':scope > div:nth-child(2) > div:last-child');
@@ -77,7 +80,7 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   handleMinHeight(blockContent, properties);
   if (properties?.layout === 'centered') blockContent.classList.add('center');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.miloTag?.includes('cover')) blockContent.classList.add('media-cover');
+  if (isCoverHero(properties)) blockContent.classList.add('media-cover');
 }
 
 const THEME_BACKGROUNDS = { dark: '#000000', light: '#FFFFFF' };
@@ -97,7 +100,7 @@ function getThemeSafeBackground(value, colorTheme) {
 }
 
 function blockBackground(value, areaEl, properties) {
-  if (!areaEl || properties?.miloTag?.includes('cover')) return;
+  if (!areaEl || isCoverHero(properties)) return;
   handleBackground(value, areaEl);
 }
 
@@ -130,7 +133,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
 
   try {
     const mappingData = await safeJsonFetch('hero-marquee.json');
-    const isCover = properties?.miloTag?.includes('cover');
+    const isCover = isCoverHero(properties);
     const configData = isCover ? mappingData.split : mappingData.standard;
     configData.data.forEach((mappingConfig) => {
       // only the standard layout paints the block itself, the split one gets a cover image
