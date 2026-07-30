@@ -135,10 +135,11 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch('hero-marquee.json');
     const isCover = isCoverHero(properties);
     const configData = isCover ? mappingData.split : mappingData.standard;
+    // the backdrop the block paints itself with, standard vs split
+    const blockBgKey = isCover ? 'coverBackground' : 'background';
     configData.data.forEach((mappingConfig) => {
-      // only the standard layout paints the block itself, the split one gets a cover image
-      const value = !isCover && mappingConfig.key === 'background'
-        ? getThemeSafeBackground(properties.background, properties.colorTheme)
+      const value = mappingConfig.key === blockBgKey
+        ? getThemeSafeBackground(properties[blockBgKey], properties.colorTheme)
         : properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
