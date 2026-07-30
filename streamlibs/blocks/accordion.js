@@ -62,6 +62,13 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     const mappingData = await safeJsonFetch(configJson);
     const configData = properties?.miloTag === 'acd-rm' ? mappingData.rich : mappingData.basic;
 
+    if (!configData?.data?.length) {
+      console.error(
+        `Error mapping accordion block: mapping config for miloTag "${properties?.miloTag}" is missing/malformed — all items will render as unmapped template content`,
+        mappingData,
+      );
+    }
+
     const accordions = (properties?.accordions || []).filter(
       (accChild) => accChild.body && accChild.heading,
     );
