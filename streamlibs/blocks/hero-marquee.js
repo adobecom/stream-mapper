@@ -6,6 +6,9 @@ import { LOGOS } from '../utils/constants.js';
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { divSwap, getFirstType, getIconSize } from '../utils/utils.js';
 
+// prefer the explicit isCover flag; fall back to the tag when it is missing/untagged
+const isCoverHero = (properties) => properties?.isCover ?? properties?.miloTag?.includes('cover');
+
 function handleSwap(blockContent, properties) {
   if (getFirstType(properties?.layout) === 'image') {
     divSwap(blockContent, ':scope > div:nth-child(2) > div:first-child', ':scope > div:nth-child(2) > div:last-child');
@@ -77,22 +80,40 @@ function handleVariants(sectionWrapper, blockContent, properties) {
   handleMinHeight(blockContent, properties);
   if (properties?.layout === 'centered') blockContent.classList.add('center');
   if (properties?.colorTheme) blockContent.classList.add(properties.colorTheme);
-  if (properties?.miloTag.includes('cover')) blockContent.classList.add('media-cover');
+  if (isCoverHero(properties)) blockContent.classList.add('media-cover');
+}
+
+const THEME_BACKGROUNDS = { dark: '#000000', light: '#FFFFFF' };
+const CONFLICTING_COLORS = {
+  dark: ['#fff', '#ffffff', 'white'],
+  light: ['#000', '#000000', 'black'],
+};
+
+function getThemeSafeBackground(value, colorTheme) {
+  const theme = colorTheme?.toLowerCase().trim();
+  if (!THEME_BACKGROUNDS[theme]) return value;
+  const authored = (typeof value === 'string' ? value : value?.url) || '';
+  const color = authored.toLowerCase().trim();
+  // nothing authored: only a dark theme needs a fallback, light sits fine on the page
+  if (!color) return theme === 'dark' ? THEME_BACKGROUNDS.dark : value;
+  return CONFLICTING_COLORS[theme].includes(color) ? THEME_BACKGROUNDS[theme] : value;
 }
 
 function blockBackground(value, areaEl, properties) {
-  if (!properties?.miloTag?.includes('cover')) {
-    handleBackground(value, areaEl);
-  }
+  if (!areaEl || isCoverHero(properties)) return;
+  handleBackground(value, areaEl);
 }
 
 function handleLogo(value, areaEl) {
   if (!areaEl || !value) return;
   const url = (typeof value === 'object' && value.url) ? value.url : value;
   const altText = (typeof value === 'object' && value.altText) ? value.altText : '';
-  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url || LOGOS.placeholder; });
+  const isImageUrl = typeof url === 'string' && (/^(https?:)?\/\//.test(url) || url.startsWith('data:') || url.startsWith('/'));
+  if (!isImageUrl) return areaEl.classList.add('to-remove');
+  areaEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = areaEl.querySelector('img');
-  imgEl.src = url || LOGOS.placeholder;
+  if (!imgEl) return;
+  imgEl.src = url;
   if (altText) imgEl.alt = altText;
 }
 
@@ -112,9 +133,14 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
 
   try {
     const mappingData = await safeJsonFetch('hero-marquee.json');
-    const configData = properties?.miloTag?.includes('cover') ? mappingData.split : mappingData.standard;
+    const isCover = isCoverHero(properties);
+    const configData = isCover ? mappingData.split : mappingData.standard;
+    // the backdrop the block paints itself with, standard vs split
+    const blockBgKey = isCover ? 'coverBackground' : 'background';
     configData.data.forEach((mappingConfig) => {
-      const value = properties[mappingConfig.key];
+      const value = mappingConfig.key === blockBgKey
+        ? getThemeSafeBackground(properties[blockBgKey], properties.colorTheme)
+        : properties[mappingConfig.key];
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'productLockups':
@@ -131,13 +157,15 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
           break;
         case 'actions': {
           const actionEL = blockContent?.querySelector(mappingConfig?.selector);
-          actionEL.innerHTML = '';
-          handleActionButtons(
-            blockContent,
-            properties,
-            value,
-            actionEL,
-          );
+          if (actionEL) {
+            actionEL.innerHTML = '';
+            handleActionButtons(
+              blockContent,
+              properties,
+              value,
+              actionEL,
+            );
+          }
           break;
         }
         case 'checklistItems':
@@ -155,9 +183,10 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     });
     handleVariants(sectionWrapper, blockContent, properties);
     handleSwap(blockContent, properties);
-    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error(error);
+  } finally {
+    blockContent.querySelectorAll('.to-remove').forEach((el) => el.remove());
   }
 }

@@ -13,10 +13,12 @@ export const CONFIG = {
   prod: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-ab8ae6.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
+      figmaMappingUrl: '/api/ai/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      figmaAIBlockContentUrl: '/api/ai/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
+      blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-prod',
@@ -27,10 +29,12 @@ export const CONFIG = {
   stage: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-d587ab.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
+      figmaMappingUrl: '/api/ai/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      figmaAIBlockContentUrl: '/api/ai/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
+      blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-stage',
@@ -41,10 +45,12 @@ export const CONFIG = {
   dev: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos502-prod-or2-1de07c.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
+      figmaMappingUrl: '/api/ai/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      figmaAIBlockContentUrl: '/api/ai/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
+      blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',
@@ -55,10 +61,12 @@ export const CONFIG = {
   dev02: {
     streamMapper: {
       serviceEP: 'https://adobe-acom-stream-service-deploy-ethos501-prod-or2-b0c6b7.cloud.adobe.io',
-      figmaMappingUrl: '/api/fig-comps',
+      figmaMappingUrl: '/api/ai/fig-comps',
       figmaBlockContentUrl: '/api/fig-comp-details',
+      figmaAIBlockContentUrl: '/api/ai/fig-comp-details',
       pushToDaUrl: '/api/push-html',
       blockMappingsUrl: 'https://stage--stream-mapper--adobecom.aem.page/block-mappings',
+      blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
       figmaAuthToken: '',
       daToken: '',
       preflightUrl: '/drafts/stream/tools/preflight-controller?milolibs=stream-dev',

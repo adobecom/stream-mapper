@@ -14,6 +14,8 @@ export default async function mapActionScrollerBlockContent(sectionWrapper, bloc
       // eslint-disable-next-line no-restricted-syntax
       for (const item of Items) {
         const clonedActionItem = actionItem.cloneNode(true);
+        // Icon action gallery tiles always use Milo action-item static-links variant.
+        clonedActionItem.classList.add('static-links');
         const actionItemFigContent = {
           ...figContent,
           details: {

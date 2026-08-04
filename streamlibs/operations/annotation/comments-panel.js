@@ -1486,9 +1486,20 @@ export default function createCommentsPanelController({
         if (isCommentThread && window.streamConfig?.operation === 'aiSeoAnnotation') {
           const normalizedStatus = store.normalizeCommentStatus(thread.status);
           const isOwner = isCurrentUserCollabOwner();
+          let threadTarget = store.getElementForThread(thread);
+          if (!threadTarget) {
+            const ep = thread.elementPath;
+            // eslint-disable-next-line no-nested-ternary
+            const sel = typeof ep === 'object' ? ep?.selector : (typeof ep === 'string' ? (() => { try { return JSON.parse(ep)?.selector; } catch { return null; } })() : null);
+            if (sel && annotationUI.mainEl) {
+              threadTarget = annotationUI.mainEl.querySelector(sel);
+            }
+          }
+          const isInsideFragment = !!threadTarget?.closest('.fragment');
           const isAutoApplyEnabled = isOwner
             && (normalizedStatus === 'Resolved' || normalizedStatus === 'Accepted')
-            && !pendingAutoApplyThreadIds.has(thread.id);
+            && !pendingAutoApplyThreadIds.has(thread.id)
+            && !isInsideFragment;
           const autoApplyBtn = document.createElement('button');
           autoApplyBtn.type = 'button';
           autoApplyBtn.className = 'annotation-card-auto-apply-btn';
@@ -1497,9 +1508,11 @@ export default function createCommentsPanelController({
           // eslint-disable-next-line no-nested-ternary
           autoApplyBtn.title = !isOwner
             ? 'Only the owner can auto apply comments'
-            : isAutoApplyEnabled
-              ? 'Auto apply comment'
-              : 'Resolve the comment to enable auto apply';
+            : isInsideFragment
+              ? 'Auto apply is not available for fragment content'
+              : isAutoApplyEnabled
+                ? 'Auto apply comment'
+                : 'Resolve the comment to enable auto apply';
           autoApplyBtn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
             <path d="M19 15l1.09 2.91L23 19l-2.91 1.09L19 23l-1.09-2.91L15 19l2.91-1.09Z"/>

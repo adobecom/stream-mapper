@@ -172,9 +172,11 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     if (properties?.miloTag?.includes('app')) configData = mappingData.appstore;
     if (properties?.miloTag?.includes('sbcpy')) configData = mappingData.subcopy;
     configData.data.forEach((mappingConfig) => {
-      const value = mappingConfig.key === 'foregroundImage'
+      const rawValue = mappingConfig.key === 'foregroundImage'
         ? resolveForegroundImageValue(properties, properties[mappingConfig.key])
         : properties[mappingConfig.key];
+      const enabledFlag = `${mappingConfig.key}Enabled`;
+      const value = (enabledFlag in properties && !properties[enabledFlag]) ? '' : rawValue;
       const areaEl = handleComponents(blockContent, value, mappingConfig);
       switch (mappingConfig.key) {
         case 'actions':

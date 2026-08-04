@@ -37,6 +37,9 @@ async function processItemsWithTemplate(items, div, templateElement, figContent,
 export default async function mapcarousel(sectionWrapper, blockContent, figContent) {
   const properties = figContent?.details?.properties;
   if (!properties) return undefined;
+  ['medias', 'cards', 'bricks', 'texts'].forEach((key) => {
+    if (!Array.isArray(properties[key])) properties[key] = [];
+  });
   const carouselDivs = Array.from(blockContent);
   const sections = [];
 
@@ -116,10 +119,10 @@ export default async function mapcarousel(sectionWrapper, blockContent, figConte
             'editorial-card.plain.html',
             '.card-editorial',
           );
-          if (properties.card.name.toLowerCase().includes('open')) {
+          if (properties.card?.name?.toLowerCase().includes('open')) {
             templateElement.classList.add('open');
           }
-          if (properties.card.name.toLowerCase().includes('center')) {
+          if (properties.card?.name?.toLowerCase().includes('center')) {
             templateElement.classList.add('center');
           }
           // eslint-disable-next-line no-await-in-loop

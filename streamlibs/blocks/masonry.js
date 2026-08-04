@@ -74,15 +74,52 @@ function handleAppList(appList, appListEl) {
   });
 }
 
-function handleItemList(itemList, itemListEl) {
+function isLoadableItemIconUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('data:')) return true;
+  if (!/^https?:\/\//.test(url)) return false;
+  if (url.includes('...') || /figma-\d+:/.test(url)) return false;
+  return true;
+}
+
+function resolveItemIconUrl(icon) {
+  let candidate = '';
+  if (!icon) {
+    candidate = '';
+  } else if (typeof icon === 'string') {
+    if (/^(https?:)?\/\//.test(icon) || icon.startsWith('data:')) candidate = icon;
+    else candidate = LOGOS[icon] || SVG_ICONS[icon] || '';
+  } else if (typeof icon === 'object') {
+    const ref = icon.imageRef || icon.url;
+    if (ref && (/^(https?:)?\/\//.test(ref) || ref.startsWith('data:'))) candidate = ref;
+    else if (icon.name) candidate = LOGOS[icon.name] || SVG_ICONS[icon.name] || '';
+  }
+  return isLoadableItemIconUrl(candidate) ? candidate : SVG_ICONS.placeholder;
+}
+
+function createIconPicture(src, alt = '') {
+  const picture = document.createElement('picture');
+  const img = document.createElement('img');
+  img.loading = 'lazy';
+  img.alt = alt;
+  img.src = src;
+  picture.appendChild(img);
+  return picture;
+}
+
+function handleItemList(itemList, itemListEl, blockTemplate) {
+  itemListEl.classList.add('icon-stack-area', 'body-s');
+  blockTemplate?.classList.add('icon-stack');
   itemList.forEach((item) => {
     const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.href = SVG_ICONS.placeholder;
-    a.innerText = a.href;
-    li.append(a);
-    if (item.text) li.innerHTML += item.text;
-    itemListEl.append(li);
+    li.appendChild(createIconPicture(resolveItemIconUrl(item?.icon)));
+    if (item.text) {
+      const textEl = document.createElement('span');
+      textEl.className = 'list-text';
+      textEl.textContent = item.text;
+      li.appendChild(textEl);
+    }
+    itemListEl.appendChild(li);
   });
 }
 
@@ -94,6 +131,9 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
     properties.masonryArrangement = [];
     properties.bricks.forEach((brick) => {
       if (!brick.brickType || !brick.spanLayout) return;
+      if (!brick.productLockup) brick.productLockup = {};
+      if (!Array.isArray(brick.appList)) brick.appList = [];
+      if (!Array.isArray(brick.itemList)) brick.itemList = [];
       const blockTemplate = blockContent.cloneNode(true);
       if (brick.colorTheme) blockTemplate.classList.add(brick.colorTheme);
       properties.masonryArrangement.push(brick.spanLayout.toLowerCase());
@@ -133,7 +173,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             const itemListEl = blockTemplate.querySelector(mappingConfig.selector);
             if (brick.itemList.length) {
               itemListEl.innerHTML = '';
-              handleItemList(brick.itemList, itemListEl);
+              handleItemList(brick.itemList, itemListEl, blockTemplate);
             } else itemListEl.classList.add('to-remove');
           }
             break;

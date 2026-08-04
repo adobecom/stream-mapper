@@ -51,6 +51,7 @@ export function ensureStreamMapperForStandalone(overrides = {}) {
     figmaMappingUrl: '/api/fig-comps',
     figmaBlockContentUrl: '/api/fig-comp-details',
     blockMappingsUrl: 'https://main--stream-mapper--adobecom.aem.live/block-mappings',
+    blockTemplatesUrl: 'https://main--stream-mapper--adobecom.aem.live/block-templates',
     figmaAuthToken: '',
     daToken: '',
     ...existing,
@@ -137,6 +138,7 @@ export const getFirstType = (text) => {
 
 export function getIconSize(value) {
   const sizeValue = value?.toLowerCase();
+  if (!sizeValue) return 'm';
   let size = 'm';
   if (sizeValue.includes('s')) size = 's';
   if (sizeValue.includes('m')) size = 'm';

@@ -49,7 +49,11 @@ export default function createEditDragDropController({
       targetBlock = targetBlock.parentNode;
     }
 
-    if (targetBlock && currentDropContainer.contains(targetBlock)) {
+    if (
+      targetBlock
+      && targetBlock !== editState.draggedMainBlock
+      && currentDropContainer.contains(targetBlock)
+    ) {
       const rect = targetBlock.getBoundingClientRect();
       const shouldInsertBefore = event.clientY < rect.top + rect.height / 2;
       if (shouldInsertBefore && targetBlock.previousSibling !== dropPlaceholder) {
@@ -60,8 +64,8 @@ export default function createEditDragDropController({
       return;
     }
 
-    // eslint-disable-next-line max-len
-    if (dropPlaceholder.parentNode !== currentDropContainer || dropPlaceholder !== currentDropContainer.lastChild) {
+   // eslint-disable-next-line max-len
+    if (dropPlaceholder.parentNode !== currentDropContainer) {
       currentDropContainer.appendChild(dropPlaceholder);
     }
   }

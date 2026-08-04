@@ -15,6 +15,7 @@ export function resolveImageValue(value) {
 
 export function handleTextComponent({ el, value, selector }) {
   const textEl = el.querySelector(selector);
+  if (!textEl) return null;
   if (!value) return textEl.classList.add('to-remove');
   textEl.innerHTML = '';
   const lines = value.split('\n');
@@ -30,17 +31,22 @@ export function handleTextComponent({ el, value, selector }) {
 
 export function handleImageComponent({ el, value, selector }) {
   const picEl = el.querySelector(selector);
-  if (!value) return picEl.classList.add('to-remove');
+  if (!picEl) return null;
   const { url, altText } = resolveImageValue(value);
+  const isImageUrl = /^(https?:)?\/\//.test(url) || url.startsWith('data:') || url.startsWith('/');
+  if (!isImageUrl) return picEl.classList.add('to-remove');
   picEl.querySelectorAll('source').forEach((source) => { source.srcset = url; });
   const imgEl = picEl.querySelector('img');
-  imgEl.src = url;
-  if (altText) imgEl.alt = altText;
+  if (imgEl) {
+    imgEl.src = url;
+    if (altText) imgEl.alt = altText;
+  }
   return picEl;
 }
 
 function handleContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
+  if (!containerEl) return null;
   if (!value || (Array.isArray(value) && value.length < 1)) return containerEl.classList.add('to-remove');
   containerEl.innerHTML = '';
   return containerEl;
@@ -48,6 +54,7 @@ function handleContainerComponent({ el, value, selector }) {
 
 function handleLogoContainerComponent({ el, value, selector }) {
   const containerEl = el.querySelector(selector);
+  if (!containerEl) return null;
   if (!value) return containerEl.classList.add('to-remove');
   return containerEl;
 }
@@ -113,16 +120,9 @@ export function handleComponents(el, value, mappingConfig) {
 export function handleSpacer(el, spacer, position) {
   if (!spacer) return;
   const spacerName = spacer.toLowerCase().trim();
-  let spacerClass = '';
-  if (spacerName.includes(' m ')) spacerClass = 'm';
-  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
-  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
-  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l')) spacerClass = 'l';
-  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
-  else if (spacerName.includes(' s ')) spacerClass = 's';
-  if (!spacerClass) return;
-  el.classList.add(`${spacerClass}-spacing-${position}`);
+  const match = spacerName.match(/(xxxl|xxl|xl|xs|m|l|s)(?:\s|$)/);
+  if (!match) return;
+  el.classList.add(`${match[1]}-spacing-${position}`);
 }
 
 export function handleActionButtons(el, configData, value, areaEl) {
@@ -246,31 +246,31 @@ export function handleColorThemeWithSectionMetadata(secEl, blockEl, value) {
   styleLoc.innerHTML += value;
 }
 
-export function handleUpsWithSectionMetadata(secEl, blockEl, value) {
+export function handleUpsWithSectionMetadata(secEl, blockEl, value, count) {
   const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
+  const upsByCount = {
+    2: 'two-up', 3: 'three-up', 4: 'four-up', 5: 'five-up', 6: 'six-up',
+  };
+  let up = '';
+  if (/2\s*up/i.test(value)) up = 'two-up';
+  else if (/3\s*up/i.test(value)) up = 'three-up';
+  else if (/4\s*up/i.test(value)) up = 'four-up';
+  else if (/5\s*up/i.test(value)) up = 'five-up';
+  else if (/6\s*up/i.test(value)) up = 'six-up';
+  if (!up) up = upsByCount[count] || '';
+  if (!up) return;
   if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
-  if (/2\s*up/i.test(value)) styleLoc.innerHTML += 'two-up';
-  if (/3\s*up/i.test(value)) styleLoc.innerHTML += 'three-up';
-  if (/4\s*up/i.test(value)) styleLoc.innerHTML += 'four-up';
-  if (/5\s*up/i.test(value)) styleLoc.innerHTML += 'five-up';
-  if (/6\s*up/i.test(value)) styleLoc.innerHTML += 'six-up';
+  styleLoc.innerHTML += up;
 }
 
 export function handleSpacerWithSectionMetadata(secEl, blockEl, spacer, position) {
   if (!spacer) return;
-  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   const spacerName = spacer.toLowerCase().trim();
-  let spacerClass = '';
-  if (spacerName.includes(' m')) spacerClass = 'm';
-  else if (spacerName.includes(' xxxl ')) spacerClass = 'xxxl';
-  else if (spacerName.includes('xxl')) spacerClass = 'xxl';
-  else if (spacerName.includes(' xl ')) spacerClass = 'xl';
-  else if (spacerName.includes(' l ')) spacerClass = 'l';
-  else if (spacerName.includes(' xs ')) spacerClass = 'xs';
-  else if (spacerName.includes(' s ')) spacerClass = 's';
-  if (!spacerClass) return;
+  const match = spacerName.match(/(xxxl|xxl|xl|xs|m|l|s)(?:\s|$)/);
+  if (!match) return;
+  const styleLoc = addOrUpdateSectionMetadata(secEl, blockEl, 'style');
   if (styleLoc.innerHTML) styleLoc.innerHTML += ', ';
-  styleLoc.innerHTML += `${spacerClass}-spacing-${position}`;
+  styleLoc.innerHTML += `${match[1]}-spacing-${position}`;
 }
 
 export function handleBackgroundWithSectionMetadata(secEl, blockEl, value) {
