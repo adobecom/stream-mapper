@@ -1183,7 +1183,7 @@ export default function createCommentsPanelController({
 
     if (includeEdits && snapshot && Object.prototype.hasOwnProperty.call(snapshot, 'edits')) {
       try {
-        const nextEditSnapshot = annotationService.normalizeEditsSnapshot(snapshot.edits);
+        const nextEditSnapshot = annotationService.normalizeEditsSnapshot(snapshot);
         applyRemoteEditsSnapshot(nextEditSnapshot);
       } catch (error) {
         // eslint-disable-next-line no-console
