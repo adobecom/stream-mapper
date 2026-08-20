@@ -682,6 +682,30 @@ export function createAnnotationStore({ annotationState, annotationUI }) {
         if (targetBlock) {
           const originalBlockHtml = targetBlock.outerHTML;
           const beforeBlockReplace = updatedHtml;
+
+          const pathWithinBlock = edit.elementProps?.pathWithinBlock;
+          if (edit.editType === 'text' && pathWithinBlock) {
+            try {
+              const targetEl = targetBlock.querySelector(pathWithinBlock);
+              if (targetEl) {
+                const origElHtml = targetEl.outerHTML;
+                let newElHtml = origElHtml;
+                if (fromHtml && origElHtml.includes(fromHtml)) {
+                  newElHtml = replaceFirstOccurrence(origElHtml, fromHtml, toHtml || fromHtml);
+                } else if (fromText && origElHtml.includes(fromText)) {
+                  newElHtml = replaceFirstOccurrence(origElHtml, fromText, toText);
+                }
+                if (newElHtml !== origElHtml) {
+                  const newBlockHtml = replaceFirstOccurrence(
+                    originalBlockHtml, origElHtml, newElHtml,
+                  );
+                  updatedHtml = replaceFirstOccurrence(updatedHtml, originalBlockHtml, newBlockHtml);
+                }
+                if (updatedHtml !== beforeBlockReplace) return;
+              }
+            } catch { /* invalid selector — fall through */ }
+          }
+
           if (fromHtml && originalBlockHtml.includes(fromHtml)) {
             const htmlCount = countOccurrences(originalBlockHtml, fromHtml);
             const htmlIdx = getViewportOccurrenceIndex(htmlCount, edit.viewport);
