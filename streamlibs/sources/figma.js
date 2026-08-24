@@ -279,6 +279,41 @@ function showFailedBlocksPopover(failedBlocks) {
   });
 }
 
+// Merge charts that belong to the same Chart Selector (2-up/3-up) into a single
+// section wrapper so Milo counts N chart divs and applies up-N (side-by-side),
+// matching the Figma layout. Charts are moved left→right by chartGroupOrder into
+// the group's earliest wrapper (preserving vertical page position); the other
+// now-empty wrappers are dropped (set to null → removed by the caller's filter).
+// blocks and htmlParts are index-aligned; blocks carry chartGroupId/chartGroupOrder
+// from stream-service. Blocks with no chartGroupId (all non-chart blocks and
+// standalone 1-up charts) are skipped entirely, so nothing else is affected.
+function mergeChartGroups(blocks, htmlParts) {
+  const groups = new Map();
+  blocks.forEach((block, i) => {
+    const groupId = block?.chartGroupId;
+    if (!groupId) return;
+    const part = htmlParts[i];
+    // Only merge fully-mapped chart section wrappers (Element hosting a .chart).
+    if (!(part instanceof Element) || !part.querySelector(':scope > .chart')) return;
+    if (!groups.has(groupId)) groups.set(groupId, []);
+    groups.get(groupId).push({ index: i, order: block.chartGroupOrder ?? 0, part });
+  });
+
+  groups.forEach((members) => {
+    if (members.length < 2) return;
+    const hostIndex = Math.min(...members.map((m) => m.index));
+    const host = members.find((m) => m.index === hostIndex).part;
+    // Re-append every member's chart into the host in left→right order.
+    // appendChild moves nodes, so the host's own chart is reordered in place too.
+    [...members]
+      .sort((a, b) => a.order - b.order)
+      .map((m) => m.part.querySelector(':scope > .chart'))
+      .filter(Boolean)
+      .forEach((chartEl) => host.appendChild(chartEl));
+    members.forEach((m) => { if (m.part !== host) htmlParts[m.index] = null; });
+  });
+}
+
 async function createHTML(blockMapping, figmaUrl, tracker) {
   const blocks = blockMapping.details.components;
   const { blockContentConcurrency } = await getFigmaRetryConfig();
@@ -289,6 +324,7 @@ async function createHTML(blockMapping, figmaUrl, tracker) {
   );
   const failedBlocks = htmlParts.filter((r) => r?._failed);
   if (failedBlocks.length) showFailedBlocksPopover(failedBlocks);
+  mergeChartGroups(blocks, htmlParts);
   return htmlParts.filter((r) => r && !r._failed);
 }
 
