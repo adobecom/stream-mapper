@@ -198,6 +198,9 @@ export const COMPONENTS_NAMES = {
   'action-item': {
     default: { id: 'logo-gallery', name: 'Logo Gallery' },
   },
+  'quick-facts': {
+    default: { id: 'quick-facts', name: 'Quick Facts', composite: true },
+  },
 };
 
 export const LOADER_MSG_LIST = [

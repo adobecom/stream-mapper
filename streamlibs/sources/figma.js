@@ -105,6 +105,7 @@ async function fetchFigmaMapping(figmaUrl) {
 const SPECIAL_OVERRIDES = {
   'icon-action-gallery': ({ doc }) => doc.querySelector('div'),
   carousel: ({ doc }) => doc.body.querySelectorAll(':scope > div'),
+  'quick-facts': ({ doc }) => doc.querySelectorAll('.quick-facts, .quote, .text'),
 };
 
 function getHtml(resp, miloId, variant, figContent) {
