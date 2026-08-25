@@ -24,6 +24,20 @@ function anchor(text, href = DEFAULT_TMP_URL) {
   return a;
 }
 
+function captureOstAnchor(blockTemplate, mappingConfig) {
+  const { key, selector } = mappingConfig;
+  if (key !== 'price' && key !== 'heading') return null;
+  const el = blockTemplate.querySelector(selector);
+  return el?.querySelector('a[href]') ?? null;
+}
+
+function priceLink(text, ostAnchor) {
+  if (!ostAnchor) return anchor(text);
+  const link = ostAnchor.cloneNode(false);
+  link.textContent = text;
+  return link;
+}
+
 function isEmptyList(value) {
   return !Array.isArray(value) || value.length === 0;
 }
@@ -79,11 +93,11 @@ function handlePriorPrice(card, areaEl) {
   areaEl.append(em);
 }
 
-function handleSpecialOffersHeading(card, areaEl) {
+function handleSpecialOffersHeading(card, areaEl, ostAnchor) {
   if (card.heading) areaEl.append(card.heading);
   if (!card.price) return;
   if (card.heading) areaEl.append(document.createElement('br'));
-  areaEl.append(anchor(card.price));
+  areaEl.append(priceLink(card.price, ostAnchor));
 }
 
 function handleChecklistHeader(value, rowEl) {
@@ -116,20 +130,22 @@ function handleChecklist(items, rowEl, bulletCta) {
   rowEl.classList.add('to-remove');
 }
 
-// Anything inside a mapped cell that no sheet selector claimed is template scaffolding —
-// authoring notes such as "Pricing must be decorated with h2" — and must not reach the page.
-// Milo authors the promo line as an h5 directly under the price. Only the plans
-// template ships that slot, so on every other variant we create it from the sheet's
-// own `price` row rather than hard-coding a per-variant selector.
+
+const PROMO_ANCHORS = ['price', 'heading'];
+
 function handlePromo(card, blockTemplate, configData) {
   if (!card.promo) return null;
   if (configData.data.some((row) => row.key === 'promo')) return null;
-  const priceRow = configData.data.find((row) => row.key === 'price');
-  const priceEl = priceRow && blockTemplate.querySelector(priceRow.selector);
-  if (!priceEl) return null;
+  let anchorEl = null;
+  PROMO_ANCHORS.some((key) => {
+    const row = configData.data.find((item) => item.key === key);
+    anchorEl = row ? blockTemplate.querySelector(row.selector) : null;
+    return !!anchorEl;
+  });
+  if (!anchorEl) return null;
   const promoEl = document.createElement('h5');
   promoEl.textContent = card.promo;
-  priceEl.after(promoEl);
+  anchorEl.after(promoEl);
   return promoEl;
 }
 
@@ -198,6 +214,7 @@ function mapCard(blockTemplate, card, configData, variant) {
   configData.data.forEach((mappingConfig) => {
     const { key } = mappingConfig;
     const value = resolveValue(key, card, variant);
+    const ostAnchor = captureOstAnchor(blockTemplate, mappingConfig);
     const areaEl = handleComponents(blockTemplate, value, mappingConfig);
     if (!areaEl) return;
     mappedEls.add(areaEl);
@@ -227,8 +244,11 @@ function mapCard(blockTemplate, card, configData, variant) {
       case 'priorPrice':
         handlePriorPrice(card, areaEl);
         break;
+      case 'price':
+        if (ostAnchor) areaEl.replaceChildren(priceLink(areaEl.textContent, ostAnchor));
+        break;
       case 'heading':
-        if (variant === 'special-offers') handleSpecialOffersHeading(card, areaEl);
+        if (variant === 'special-offers') handleSpecialOffersHeading(card, areaEl, ostAnchor);
         break;
       case 'checklistHeader':
         handleChecklistHeader(value, areaEl);
