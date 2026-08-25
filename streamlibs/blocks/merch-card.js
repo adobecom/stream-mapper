@@ -130,7 +130,6 @@ function handleChecklist(items, rowEl, bulletCta) {
   rowEl.classList.add('to-remove');
 }
 
-
 const PROMO_ANCHORS = ['price', 'heading'];
 
 function handlePromo(card, blockTemplate, configData) {
