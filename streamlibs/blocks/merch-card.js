@@ -10,8 +10,10 @@ import {
 import { safeJsonFetch } from '../utils/error-handler.js';
 import { DEFAULT_TMP_URL } from '../utils/constants.js';
 
-const CHECKMARK_ICON = 'https://main--milo--adobecom.aem.page/drafts/mirafedas/assets/img/feature-icons/svg/checkmark-20.svg';
-const INFO_ICON = '/drafts/rosahu/info-icon.svg';
+// Fallback only. Where the template authors its own info icon (plans, special-offers)
+// that node is cloned instead, which preserves its #tooltip-text fragment. This
+// covers the variants whose template has no callout slot at all.
+const INFO_ICON = '/assets/info-icon.svg';
 
 function rowCells(row) {
   return row ? Array.from(row.querySelectorAll(':scope > div')) : [];
@@ -24,18 +26,13 @@ function anchor(text, href = DEFAULT_TMP_URL) {
   return a;
 }
 
-function captureOstAnchor(blockTemplate, mappingConfig) {
+const ANCHORED_KEYS = ['callout'];
+
+function captureTemplateAnchor(blockTemplate, mappingConfig) {
   const { key, selector } = mappingConfig;
-  if (key !== 'price' && key !== 'heading') return null;
+  if (!ANCHORED_KEYS.includes(key)) return null;
   const el = blockTemplate.querySelector(selector);
   return el?.querySelector('a[href]') ?? null;
-}
-
-function priceLink(text, ostAnchor) {
-  if (!ostAnchor) return anchor(text);
-  const link = ostAnchor.cloneNode(false);
-  link.textContent = text;
-  return link;
 }
 
 function isEmptyList(value) {
@@ -71,11 +68,13 @@ function handleLinks(value, areaEl) {
   });
 }
 
-function handleCallout(card, areaEl) {
+function handleCallout(card, areaEl, iconAnchor) {
   const em = document.createElement('em');
   em.textContent = card.callout;
+  // The template authors the info icon inline, and its #fragment is the tooltip
+  // copy Milo renders — reuse that node rather than rebuilding the href here.
   if (card.hasCalloutIcon) {
-    em.append(' ', anchor('#ICON', INFO_ICON));
+    em.append(' ', iconAnchor ? iconAnchor.cloneNode(true) : anchor('#ICON', INFO_ICON));
   }
   areaEl.append(em);
 }
@@ -93,11 +92,11 @@ function handlePriorPrice(card, areaEl) {
   areaEl.append(em);
 }
 
-function handleSpecialOffersHeading(card, areaEl, ostAnchor) {
+function handleSpecialOffersHeading(card, areaEl) {
   if (card.heading) areaEl.append(card.heading);
   if (!card.price) return;
   if (card.heading) areaEl.append(document.createElement('br'));
-  areaEl.append(priceLink(card.price, ostAnchor));
+  areaEl.append(card.price);
 }
 
 function handleChecklistHeader(value, rowEl) {
@@ -117,8 +116,13 @@ function handleChecklist(items, rowEl, bulletCta) {
   const parent = rowEl.parentElement;
   items.forEach((item, index) => {
     const row = rowEl.cloneNode(true);
+    // The mini-compare shape gives every row its own product tile; the full-compare
+    // shape sets icon:false and keeps whatever checkmark the template authored.
     const [iconCell, textCell] = rowCells(row);
-    if (iconCell) iconCell.replaceChildren(anchor(CHECKMARK_ICON, CHECKMARK_ICON));
+    if (iconCell && item?.icon?.name) {
+      iconCell.replaceChildren();
+      handleIcon(item.icon, iconCell);
+    }
     if (textCell) {
       textCell.replaceChildren(typeof item === 'string' ? item : (item?.text || ''));
       if (bulletCta && index === items.length - 1) {
@@ -130,22 +134,43 @@ function handleChecklist(items, rowEl, bulletCta) {
   rowEl.classList.add('to-remove');
 }
 
-const PROMO_ANCHORS = ['price', 'heading'];
+// Milo stacks the optional one-line slots under the price in a fixed order:
+// promo (h5) then callout (h6). Only the plans template ships both, so on the
+// other variants we create whichever the sheet has no row for and place it after
+// the nearest preceding slot the sheet does resolve. Listed in render order —
+// each entry may anchor off the one before it.
+const SYNTH_SLOTS = [
+  { key: 'promo', tag: 'h5', anchors: ['priceAddendum', 'subheading', 'price', 'heading'] },
+  { key: 'links', tag: 'p', anchors: ['body', 'promo', 'priceAddendum', 'price'] },
+  { key: 'callout', tag: 'h6', anchors: ['links', 'body', 'promo', 'price', 'heading'] },
+];
 
-function handlePromo(card, blockTemplate, configData) {
-  if (!card.promo) return null;
-  if (configData.data.some((row) => row.key === 'promo')) return null;
-  let anchorEl = null;
-  PROMO_ANCHORS.some((key) => {
+function resolveAnchor(keys, blockTemplate, configData, synthesised) {
+  let found = null;
+  keys.some((key) => {
     const row = configData.data.find((item) => item.key === key);
-    anchorEl = row ? blockTemplate.querySelector(row.selector) : null;
-    return !!anchorEl;
+    found = synthesised[key] ?? (row ? blockTemplate.querySelector(row.selector) : null);
+    return !!found;
   });
-  if (!anchorEl) return null;
-  const promoEl = document.createElement('h5');
-  promoEl.textContent = card.promo;
-  anchorEl.after(promoEl);
-  return promoEl;
+  return found;
+}
+
+// Returns the elements it created so the caller can keep them out of the sweep.
+function handleSynthSlots(card, blockTemplate, configData, templateAnchors) {
+  const synthesised = {};
+  SYNTH_SLOTS.forEach(({ key, tag, anchors }) => {
+    if (!card[key] || (Array.isArray(card[key]) && !card[key].length)) return;
+    if (configData.data.some((row) => row.key === key)) return;
+    const anchorEl = resolveAnchor(anchors, blockTemplate, configData, synthesised);
+    if (!anchorEl) return;
+    const el = document.createElement(tag);
+    if (key === 'callout') handleCallout(card, el, templateAnchors[key]);
+    else if (key === 'links') handleLinks(card.links, el);
+    else el.textContent = card[key];
+    anchorEl.after(el);
+    synthesised[key] = el;
+  });
+  return Object.values(synthesised);
 }
 
 function sweepUnmapped(mappedEls) {
@@ -202,6 +227,9 @@ function resolveValue(key, card, variant) {
 
 function mapCard(blockTemplate, card, configData, variant) {
   const mappedEls = new Set();
+  // Anchors lifted out of the template before handleComponents overwrites them,
+  // keyed by sheet row so the synthesised slots can reuse them.
+  const templateAnchors = {};
 
   // Rows 5+ of the compare template are extra copies of the feature row; the mapped items
   // are cloned from row 4 and inserted ahead of it, so the originals always go.
@@ -213,7 +241,8 @@ function mapCard(blockTemplate, card, configData, variant) {
   configData.data.forEach((mappingConfig) => {
     const { key } = mappingConfig;
     const value = resolveValue(key, card, variant);
-    const ostAnchor = captureOstAnchor(blockTemplate, mappingConfig);
+    const templateAnchor = captureTemplateAnchor(blockTemplate, mappingConfig);
+    if (templateAnchor) templateAnchors[key] = templateAnchor;
     const areaEl = handleComponents(blockTemplate, value, mappingConfig);
     if (!areaEl) return;
     mappedEls.add(areaEl);
@@ -223,7 +252,7 @@ function mapCard(blockTemplate, card, configData, variant) {
         areaEl.replaceChildren();
         handleIcon(card.icon, areaEl);
         // Only the plans template holds a second mnemonic in the same paragraph.
-        if (variant === 'plans' && card.icon2) {
+        if (card.icon2) {
           areaEl.append(' ');
           handleIcon(card.icon2, areaEl);
         }
@@ -238,16 +267,30 @@ function mapCard(blockTemplate, card, configData, variant) {
         handleLinks(value, areaEl);
         break;
       case 'callout':
-        handleCallout(card, areaEl);
+        handleCallout(card, areaEl, templateAnchor);
         break;
       case 'priorPrice':
         handlePriorPrice(card, areaEl);
         break;
       case 'price':
-        if (ostAnchor) areaEl.replaceChildren(priceLink(areaEl.textContent, ostAnchor));
+        // Plain text, no OST anchor. The template's link carries a placeholder osi, and
+        // Milo resolves every link it finds — so keeping it would overwrite the Figma
+        // price with that offer's amount on every card. An author adds the real link.
+        areaEl.replaceChildren(card.price);
+        if (card.priorPrice && card.priorPrice !== card.price
+          && !configData.data.some((row) => row.key === 'priorPrice')) {
+          const del = document.createElement('del');
+          del.append(card.priorPrice);
+          areaEl.prepend(del, ' ');
+        }
         break;
       case 'heading':
-        if (variant === 'special-offers') handleSpecialOffersHeading(card, areaEl, ostAnchor);
+        if (variant === 'special-offers') handleSpecialOffersHeading(card, areaEl);
+        break;
+      case 'priceAddendum':
+        areaEl.replaceChildren(...String(value).split('\n').flatMap((line, i) => (
+          i ? [document.createElement('br'), line] : [line]
+        )));
         break;
       case 'checklistHeader':
         handleChecklistHeader(value, areaEl);
@@ -270,8 +313,8 @@ function mapCard(blockTemplate, card, configData, variant) {
     if (deviceTypes) deviceTypes.classList.add('to-remove');
   }
 
-  const promoEl = handlePromo(card, blockTemplate, configData);
-  if (promoEl) mappedEls.add(promoEl);
+  handleSynthSlots(card, blockTemplate, configData, templateAnchors)
+    .forEach((el) => mappedEls.add(el));
 
   sweepUnmapped(mappedEls);
 }
@@ -295,9 +338,11 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
 
     (properties.cards || []).forEach((card) => {
       const blockTemplate = blockContent.cloneNode(true);
-      blockTemplate.className = ['merch-card', variant, ...(properties.styles || [])]
-        .filter(Boolean)
-        .join(' ');
+      const styles = new Set(properties.styles || []);
+      if (variant === 'mini-compare-chart' && properties.compareShape === 'compare') {
+        styles.add('bullet-list');
+      }
+      blockTemplate.className = ['merch-card', variant, ...styles].filter(Boolean).join(' ');
       sectionWrapper.appendChild(blockTemplate);
       mapCard(blockTemplate, card, configData, variant);
     });
