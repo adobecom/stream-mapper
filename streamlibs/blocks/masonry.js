@@ -37,6 +37,16 @@ function handleBrickProductLockups(value, areaEl) {
   }
 }
 
+function applyHorizontalMediaSide(blockTemplate, layout) {
+  const layoutVal = `${layout || ''}`.toLowerCase();
+  // Match media/how-to: layout starting with "image" → media first (Milo media-left)
+  if (!layoutVal.startsWith('image')) return;
+  const foreground = blockTemplate.querySelector(':scope > div:last-child');
+  if (!foreground) return;
+  const [textCol, mediaCol] = foreground.querySelectorAll(':scope > div');
+  if (textCol && mediaCol) foreground.insertBefore(mediaCol, textCol);
+}
+
 function handlePhoto(value, brickProperties, blockTemplate, selectors) {
   const selector = selectors.split(',').map((s) => s.trim());
   let keepImg = null;
@@ -47,17 +57,17 @@ function handlePhoto(value, brickProperties, blockTemplate, selectors) {
     [keepImg, removeImg] = selector;
   }
 
-  if (keepImg) {
-    const keepImgEl = blockTemplate.querySelector(`${keepImg} picture`);
-    if (keepImgEl) replaceImage(keepImgEl, value);
-    if (removeImg) {
-      const removeImgEl = blockTemplate.querySelector(removeImg);
-      if (removeImgEl) removeImgEl?.classList.add('to-remove');
-    }
-  } else {
+  // No photo: remove both media slots so Milo doesn't keep a split-row layout
+  // that squeezes copy (e.g. mid-word heading wraps on span-4 bricks).
+  if (!value || !keepImg) {
     blockTemplate.querySelector(selector[0])?.classList.add('to-remove');
     blockTemplate.querySelector(selector[1])?.classList.add('to-remove');
+    return;
   }
+
+  const keepImgEl = blockTemplate.querySelector(`${keepImg} picture`);
+  if (keepImgEl) replaceImage(keepImgEl, value);
+  if (removeImg) blockTemplate.querySelector(removeImg)?.classList.add('to-remove');
 }
 
 function handleAppList(appList, appListEl) {
@@ -160,6 +170,7 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
             break;
           case 'layout':
             if (brick.layout === 'center') blockTemplate.classList.add('center');
+            if (brick.photo) applyHorizontalMediaSide(blockTemplate, brick.layout);
             break;
           case 'appList': {
             const appListEl = blockTemplate.querySelector(mappingConfig.selector);
