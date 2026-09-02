@@ -61,14 +61,27 @@ function buildHeaderColumn(col = {}) {
   if (mnemonic) parts.push(`<p><a href="${mnemonic}">${mnemonic}</a></p>`);
   if (col.heading) parts.push(`<h3>${col.heading}</h3>`);
   parts.push('<p>-</p>');
-  // 2) pricing
-  if (col.hasPriorPrice && col.priorPrice) parts.push(`<p>${col.priorPrice}</p>`);
-  if (col.price) parts.push(`<p>${col.price}</p>`);
+  // 2) pricing — the prior price renders with a strikethrough. Milo only adds
+  // .price-strikethrough (line-through) to OST commerce links, which the AI
+  // output never produces, so wrap the plain text in <del> for native
+  // line-through instead.
+  if (col.hasPriorPrice && col.priorPrice) parts.push(`<p><del>${col.priorPrice}</del></p>`);
+  // Current price is the prominent, bold line (Figma shows it bold). Milo would
+  // bold it via the OST '.price' class, which AI output never produces, so wrap
+  // the plain text in <strong>.
+  if (col.price) parts.push(`<p><strong>${col.price}</strong></p>`);
+  // Billing recurrence line inside the price box (e.g. "Annual, billed monthly"),
+  // shown italic below the current price when present.
+  if (col.recurrence) parts.push(`<p><em>${col.recurrence}</em></p>`);
   parts.push('<p>-</p>');
-  // 3) sub copy + CTAs (Buy Now renders before Free trial, matching Figma order)
+  // 3) sub copy + CTAs (Buy Now renders before Free trial, matching Figma order).
+  // subCopy is italic (<em>) per Figma. Newlines in the Figma text become <br>
+  // so every line renders; a raw "\n" collapses to a space and the last line
+  // looks truncated.
   if (col.hasSubCopy && col.subCopy) {
     const readMore = col.hasReadMore ? ` <a href="${DEFAULT_URL}">Read more</a>` : '';
-    parts.push(`<p><em>${col.subCopy}</em>${readMore}</p>`);
+    const subCopy = col.subCopy.replace(/\r?\n/g, '<br>');
+    parts.push(`<p><em>${subCopy}</em>${readMore}</p>`);
   }
   if (col.hasBuyNow) parts.push(`<p><strong><a href="${DEFAULT_URL}">Buy Now</a></strong></p>`);
   if (col.hasFreeTrial) parts.push(`<p><em><a href="${DEFAULT_URL}">Free trial</a></em></p>`);
