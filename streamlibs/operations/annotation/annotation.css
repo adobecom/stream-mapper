@@ -1993,6 +1993,13 @@ body.annotation-asset-select-mode main img:hover {
   isolation: isolate;
 }
 
+/* Chart blocks: push footnote text away from the button's bottom-right corner.
+   Scoped to `.chart.has-block-action` so only the chart that carries the button is
+   affected — non-chart blocks and charts without a button are untouched. */
+.chart.has-block-action .footnote {
+  padding-right: 40px;
+}
+
 .block-action-btn {
   position: absolute;
   bottom: 0;
@@ -2029,6 +2036,12 @@ body.editor-mode .figma-panel .has-block-action .block-action-btn {
   box-shadow:
     0 0 0 2px rgba(59, 130, 246, 0.45),
     0 6px 18px rgba(15, 23, 42, 0.2);
+}
+
+/* Editor mode: button is 72px wide + 10px inset, so footnote needs more clearance. */
+body.editor-mode .da-panel .chart.has-block-action .footnote,
+body.editor-mode .figma-panel .chart.has-block-action .footnote {
+  padding-right: 90px;
 }
 
 body.editor-mode .da-panel .has-block-action .block-action-btn .block-action-btn-icon,

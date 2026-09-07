@@ -1,7 +1,26 @@
 /** Shared "create fragment" control for Figma and DA block roots in the preview. */
 export function appendBlockActionButton(blockEl) {
   if (!blockEl || typeof blockEl.classList === 'undefined') return;
-  blockEl.classList.add('has-block-action');
+  // Chart-only guard: Milo's chart.js sizes each chart by counting its section's
+  // child divs (`:scope > div:not(.section-metadata)`). Appending the control to
+  // the section wrapper makes Milo's decorateDefaults wrap the (non-div) button in
+  // a `div.content`, so the count becomes 2 → the section gets `up-2` and the chart
+  // is pinned to `calc(50% - 8px)` wide. Host the control INSIDE the chart block
+  // instead so it is never a section-level sibling and the count stays correct.
+  //
+  // For merged 2-up/3-up groups, charts are already sorted left→right by
+  // mergeChartGroups, so the LAST `.chart` child is the rightmost — its right edge
+  // IS the group's right edge. Hosting the button there places it at the bottom-right
+  // corner of the whole group without affecting Milo's up-N count.
+  const chartEls = blockEl.querySelectorAll ? [...blockEl.querySelectorAll(':scope > .chart')] : [];
+  let host;
+  if (chartEls.length > 1) {
+    host = chartEls[chartEls.length - 1];
+    host.classList.add('chart-group-end');
+  } else {
+    host = chartEls[0] || blockEl;
+  }
+  host.classList.add('has-block-action');
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'block-action-btn';
@@ -24,7 +43,7 @@ export function appendBlockActionButton(blockEl) {
   <line x1="10.18" y1="12.92" x2="15.32" y2="12.92"/>
 </svg>`;
   btn.appendChild(icon);
-  blockEl.appendChild(btn);
+  host.appendChild(btn);
 }
 
 /**
