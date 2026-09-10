@@ -58,6 +58,11 @@ function handleAvatar(value, areaEl) {
   if (imgEl) {
     imgEl.src = url;
     if (altText) imgEl.alt = altText;
+    // Figma masks the avatar as a circle; exported PNGs are square.
+    imgEl.style.borderRadius = '50%';
+    imgEl.style.objectFit = 'cover';
+    imgEl.style.width = '80px';
+    imgEl.style.height = '80px';
   }
 }
 
@@ -247,6 +252,45 @@ function isStatsRight(properties) {
   return false;
 }
 
+function parseHexColor(value) {
+  if (typeof value !== 'string') return null;
+  let hex = value.trim().toLowerCase();
+  if (!hex.startsWith('#')) return null;
+  hex = hex.slice(1);
+  if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+  if (hex.length !== 6 || /[^0-9a-f]/.test(hex)) return null;
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+/** True when section background is light enough that Milo `.dark` (white text) would be unreadable. */
+function isLightBackground(background) {
+  const raw = typeof background === 'string' ? background : background?.color || background?.url || '';
+  const rgb = parseHexColor(raw);
+  if (!rgb) return false;
+  const channel = (v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(rgb.r) + 0.7152 * channel(rgb.g) + 0.0722 * channel(rgb.b);
+  return luminance > 0.5;
+}
+
+/**
+ * Figma often has white text on dark cards inside a light section; extraction then returns
+ * colorTheme "dark". Milo's `.dark` paints white copy — unreadable on #f9f9f9. Prefer light
+ * whenever the section background is light.
+ */
+function resolveColorTheme(properties) {
+  const theme = `${properties?.colorTheme || ''}`.toLowerCase().trim();
+  if (theme === 'dark' && isLightBackground(properties?.background)) return 'light';
+  if (theme === 'dark' || theme === 'light') return theme;
+  return theme || '';
+}
+
 function handleSectionMetadata(sectionWrapper, statsEl, properties) {
   if (!statsEl) return;
   if (properties?.topSpacer) {
@@ -259,9 +303,10 @@ function handleSectionMetadata(sectionWrapper, statsEl, properties) {
     handleBackgroundWithSectionMetadata(sectionWrapper, statsEl, properties.background);
   }
 
+  const colorTheme = resolveColorTheme(properties);
   const styleLoc = addOrUpdateSectionMetadata(sectionWrapper, statsEl, 'style');
   const styles = [gridWidthStyle(properties?.desktopLayout), 'two up', 'one up tablet', 'm-gap'];
-  if (properties?.colorTheme) styles.push(properties.colorTheme);
+  if (colorTheme) styles.push(colorTheme);
   styleLoc.textContent = styles.join(', ');
 
   const layoutLoc = addOrUpdateSectionMetadata(sectionWrapper, statsEl, 'layout');
@@ -350,10 +395,11 @@ export default async function mapBlockContent(sectionWrapper, blockContent, figC
       sectionWrapper.querySelector('.text')?.classList.add('center');
     }
 
-    if (properties?.colorTheme) {
-      statsEl?.classList.add(properties.colorTheme);
-      sectionWrapper.querySelector('.quote')?.classList.add(properties.colorTheme);
-      sectionWrapper.querySelector('.text')?.classList.add(properties.colorTheme);
+    const colorTheme = resolveColorTheme(properties);
+    if (colorTheme) {
+      statsEl?.classList.add(colorTheme);
+      sectionWrapper.querySelector('.quote')?.classList.add(colorTheme);
+      sectionWrapper.querySelector('.text')?.classList.add(colorTheme);
     }
 
     stackContentColumn(
