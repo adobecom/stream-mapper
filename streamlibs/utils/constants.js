@@ -195,6 +195,9 @@ export const COMPONENTS_NAMES = {
   'how-to': {
     default: { id: 'how-to', name: 'How to block' },
   },
+  'merch-card': {
+    default: { id: 'merch-card', name: 'Merch Card' },
+  },
   'action-item': {
     default: { id: 'logo-gallery', name: 'Logo Gallery' },
   },
